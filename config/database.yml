@@ -16,21 +16,21 @@ test:
   database: dataticket_api_test
 
 production:
-  # Railway injeta DATABASE_URL automaticamente — Rails usa como override da
-  # conexão primária sem precisar de url: aqui. As credenciais individuais
-  # (DB_HOST/USER/PASSWORD) servem de fallback quando DATABASE_URL não está set.
+  # DATABASE_URL é injetado pelo Railway e sobrescreve host/port/user/password.
+  # O banco primário usa o nome "railway" (padrão do Railway PostgreSQL).
+  # Os bancos auxiliares usam o mesmo host/credenciais com nomes distintos.
   primary: &primary_production
     <<: *default
-    database: dataticket_api_production
+    database: <%= ENV.fetch('PGDATABASE', 'railway') %>
   cache:
     <<: *primary_production
-    database: dataticket_api_production_cache
+    database: <%= ENV.fetch('PGDATABASE', 'railway') %>_cache
     migrations_paths: db/cache_migrate
   queue:
     <<: *primary_production
-    database: dataticket_api_production_queue
+    database: <%= ENV.fetch('PGDATABASE', 'railway') %>_queue
     migrations_paths: db/queue_migrate
   cable:
     <<: *primary_production
-    database: dataticket_api_production_cable
+    database: <%= ENV.fetch('PGDATABASE', 'railway') %>_cable
     migrations_paths: db/cable_migrate
