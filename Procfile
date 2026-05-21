@@ -4,6 +4,6 @@
 # worker: Processo separado de background jobs — use quando escalar horizontalmente
 # release: Executa migrações antes de cada deploy (reconhecido pelo Railway)
 
-web:     bundle exec thrust ./bin/rails server -b 0.0.0.0 -p $PORT
+web:     bundle exec thrust ./bin/rails server -b 0.0.0.0
 worker:  bundle exec rails solid_queue:start
 release: bundle exec rails db:migrate
