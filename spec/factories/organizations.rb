@@ -1,8 +1,8 @@
 FactoryBot.define do
   factory :organization do
-    name { "Salvabras" }
-    slug { "salvabras" }
-    timezone   { "America/Sao_Paulo" }
+    sequence(:name) { |n| "Organization #{n}" }
+    sequence(:slug) { |n| "org-#{n}" }
+    timezone    { "America/Sao_Paulo" }
     date_format { "DD/MM/YYYY" }
   end
 end

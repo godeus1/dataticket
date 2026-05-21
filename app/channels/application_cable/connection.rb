@@ -16,7 +16,7 @@ module ApplicationCable
         token,
         ENV.fetch("DEVISE_JWT_SECRET_KEY", "fallback-insecure-key-for-dev-only"),
         true,
-        algorithms: ["HS256"]
+        algorithms: [ "HS256" ]
       ).first
 
       jti     = payload["jti"]

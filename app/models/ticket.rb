@@ -26,12 +26,12 @@ class Ticket < ApplicationRecord
 
   ALLOWED_TRANSITIONS = {
     "Não iniciado"                    => %w[Triado,\ aguardando\ atendimento Em\ andamento Fechado],
-    "Triado, aguardando atendimento"  => ["Em andamento", "Aguardando terceiros", "Fechado"],
-    "Em andamento"                    => ["Aguardando terceiros", "Resolvido", "Fechado"],
-    "Aguardando terceiros"            => ["Em andamento", "Resolvido", "Fechado"],
-    "Resolvido"                       => ["Reaberto", "Fechado"],
-    "Fechado"                         => ["Reaberto"],
-    "Reaberto"                        => ["Em andamento", "Triado, aguardando atendimento"]
+    "Triado, aguardando atendimento"  => [ "Em andamento", "Aguardando terceiros", "Fechado" ],
+    "Em andamento"                    => [ "Aguardando terceiros", "Resolvido", "Fechado" ],
+    "Aguardando terceiros"            => [ "Em andamento", "Resolvido", "Fechado" ],
+    "Resolvido"                       => [ "Reaberto", "Fechado" ],
+    "Fechado"                         => [ "Reaberto" ],
+    "Reaberto"                        => [ "Em andamento", "Triado, aguardando atendimento" ]
   }.freeze
 
   validates :title,  presence: true, length: { maximum: 255 }
