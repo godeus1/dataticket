@@ -7,8 +7,14 @@
 # Ignore bundler config.
 /.bundle
 
-# Ignore all environment files.
-/.env*
+# Ignore environment files com valores reais — manter apenas o exemplo
+/.env
+/.env.local
+/.env.*.local
+# Nunca commitar a master key — usar RAILS_MASTER_KEY em produção
+/config/master.key
+# RSpec status cache
+/.rspec_status
 
 # Ignore all logfiles and tempfiles.
 /log/*

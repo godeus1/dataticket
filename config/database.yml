@@ -16,6 +16,9 @@ test:
   database: dataticket_api_test
 
 production:
+  # Railway injeta DATABASE_URL automaticamente — Rails usa como override da
+  # conexão primária sem precisar de url: aqui. As credenciais individuais
+  # (DB_HOST/USER/PASSWORD) servem de fallback quando DATABASE_URL não está set.
   primary: &primary_production
     <<: *default
     database: dataticket_api_production
