@@ -1,0 +1,13 @@
+[build]
+builder            = "DOCKERFILE"
+dockerfilePath     = "Dockerfile"
+
+[deploy]
+# Porta exposta pelo Puma / Thruster
+# Railway injeta $PORT automaticamente
+startCommand       = "bundle exec thrust ./bin/rails server -b 0.0.0.0 -p $PORT"
+healthcheckPath    = "/up"
+healthcheckTimeout = 300
+
+restartPolicyType       = "ON_FAILURE"
+restartPolicyMaxRetries = 5
