@@ -18,7 +18,7 @@ gem "thruster", require: false
 gem "image_processing", "~> 1.2"
 
 # ── Autenticação ──────────────────────────────────────────────────────────────
-gem "devise",     "~> 4.9"
+gem "devise",     "~> 5.0"
 gem "devise-jwt"   # sem constraint — usa versão mais recente
 
 # ── Autorização ───────────────────────────────────────────────────────────────

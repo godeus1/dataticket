@@ -12,7 +12,7 @@ class TicketStatusService
       return Result.new(
         success?: false,
         ticket:   @ticket,
-        errors:   ["Transição de '#{@ticket.status}' para '#{@new_status}' não permitida"]
+        errors:   [ "Transição de '#{@ticket.status}' para '#{@new_status}' não permitida" ]
       )
     end
 

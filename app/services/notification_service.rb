@@ -41,6 +41,6 @@ class NotificationService
   private
 
   def relevant_users
-    [@ticket.requester, @ticket.assignee].compact.uniq
+    [ @ticket.requester, @ticket.assignee ].compact.uniq
   end
 end

@@ -7,7 +7,7 @@ class ScheduleService
     return unless @ticket.deadline.present? && @ticket.assignee.present?
 
     assignee     = @ticket.assignee
-    hours_per_day = [assignee.max_hours_per_ticket, assignee.available_hours].min
+    hours_per_day = [ assignee.max_hours_per_ticket, assignee.available_hours ].min
 
     @ticket.scheduled_days.where(user: assignee).destroy_all
 

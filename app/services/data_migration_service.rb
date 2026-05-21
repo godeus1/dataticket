@@ -45,9 +45,9 @@ class DataMigrationService
       Result.new(success?: true, counts: @counts, errors: [])
     end
   rescue JSON::ParserError => e
-    Result.new(success?: false, counts: @counts, errors: ["JSON inválido: #{e.message}"])
+    Result.new(success?: false, counts: @counts, errors: [ "JSON inválido: #{e.message}" ])
   rescue StandardError => e
-    Result.new(success?: false, counts: @counts, errors: ["Erro inesperado: #{e.message}"])
+    Result.new(success?: false, counts: @counts, errors: [ "Erro inesperado: #{e.message}" ])
   end
 
   private

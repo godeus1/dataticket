@@ -21,7 +21,7 @@ class TriageService
   rescue ActiveRecord::RecordInvalid => e
     Result.new(success?: false, ticket: @ticket, errors: e.record.errors.full_messages)
   rescue StandardError => e
-    Result.new(success?: false, ticket: @ticket, errors: [e.message])
+    Result.new(success?: false, ticket: @ticket, errors: [ e.message ])
   end
 
   private
