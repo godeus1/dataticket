@@ -31,7 +31,7 @@ gem "rack-cors", "~> 2.0"
 gem "blueprinter", "~> 1.0"
 
 # ── Paginação ─────────────────────────────────────────────────────────────────
-gem "pagy", "~> 9.3"
+gem "pagy", "~> 43.5"
 
 # ── Upload S3 (ativo quando STORAGE=s3) ──────────────────────────────────────
 gem "aws-sdk-s3", require: false
