@@ -1,0 +1,34 @@
+module Api
+  module V1
+    class SessionsController < Devise::SessionsController
+      respond_to :json
+
+      private
+
+      def respond_with(resource, _opts = {})
+        render json: {
+          user: {
+            id:         resource.id,
+            email:      resource.email,
+            first_name: resource.first_name,
+            last_name:  resource.last_name,
+            role:       resource.role,
+            active:     resource.active,
+            avatar_initials: resource.avatar_initials,
+            avatar_color:    resource.avatar_color,
+            available_hours: resource.available_hours,
+            organization_id: resource.organization_id
+          }
+        }, status: :ok
+      end
+
+      def respond_to_on_destroy
+        if request.headers["Authorization"].present?
+          render json: { message: "Logout realizado com sucesso." }, status: :ok
+        else
+          render json: { error: "Token não encontrado." }, status: :unauthorized
+        end
+      end
+    end
+  end
+end
