@@ -44,5 +44,12 @@ module DataticketApi
     # Devise/Warden precisa de session + cookie middleware mesmo em API mode
     config.middleware.use ActionDispatch::Cookies
     config.middleware.use ActionDispatch::Session::CookieStore, key: "_dataticket_session"
+
+    # Action Cable — origens permitidas para WebSocket
+    allowed = ENV.fetch("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:4173")
+                 .split(",")
+                 .map { |o| o.strip }
+    config.action_cable.allowed_request_origins = allowed
+    config.action_cable.mount_path = "/cable"
   end
 end

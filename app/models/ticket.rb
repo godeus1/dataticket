@@ -37,9 +37,12 @@ class Ticket < ApplicationRecord
   validates :title,  presence: true, length: { maximum: 255 }
   validates :status, inclusion: { in: STATUSES }
 
-  before_create :generate_ticket_id
-  after_update  :record_status_history, if: :saved_change_to_status?
-  after_update  :stamp_resolved_at,     if: :saved_change_to_status?
+  before_create  :generate_ticket_id
+  after_update   :record_status_history, if: :saved_change_to_status?
+  after_update   :stamp_resolved_at,     if: :saved_change_to_status?
+
+  after_create_commit  :broadcast_ticket_created
+  after_update_commit  :broadcast_ticket_updated
 
   scope :open,      -> { where.not(status: %w[Resolvido Fechado]) }
   scope :overdue,   -> { open.where("deadline < ?", Time.current) }
@@ -77,5 +80,19 @@ class Ticket < ApplicationRecord
     if %w[Resolvido Fechado].include?(status) && resolved_at.nil?
       update_column(:resolved_at, Time.current)
     end
+  end
+
+  def broadcast_ticket_created
+    TicketsChannel.broadcast_to(
+      organization,
+      { event: "ticket_created", ticket: TicketBlueprint.render_as_hash(self, view: :summary) }
+    )
+  end
+
+  def broadcast_ticket_updated
+    TicketsChannel.broadcast_to(
+      organization,
+      { event: "ticket_updated", ticket: TicketBlueprint.render_as_hash(self, view: :summary) }
+    )
   end
 end

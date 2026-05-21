@@ -1,0 +1,18 @@
+Olá, <%= @user.first_name %>!
+
+Um ticket foi atribuído a você no DataTicket.
+
+Ticket    : <%= @ticket.id %>
+Título    : <%= @ticket.title %>
+Status    : <%= @ticket.status %>
+<% if @ticket.deadline %>
+Prazo SLA : <%= @ticket.deadline.strftime('%d/%m/%Y %H:%M') %>
+<% end %>
+<% if @ticket.priority %>
+Prioridade: <%= @ticket.priority.name %>
+<% end %>
+
+Abrir ticket: <%= @url %>
+
+---
+Este e-mail foi enviado automaticamente pelo DataTicket.

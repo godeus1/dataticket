@@ -1,0 +1,16 @@
+Olá, <%= @user.first_name %>!
+
+Seu ticket foi criado com sucesso no DataTicket.
+
+Nº do Ticket : <%= @ticket.id %>
+Título       : <%= @ticket.title %>
+Status       : <%= @ticket.status %>
+Criado em    : <%= @ticket.created_at.strftime('%d/%m/%Y %H:%M') %>
+<% if @ticket.deadline %>
+Prazo SLA    : <%= @ticket.deadline.strftime('%d/%m/%Y %H:%M') %>
+<% end %>
+
+Acompanhe em: <%= @url %>
+
+---
+Este e-mail foi enviado automaticamente pelo DataTicket.

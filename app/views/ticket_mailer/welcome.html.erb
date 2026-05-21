@@ -1,0 +1,22 @@
+<h2>Bem-vindo ao DataTicket, <%= @user.first_name %>!</h2>
+
+<p>Sua conta foi criada. Use as credenciais abaixo para fazer seu primeiro acesso:</p>
+
+<table style="border-collapse:collapse;width:100%;max-width:480px">
+  <tr><td style="padding:8px;font-weight:bold;background:#f3f4f6">E-mail</td><td style="padding:8px"><%= @user.email %></td></tr>
+  <tr><td style="padding:8px;font-weight:bold;background:#f3f4f6">Senha temporária</td><td style="padding:8px;font-family:monospace"><%= @temp_password %></td></tr>
+</table>
+
+<p style="margin-top:16px;color:#dc2626;font-size:13px">
+  ⚠️ Por segurança, altere sua senha logo após o primeiro acesso.
+</p>
+
+<p style="margin-top:24px">
+  <a href="<%= @login_url %>" style="background:#2383e2;color:white;padding:10px 20px;border-radius:6px;text-decoration:none">
+    Acessar DataTicket
+  </a>
+</p>
+
+<p style="color:#6b7280;font-size:12px;margin-top:32px">
+  Este e-mail foi enviado automaticamente pelo DataTicket. Não responda a este e-mail.
+</p>

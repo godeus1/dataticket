@@ -1,0 +1,23 @@
+<h2>Olá, <%= @user.first_name %>!</h2>
+
+<p>Seu ticket foi criado com sucesso no DataTicket.</p>
+
+<table style="border-collapse:collapse;width:100%;max-width:600px">
+  <tr><td style="padding:8px;font-weight:bold;background:#f3f4f6">Nº do Ticket</td><td style="padding:8px"><%= @ticket.id %></td></tr>
+  <tr><td style="padding:8px;font-weight:bold;background:#f3f4f6">Título</td><td style="padding:8px"><%= @ticket.title %></td></tr>
+  <tr><td style="padding:8px;font-weight:bold;background:#f3f4f6">Status</td><td style="padding:8px"><%= @ticket.status %></td></tr>
+  <tr><td style="padding:8px;font-weight:bold;background:#f3f4f6">Criado em</td><td style="padding:8px"><%= @ticket.created_at.strftime('%d/%m/%Y %H:%M') %></td></tr>
+  <% if @ticket.deadline %>
+  <tr><td style="padding:8px;font-weight:bold;background:#f3f4f6">Prazo SLA</td><td style="padding:8px"><%= @ticket.deadline.strftime('%d/%m/%Y %H:%M') %></td></tr>
+  <% end %>
+</table>
+
+<p style="margin-top:24px">
+  <a href="<%= @url %>" style="background:#2383e2;color:white;padding:10px 20px;border-radius:6px;text-decoration:none">
+    Acompanhar ticket
+  </a>
+</p>
+
+<p style="color:#6b7280;font-size:12px;margin-top:32px">
+  Este e-mail foi enviado automaticamente pelo DataTicket. Não responda a este e-mail.
+</p>

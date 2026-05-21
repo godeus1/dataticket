@@ -21,6 +21,7 @@ class TicketStatusService
     ActiveRecord::Base.transaction do
       @ticket.update!(status: @new_status)
       NotificationService.new(@ticket).notify_status_change(@actor, old_status, @new_status)
+      TicketMailer.status_changed(@ticket, old_status).deliver_later
     end
 
     Result.new(success?: true, ticket: @ticket, errors: [])
