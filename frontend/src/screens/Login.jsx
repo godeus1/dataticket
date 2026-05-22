@@ -81,14 +81,20 @@ export default function LoginScreen() {
     if (inputCode.trim().toUpperCase() !== resetCode) { setErr('Código inválido.'); return }
     if (!newPw || newPw.length < 6) { setErr('A nova senha deve ter pelo menos 6 caracteres.'); return }
     if (newPw !== confirmPw) { setErr('As senhas não conferem.'); return }
-    // Nota: a redefinição de senha via código é feita pelo administrador no painel.
-    // Esta tela apenas valida o código enviado por e-mail.
-    setStep('login')
-    setEm(resetTarget.email)
-    setPw('')
-    setErr('')
-    setInputCode(''); setNewPw(''); setConfirmPw(''); setResetCode(''); setResetTarget(null)
-    alert('Código validado! Entre em contato com o administrador para redefinir sua senha no painel.')
+    setLoading(true)
+    try {
+      await api.resetPassword(resetTarget.email, newPw)
+      setStep('login')
+      setEm(resetTarget.email)
+      setPw('')
+      setErr('')
+      setInputCode(''); setNewPw(''); setConfirmPw(''); setResetCode(''); setResetTarget(null)
+      alert('Senha redefinida com sucesso! Faça login com a nova senha.')
+    } catch (e) {
+      setErr(e.message ?? 'Erro ao redefinir senha. Tente novamente.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (

@@ -47,9 +47,10 @@ const j = (body) => JSON.stringify(body)
 // ── API methods ────────────────────────────────────────────────────────────
 export const api = {
   // ── Auth ──────────────────────────────────────────────────────────────
-  login:  (email, password) => req('/login',  { method: 'POST',   body: j({ user: { email, password } }) }),
-  logout: ()                => req('/logout', { method: 'DELETE' }),
-  me:     ()                => req('/me'),
+  login:         (email, password)       => req('/login',          { method: 'POST', body: j({ user: { email, password } }) }),
+  logout:        ()                      => req('/logout',         { method: 'DELETE' }),
+  me:            ()                      => req('/me'),
+  resetPassword: (email, password)       => req('/password_reset', { method: 'POST', body: j({ email, password }) }),
 
   // ── Tickets ───────────────────────────────────────────────────────────
   tickets:      (params = {}) => req(`/tickets?${new URLSearchParams({ per_page: 500, ...params })}`),

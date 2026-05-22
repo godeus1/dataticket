@@ -20,6 +20,9 @@ Rails.application.routes.draw do
       # Health check
       get "health", to: "health#index"
 
+      # Reset de senha público (fluxo "esqueci minha senha")
+      post "password_reset", to: "password_resets#create"
+
       # Perfil do usuário autenticado
       get "me", to: "users#me"
 
