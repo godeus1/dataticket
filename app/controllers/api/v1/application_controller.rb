@@ -5,6 +5,7 @@ module Api
 
       before_action :authenticate_user!
       before_action :set_organization
+      before_action :set_current_user
       after_action  :verify_authorized, unless: :skip_authorization?
 
       rescue_from Pundit::NotAuthorizedError do
@@ -23,6 +24,10 @@ module Api
 
       def set_organization
         @organization = current_user.organization
+      end
+
+      def set_current_user
+        Current.user = current_user
       end
 
       def skip_authorization?

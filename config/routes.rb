@@ -13,6 +13,9 @@ Rails.application.routes.draw do
       # Health check da API
       get "health", to: "health#index"
 
+      # Perfil do usuário autenticado
+      get "me", to: "users#me"
+
       # Tickets
       resources :tickets do
         resources :comments,    only: %i[index create destroy], module: :tickets
@@ -21,6 +24,7 @@ Rails.application.routes.draw do
           patch :triage
           patch :change_status
           patch :assign
+          get   :histories
         end
       end
 

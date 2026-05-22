@@ -7,7 +7,7 @@ module Api
 
         def index
           authorize TicketComment
-          comments = @ticket.ticket_comments.includes(:user).order(created_at: :asc)
+          comments = @ticket.comments.includes(:user).order(created_at: :asc)
           comments = comments.public_only unless current_user.role.in?(%w[admin analyst])
           render json: comments.as_json(
             only: %i[id body kind created_at updated_at],
@@ -17,8 +17,9 @@ module Api
 
         def create
           authorize TicketComment
-          comment = @ticket.ticket_comments.new(comment_params.merge(user: current_user))
+          comment = @ticket.comments.new(comment_params.merge(user: current_user))
           comment.save!
+          NotificationService.new(@ticket).notify_new_comment(current_user)
           render json: comment.as_json(
             only: %i[id body kind created_at],
             include: { user: { only: %i[id first_name last_name email avatar_initials avatar_color] } }
@@ -38,7 +39,7 @@ module Api
         end
 
         def set_comment
-          @comment = @ticket.ticket_comments.find(params[:id])
+          @comment = @ticket.comments.find(params[:id])
         end
 
         def comment_params

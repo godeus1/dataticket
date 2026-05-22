@@ -1,60 +1,38 @@
-<h2>Resumo SLA — <%= Date.current.strftime('%d/%m/%Y') %></h2>
-<p>Olá, <%= @user.first_name %>. Veja o resumo de SLA para hoje:</p>
+﻿<h2>Resumo SLA — <%= Date.current.strftime("%d/%m/%Y") %></h2>
+<p>Ola, <strong><%= @user.first_name %></strong>.</p>
 
 <% if @expired.any? %>
-<h3 style="color:#dc2626">🔴 Tickets com SLA vencido (<%= @expired.count %>)</h3>
-<table style="border-collapse:collapse;width:100%;max-width:700px">
-  <thead>
-    <tr style="background:#fee2e2">
-      <th style="padding:8px;text-align:left">Ticket</th>
-      <th style="padding:8px;text-align:left">Título</th>
-      <th style="padding:8px;text-align:left">Prazo</th>
-      <th style="padding:8px;text-align:left">Status</th>
-    </tr>
-  </thead>
-  <tbody>
-    <% @expired.each do |tk| %>
-    <tr>
-      <td style="padding:8px;border-bottom:1px solid #f3f4f6"><%= tk.id %></td>
-      <td style="padding:8px;border-bottom:1px solid #f3f4f6"><%= tk.title %></td>
-      <td style="padding:8px;border-bottom:1px solid #f3f4f6;color:#dc2626"><%= tk.deadline&.strftime('%d/%m %H:%M') %></td>
-      <td style="padding:8px;border-bottom:1px solid #f3f4f6"><%= tk.status %></td>
-    </tr>
-    <% end %>
-  </tbody>
+<h3 style="color:#dc2626;">Tickets com SLA vencido (<%= @expired.size %>)</h3>
+<table>
+  <tr><th>ID</th><th>Título</th><th>Status</th><th>Prazo</th></tr>
+  <% @expired.each do |ticket| %>
+  <tr>
+    <td><%= ticket.id %></td>
+    <td><%= ticket.title %></td>
+    <td><%= ticket.status %></td>
+    <td><%= ticket.deadline&.strftime("%d/%m/%Y %H:%M") %></td>
+  </tr>
+  <% end %>
 </table>
 <% end %>
 
 <% if @expiring_today.any? %>
-<h3 style="color:#d97706;margin-top:24px">🟡 Vencem hoje (<%= @expiring_today.count %>)</h3>
-<table style="border-collapse:collapse;width:100%;max-width:700px">
-  <thead>
-    <tr style="background:#fef3c7">
-      <th style="padding:8px;text-align:left">Ticket</th>
-      <th style="padding:8px;text-align:left">Título</th>
-      <th style="padding:8px;text-align:left">Prazo</th>
-      <th style="padding:8px;text-align:left">Status</th>
-    </tr>
-  </thead>
-  <tbody>
-    <% @expiring_today.each do |tk| %>
-    <tr>
-      <td style="padding:8px;border-bottom:1px solid #f3f4f6"><%= tk.id %></td>
-      <td style="padding:8px;border-bottom:1px solid #f3f4f6"><%= tk.title %></td>
-      <td style="padding:8px;border-bottom:1px solid #f3f4f6;color:#d97706"><%= tk.deadline&.strftime('%d/%m %H:%M') %></td>
-      <td style="padding:8px;border-bottom:1px solid #f3f4f6"><%= tk.status %></td>
-    </tr>
-    <% end %>
-  </tbody>
+<h3 style="color:#d97706;">Tickets com SLA vencendo hoje (<%= @expiring_today.size %>)</h3>
+<table>
+  <tr><th>ID</th><th>Título</th><th>Status</th><th>Prazo</th></tr>
+  <% @expiring_today.each do |ticket| %>
+  <tr>
+    <td><%= ticket.id %></td>
+    <td><%= ticket.title %></td>
+    <td><%= ticket.status %></td>
+    <td><%= ticket.deadline&.strftime("%d/%m/%Y %H:%M") %></td>
+  </tr>
+  <% end %>
 </table>
 <% end %>
 
-<p style="margin-top:24px">
-  <a href="<%= @url %>" style="background:#2383e2;color:white;padding:10px 20px;border-radius:6px;text-decoration:none">
-    Ver todos os tickets
-  </a>
-</p>
+<% if @expired.empty? && @expiring_today.empty? %>
+<p style="color:#16a34a;">Nenhum ticket com SLA critico no momento.</p>
+<% end %>
 
-<p style="color:#6b7280;font-size:12px;margin-top:32px">
-  Este e-mail foi enviado automaticamente pelo DataTicket. Não responda a este e-mail.
-</p>
+<a href="<%= @url %>" class="btn">Ver todos os tickets</a>

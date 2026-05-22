@@ -3,6 +3,11 @@ module Api
     class UsersController < ApplicationController
       before_action :set_user, only: %i[show update destroy toggle_active reset_password]
 
+      def me
+        skip_authorization
+        render json: UserBlueprint.render_as_hash(current_user)
+      end
+
       def index
         authorize User
         users = @organization.users.order(:first_name, :last_name)

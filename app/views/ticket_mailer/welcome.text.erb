@@ -1,13 +1,12 @@
-Bem-vindo ao DataTicket, <%= @user.first_name %>!
+﻿Bem-vindo ao DataTicket!
 
-Sua conta foi criada. Use as credenciais abaixo para fazer seu primeiro acesso:
+Ola, <%= @user.first_name %>.
 
-E-mail          : <%= @user.email %>
-Senha temporária: <%= @temp_password %>
+Sua conta foi criada com sucesso. Utilize as credenciais abaixo para acessar o sistema:
 
-⚠️ Por segurança, altere sua senha logo após o primeiro acesso.
+E-mail: <%= @user.email %>
+Senha temporaria: <%= @temp_password %>
 
-Acessar DataTicket: <%= @login_url %>
+Por seguranca, altere sua senha apos o primeiro acesso.
 
----
-Este e-mail foi enviado automaticamente pelo DataTicket.
+Acesse: <%= @login_url %>

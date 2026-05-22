@@ -1,18 +1,13 @@
-Olá, <%= @user.first_name %>!
+﻿Ticket atribuido a voce
 
-Um ticket foi atribuído a você no DataTicket.
+Ola, <%= @user.first_name %>.
 
-Ticket    : <%= @ticket.id %>
-Título    : <%= @ticket.title %>
-Status    : <%= @ticket.status %>
-<% if @ticket.deadline %>
-Prazo SLA : <%= @ticket.deadline.strftime('%d/%m/%Y %H:%M') %>
-<% end %>
-<% if @ticket.priority %>
-Prioridade: <%= @ticket.priority.name %>
-<% end %>
+O ticket <%= @ticket.id %> foi atribuido a voce.
 
-Abrir ticket: <%= @url %>
+ID: <%= @ticket.id %>
+Titulo: <%= @ticket.title %>
+Status: <%= @ticket.status %>
+<% if @ticket.priority %>Prioridade: <%= @ticket.priority.name %><% end %>
+<% if @ticket.deadline %>Prazo: <%= @ticket.deadline.strftime("%d/%m/%Y as %H:%M") %><% end %>
 
----
-Este e-mail foi enviado automaticamente pelo DataTicket.
+Acesse: <%= @url %>

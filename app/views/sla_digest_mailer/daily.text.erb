@@ -1,21 +1,23 @@
-Resumo SLA — <%= Date.current.strftime('%d/%m/%Y') %>
-Olá, <%= @user.first_name %>.
+﻿Resumo SLA — <%= Date.current.strftime("%d/%m/%Y") %>
+
+Ola, <%= @user.first_name %>.
 
 <% if @expired.any? %>
-🔴 TICKETS COM SLA VENCIDO (<%= @expired.count %>)
-<% @expired.each do |tk| %>
-  • <%= tk.id %> | <%= tk.title %> | Prazo: <%= tk.deadline&.strftime('%d/%m %H:%M') %> | <%= tk.status %>
+=== TICKETS COM SLA VENCIDO (<%= @expired.size %>) ===
+<% @expired.each do |ticket| %>
+- <%= ticket.id %> | <%= ticket.title %> | <%= ticket.status %> | Prazo: <%= ticket.deadline&.strftime("%d/%m/%Y %H:%M") %>
 <% end %>
 <% end %>
 
 <% if @expiring_today.any? %>
-🟡 VENCEM HOJE (<%= @expiring_today.count %>)
-<% @expiring_today.each do |tk| %>
-  • <%= tk.id %> | <%= tk.title %> | Prazo: <%= tk.deadline&.strftime('%d/%m %H:%M') %> | <%= tk.status %>
+=== TICKETS VENCENDO HOJE (<%= @expiring_today.size %>) ===
+<% @expiring_today.each do |ticket| %>
+- <%= ticket.id %> | <%= ticket.title %> | <%= ticket.status %> | Prazo: <%= ticket.deadline&.strftime("%d/%m/%Y %H:%M") %>
 <% end %>
+<% end %>
+
+<% if @expired.empty? && @expiring_today.empty? %>
+Nenhum ticket com SLA critico no momento.
 <% end %>
 
 Ver todos os tickets: <%= @url %>
-
----
-Este e-mail foi enviado automaticamente pelo DataTicket.

@@ -3,7 +3,7 @@ module Api
     class TicketsController < ApplicationController
       include Pagy::Backend
 
-      before_action :set_ticket, only: %i[show update destroy triage change_status assign]
+      before_action :set_ticket, only: %i[show update destroy triage change_status assign histories]
 
       def index
         authorize Ticket
@@ -29,6 +29,7 @@ module Api
         authorize Ticket
         ticket = @organization.tickets.new(ticket_params.merge(requester: current_user))
         ticket.save!
+        TicketMailer.created(ticket).deliver_later if ticket.organization.emails_enabled?
         render json: TicketBlueprint.render_as_hash(ticket, view: :full), status: :created
       end
 
@@ -69,13 +70,26 @@ module Api
         assignee = @organization.users.find(params[:assignee_id])
         @ticket.update!(assignee: assignee)
         NotificationService.new(@ticket).notify_assignee(assignee)
+        TicketMailer.assigned(@ticket).deliver_later if @ticket.organization.emails_enabled?
         render json: TicketBlueprint.render_as_hash(@ticket, view: :full)
+      end
+
+      def histories
+        authorize @ticket, :show?
+        histories = @ticket.histories.includes(:user).recent
+        render json: histories.as_json(
+          only: %i[id field from_value to_value created_at],
+          include: { user: { only: %i[id first_name last_name email] } }
+        )
       end
 
       private
 
       def set_ticket
-        @ticket = policy_scope(Ticket).find(params[:id])
+        @ticket = policy_scope(Ticket)
+                    .includes(:requester, :assignee, :category, :priority, :queue,
+                              :comments, :ticket_attachments, :histories)
+                    .find(params[:id])
       end
 
       def ticket_params
