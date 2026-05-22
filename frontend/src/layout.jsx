@@ -118,8 +118,8 @@ export function Topbar() {
   const [showChangelog, setShowChangelog] = useState(false)
   const unread = notifications.filter(x => !x.read).length
 
-  function markAll() { markAllReadAction().catch(console.error) }
-  function markOne(id) { markReadAction(id).catch(console.error) }
+  function markAll() { markAllReadAction().catch(() => {}) }
+  function markOne(id) { markReadAction(id).catch(() => {}) }
   function openNotif(n) {
     markOne(n.id)
     setShowNotif(false)

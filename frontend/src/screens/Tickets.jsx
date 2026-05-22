@@ -579,7 +579,7 @@ export function TicketDetail() {
     if (!timerRunning) {
       setTimerStart(new Date()); setTimerRunning(true)
       if (tk.status !== 'Em Andamento') {
-        changeStatusAction(tk.id, 'Em Andamento').catch(console.error)
+        changeStatusAction(tk.id, 'Em Andamento').catch(() => {})
       }
     } else {
       const end = new Date()
@@ -803,7 +803,7 @@ export function TicketDetail() {
                 defaultValue={tk.assigneeId || ''}
                 onChange={e => {
                   const uid = Number(e.target.value) || null
-                  assignAction(tk.id, uid).catch(console.error)
+                  assignAction(tk.id, uid).catch(() => {})
                 }}
               >
                 <option value="">Sem responsável</option>

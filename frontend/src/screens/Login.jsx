@@ -4,12 +4,8 @@ import { PT, EN } from '../data.js'
 import { api } from '../api.js'
 import { mapUser } from '../mapper.js'
 
-function genCode() {
-  return Math.random().toString(36).toUpperCase().slice(2, 8)
-}
-
 export default function LoginScreen() {
-  const { setCurrentUser, setScreen, lang, setLang, theme, setTheme, notifyEmail, systemConfig } = useApp()
+  const { setCurrentUser, setScreen, lang, setLang, theme, setTheme } = useApp()
   const t = lang === 'pt' ? PT : EN
 
   const [step, setStep]       = useState('login')   // 'login' | 'forgot' | 'verify'
@@ -17,20 +13,18 @@ export default function LoginScreen() {
   const [pw, setPw]           = useState('')
   const [err, setErr]         = useState('')
   const [loading, setLoading] = useState(false)
+  const [resetEmail, setResetEmail] = useState('')
 
   // Reset de senha
-  const [resetCode, setResetCode] = useState('')
   const [inputCode, setInputCode] = useState('')
   const [newPw, setNewPw]         = useState('')
   const [confirmPw, setConfirmPw] = useState('')
-  const [resetTarget, setResetTarget] = useState(null)
 
   async function doLogin() {
     setLoading(true); setErr('')
     try {
       const result = await api.login(em.trim().toLowerCase(), pw)
       const user   = mapUser(result.user)
-      // setCurrentUser carrega todos os dados da API (mostra loading screen)
       setCurrentUser(user)
       if (user.role === 'user') setScreen('new-ticket')
     } catch (e) {
@@ -42,34 +36,15 @@ export default function LoginScreen() {
   }
 
   async function sendResetCode() {
+    if (!em.trim()) { setErr('Informe seu e-mail.'); return }
     setLoading(true); setErr('')
     try {
-      if (!systemConfig?.enableEmails) {
-        setErr('O envio de e-mails está desativado. Contate o administrador para redefinir sua senha.')
-        return
-      }
-      // Tentativa de validar e-mail via API (sem expor dados sensíveis)
-      const u = { email: em.trim().toLowerCase(), firstName: 'Usuário' }
-      const code = genCode()
-      setResetCode(code)
-      setResetTarget(u)
-      notifyEmail(
-        u.email,
-        'DataTicket — Código de redefinição de senha',
-        `<div style="font-family:sans-serif;max-width:480px;margin:0 auto">
-          <div style="background:#2383e2;padding:20px;border-radius:8px 8px 0 0">
-            <h2 style="color:#fff;margin:0">🎯 DataTicket · Salvabras</h2>
-          </div>
-          <div style="border:1px solid #e5e7eb;border-top:none;padding:24px;border-radius:0 0 8px 8px">
-            <p>Olá <strong>${u.firstName}</strong>,</p>
-            <p>Recebemos uma solicitação para redefinir a sua senha. Use o código abaixo:</p>
-            <div style="text-align:center;margin:24px 0">
-              <span style="display:inline-block;background:#f0f7ff;border:2px dashed #2383e2;border-radius:10px;padding:14px 32px;font-size:32px;font-weight:800;letter-spacing:8px;color:#2383e2">${code}</span>
-            </div>
-            <p style="color:#6b7280;font-size:12px">Este código expira em 15 minutos. Se não foi você, ignore este e-mail.</p>
-          </div>
-        </div>`
-      )
+      await api.requestPasswordReset(em.trim().toLowerCase())
+      setResetEmail(em.trim().toLowerCase())
+      setStep('verify')
+    } catch {
+      // Resposta genérica — não revelar se e-mail existe
+      setResetEmail(em.trim().toLowerCase())
       setStep('verify')
     } finally {
       setLoading(false)
@@ -78,20 +53,19 @@ export default function LoginScreen() {
 
   async function doResetPassword() {
     setErr('')
-    if (inputCode.trim().toUpperCase() !== resetCode) { setErr('Código inválido.'); return }
+    if (!inputCode.trim()) { setErr('Informe o código recebido por e-mail.'); return }
     if (!newPw || newPw.length < 6) { setErr('A nova senha deve ter pelo menos 6 caracteres.'); return }
     if (newPw !== confirmPw) { setErr('As senhas não conferem.'); return }
     setLoading(true)
     try {
-      await api.resetPassword(resetTarget.email, newPw)
+      await api.resetPassword(resetEmail, inputCode.trim().toUpperCase(), newPw)
       setStep('login')
-      setEm(resetTarget.email)
+      setEm(resetEmail)
       setPw('')
       setErr('')
-      setInputCode(''); setNewPw(''); setConfirmPw(''); setResetCode(''); setResetTarget(null)
-      alert('Senha redefinida com sucesso! Faça login com a nova senha.')
+      setInputCode(''); setNewPw(''); setConfirmPw(''); setResetEmail('')
     } catch (e) {
-      setErr(e.message ?? 'Erro ao redefinir senha. Tente novamente.')
+      setErr(e.message ?? 'Código inválido ou expirado. Tente novamente.')
     } finally {
       setLoading(false)
     }
@@ -111,11 +85,11 @@ export default function LoginScreen() {
           <>
             <div className="form-row">
               <label className="label">{t.email}</label>
-              <input className="input" type="email" value={em} onChange={e => setEm(e.target.value)} onKeyDown={e => e.key === 'Enter' && doLogin()} />
+              <input className="input" type="email" value={em} onChange={e => setEm(e.target.value)} onKeyDown={e => e.key === 'Enter' && doLogin()} autoComplete="username" />
             </div>
             <div className="form-row">
               <label className="label">{t.password}</label>
-              <input className="input" type="password" value={pw} onChange={e => setPw(e.target.value)} onKeyDown={e => e.key === 'Enter' && doLogin()} />
+              <input className="input" type="password" value={pw} onChange={e => setPw(e.target.value)} onKeyDown={e => e.key === 'Enter' && doLogin()} autoComplete="current-password" />
             </div>
             {err && <p style={{ color: 'var(--danger)', fontSize: 12, marginBottom: 10 }}>{err}</p>}
             <button style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: 12, cursor: 'pointer', marginBottom: 16, padding: 0 }} onClick={() => { setStep('forgot'); setErr('') }}>
@@ -138,7 +112,7 @@ export default function LoginScreen() {
             </p>
             <div className="form-row">
               <label className="label">{t.email}</label>
-              <input className="input" type="email" value={em} onChange={e => setEm(e.target.value)} />
+              <input className="input" type="email" value={em} onChange={e => setEm(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendResetCode()} autoComplete="email" />
             </div>
             {err && <p style={{ color: 'var(--danger)', fontSize: 12, marginBottom: 10 }}>{err}</p>}
             <button className="btn btn-primary" style={{ width: '100%', padding: 10 }} onClick={sendResetCode} disabled={loading}>
@@ -152,19 +126,27 @@ export default function LoginScreen() {
         {step === 'verify' && (
           <>
             <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 16, lineHeight: 1.6 }}>
-              Código enviado para <strong>{resetTarget?.email}</strong>. Digite o código e a nova senha.
+              Se o e-mail <strong>{resetEmail}</strong> estiver cadastrado, você receberá um código em instantes.
             </p>
             <div className="form-row">
               <label className="label">Código recebido por e-mail</label>
-              <input className="input" value={inputCode} onChange={e => setInputCode(e.target.value.toUpperCase())} placeholder="Ex: A3BX7Z" style={{ letterSpacing: 4, fontWeight: 700, fontSize: 18 }} />
+              <input
+                className="input"
+                value={inputCode}
+                onChange={e => setInputCode(e.target.value.toUpperCase())}
+                placeholder="Ex: A3BX7Z"
+                maxLength={6}
+                style={{ letterSpacing: 4, fontWeight: 700, fontSize: 18, textTransform: 'uppercase' }}
+                autoComplete="one-time-code"
+              />
             </div>
             <div className="form-row">
               <label className="label">Nova senha</label>
-              <input className="input" type="password" value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="Mínimo 6 caracteres" />
+              <input className="input" type="password" value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="Mínimo 6 caracteres" autoComplete="new-password" />
             </div>
             <div className="form-row">
               <label className="label">Confirmar nova senha</label>
-              <input className="input" type="password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} onKeyDown={e => e.key === 'Enter' && doResetPassword()} />
+              <input className="input" type="password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} onKeyDown={e => e.key === 'Enter' && doResetPassword()} autoComplete="new-password" />
             </div>
             {err && <p style={{ color: 'var(--danger)', fontSize: 12, marginBottom: 10 }}>{err}</p>}
             <button className="btn btn-primary" style={{ width: '100%', padding: 10 }} onClick={doResetPassword} disabled={loading}>

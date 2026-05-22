@@ -77,7 +77,6 @@ export function AppProvider({ children }) {
       setNotifications( (notifData     ?? []).map(mapNotification))
       if (orgData) setSystemConfig(mapOrganization(orgData))
     } catch (e) {
-      console.error('loadData:', e)
       // 401 = session expired
       if (e.status === 401) {
         setToken(null)
@@ -139,7 +138,7 @@ export function AppProvider({ children }) {
     const secret  = import.meta.env.VITE_SEND_EMAIL_SECRET
     const headers = { 'Content-Type': 'application/json', ...(secret ? { 'x-api-secret': secret } : {}) }
     fetch('/api/send-email', { method: 'POST', headers, body: JSON.stringify({ to, subject, html }) })
-      .catch(e => console.warn('notifyEmail:', e))
+      .catch(() => {})
   }
 
   // ── setCurrentUser (login / logout) ──────────────────────────────────

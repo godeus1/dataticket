@@ -60,10 +60,10 @@ Rails.application.configure do
     host: ENV.fetch("APP_HOST", "api.dataticket.app")
   }
   config.action_mailer.smtp_settings = {
-    address:              ENV.fetch("SMTP_HOST", "smtp.gmail.com"),
-    port:                 ENV.fetch("SMTP_PORT", "587").to_i,
-    user_name:            ENV.fetch("SMTP_USER", ""),
-    password:             ENV.fetch("SMTP_PASS", ""),
+    address:              ENV.fetch("SMTP_HOST",  "smtp.office365.com"),
+    port:                 ENV.fetch("SMTP_PORT",  "587").to_i,
+    user_name:            ENV.fetch("SMTP_USER",  "mobile@salvabras.com.br"),
+    password:             ENV.fetch("SMTP_PASS",  ""),
     authentication:       :login,
     enable_starttls_auto: true
   }
