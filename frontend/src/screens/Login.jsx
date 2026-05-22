@@ -42,10 +42,8 @@ export default function LoginScreen() {
       await api.requestPasswordReset(em.trim().toLowerCase())
       setResetEmail(em.trim().toLowerCase())
       setStep('verify')
-    } catch {
-      // Resposta genérica — não revelar se e-mail existe
-      setResetEmail(em.trim().toLowerCase())
-      setStep('verify')
+    } catch (e) {
+      setErr(e.message ?? 'Erro ao enviar o código. Tente novamente.')
     } finally {
       setLoading(false)
     }

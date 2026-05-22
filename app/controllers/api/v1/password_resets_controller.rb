@@ -12,17 +12,20 @@ module Api
         email = params[:email].to_s.strip.downcase
         user  = User.find_by(email: email)
 
-        # Resposta genérica — nunca revelar se o e-mail existe ou não
-        if user
-          code = generate_code
-          user.update_columns(
-            reset_password_token:   Digest::SHA256.hexdigest(code),
-            reset_password_sent_at: Time.current
-          )
-          PasswordResetMailer.reset_code(user, code).deliver_later
+        unless user
+          render json: { error: "E-mail não encontrado. Verifique o endereço ou contate o administrador." },
+                 status: :not_found
+          return
         end
 
-        render json: { message: "Se o e-mail estiver cadastrado, o código foi enviado." }
+        code = generate_code
+        user.update_columns(
+          reset_password_token:   Digest::SHA256.hexdigest(code),
+          reset_password_sent_at: Time.current
+        )
+        PasswordResetMailer.reset_code(user, code).deliver_later
+
+        render json: { message: "Código enviado para #{user.email}." }
       end
 
       # POST /api/v1/password_reset
