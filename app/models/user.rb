@@ -18,17 +18,21 @@ class User < ApplicationRecord
             format: { with: URI::MailTo::EMAIL_REGEXP },
             uniqueness: { scope: :organization_id, message: "já está em uso nesta organização", case_sensitive: false }
   validates :first_name, :last_name, presence: true
-  validates :role, inclusion: { in: %w[admin analyst user] }
+  ROLES = %w[admin analyst user msp_admin].freeze
+  validates :role, inclusion: { in: ROLES }
   validates :available_hours,      numericality: { greater_than: 0, less_than_or_equal_to: 24 }
   validates :max_hours_per_ticket, numericality: { greater_than: 0 }
 
   before_validation :normalize_email
   before_create     :generate_jti
 
-  scope :active,   -> { where(active: true) }
-  scope :staff,    -> { where(role: %w[admin analyst]) }
-  scope :admins,   -> { where(role: "admin") }
-  scope :analysts, -> { where(role: "analyst") }
+  scope :active,     -> { where(active: true) }
+  scope :staff,      -> { where(role: %w[admin analyst]) }
+  scope :admins,     -> { where(role: "admin") }
+  scope :analysts,   -> { where(role: "analyst") }
+  scope :msp_admins, -> { where(role: "msp_admin") }
+
+  def msp_admin? = role == "msp_admin"
 
   def full_name
     "#{first_name} #{last_name}"

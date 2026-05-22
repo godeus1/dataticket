@@ -1,0 +1,558 @@
+openapi: 3.0.1
+info:
+  title: DataTicket API
+  version: "1.0"
+  description: |
+    API REST do DataTicket — helpdesk SaaS para gestão de tickets, SLA, CSAT e automação.
+
+    ## Autenticação
+    Todas as rotas (exceto `/api/v1/login`, `/api/v1/logout` e `POST /api/v1/csat/:token`)
+    exigem um JWT no header `Authorization: Bearer <token>`.
+
+    Obtenha o token via `POST /api/v1/login`.
+
+    ## Multi-org (MSP)
+    Usuários com role `msp_admin` podem operar em outra organização da mesma conta
+    passando o header `X-Organization-Id: <org_id>`.
+  contact:
+    name: DataTicket Support
+    email: suporte@dataticket.com.br
+  license:
+    name: Proprietário
+
+servers:
+  - url: https://web-production-03f8b.up.railway.app
+    description: Produção (Railway)
+  - url: http://localhost:3000
+    description: Desenvolvimento local
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+    Errors:
+      type: object
+      properties:
+        errors:
+          type: array
+          items:
+            type: string
+
+    Pagination:
+      type: object
+      properties:
+        count:      { type: integer }
+        page:       { type: integer }
+        items:      { type: integer }
+        pages:      { type: integer }
+        last:       { type: integer }
+        next:       { type: integer, nullable: true }
+        prev:       { type: integer, nullable: true }
+
+    UserSummary:
+      type: object
+      properties:
+        id:         { type: integer }
+        first_name: { type: string }
+        last_name:  { type: string }
+        email:      { type: string }
+        role:       { type: string, enum: [admin, analyst, user, msp_admin] }
+        avatar_initials: { type: string }
+        avatar_color:    { type: string }
+
+    Tag:
+      type: object
+      properties:
+        id:    { type: integer }
+        name:  { type: string }
+        color: { type: string, example: "#2383e2" }
+
+    TicketSummary:
+      type: object
+      properties:
+        id:           { type: string,  example: "TK-0001" }
+        title:        { type: string }
+        status:       { type: string }
+        ticket_type:  { type: string, enum: [incidente, problema, "mudança", "requisição"] }
+        escalated:    { type: boolean }
+        sla_expired:  { type: boolean }
+        created_at:   { type: string, format: date-time }
+        deadline:     { type: string, format: date-time, nullable: true }
+        resolved_at:  { type: string, format: date-time, nullable: true }
+        priority_name: { type: string, nullable: true }
+        category_name: { type: string, nullable: true }
+        requester:    { $ref: "#/components/schemas/UserSummary" }
+        assignee:     { $ref: "#/components/schemas/UserSummary", nullable: true }
+        tags:
+          type: array
+          items: { $ref: "#/components/schemas/Tag" }
+
+    TicketFull:
+      allOf:
+        - $ref: "#/components/schemas/TicketSummary"
+        - type: object
+          properties:
+            description:  { type: string, nullable: true }
+            queue_name:   { type: string, nullable: true }
+            csat_score:   { type: integer, minimum: 1, maximum: 5, nullable: true }
+            csat_comment: { type: string, nullable: true }
+            escalated_at: { type: string, format: date-time, nullable: true }
+            updated_at:   { type: string, format: date-time }
+            field_values:
+              type: array
+              items:
+                type: object
+                properties:
+                  custom_field_id: { type: integer }
+                  field_name:      { type: string }
+                  field_type:      { type: string }
+                  value:           { type: string, nullable: true }
+
+    Event:
+      type: object
+      properties:
+        id:             { type: integer }
+        aggregate_type: { type: string }
+        aggregate_id:   { type: string }
+        event_type:     { type: string }
+        payload:        { type: object }
+        occurred_at:    { type: string, format: date-time }
+        version:        { type: integer }
+        actor:          { $ref: "#/components/schemas/UserSummary", nullable: true }
+
+paths:
+  # ── Auth ────────────────────────────────────────────────────────────────────
+  /api/v1/login:
+    post:
+      tags: [Auth]
+      summary: Login (obtém JWT)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user]
+              properties:
+                user:
+                  type: object
+                  required: [email, password]
+                  properties:
+                    email:    { type: string, format: email }
+                    password: { type: string }
+      responses:
+        "200":
+          description: Token JWT retornado no header Authorization
+          headers:
+            Authorization:
+              schema: { type: string }
+        "401":
+          description: Credenciais inválidas
+
+  /api/v1/logout:
+    delete:
+      tags: [Auth]
+      summary: Logout (revoga JWT)
+      responses:
+        "204": { description: Logout efetuado }
+
+  /api/v1/me:
+    get:
+      tags: [Auth]
+      summary: Retorna o usuário autenticado
+      responses:
+        "200":
+          description: Usuário atual
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserSummary" }
+
+  # ── Tickets ─────────────────────────────────────────────────────────────────
+  /api/v1/tickets:
+    get:
+      tags: [Tickets]
+      summary: Lista tickets (paginado)
+      parameters:
+        - in: query
+          name: status
+          schema: { type: string }
+        - in: query
+          name: priority_id
+          schema: { type: integer }
+        - in: query
+          name: assignee_id
+          schema: { type: integer }
+        - in: query
+          name: category_id
+          schema: { type: integer }
+        - in: query
+          name: queue_id
+          schema: { type: integer }
+        - in: query
+          name: tag_ids[]
+          schema: { type: array, items: { type: integer } }
+        - in: query
+          name: overdue
+          schema: { type: boolean }
+        - in: query
+          name: q
+          schema: { type: string }
+          description: Busca full-text em título e descrição
+        - in: query
+          name: page
+          schema: { type: integer }
+        - in: query
+          name: per_page
+          schema: { type: integer, default: 25 }
+      responses:
+        "200":
+          description: Lista paginada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tickets:
+                    type: array
+                    items: { $ref: "#/components/schemas/TicketSummary" }
+                  pagination: { $ref: "#/components/schemas/Pagination" }
+
+    post:
+      tags: [Tickets]
+      summary: Cria um ticket
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ticket]
+              properties:
+                ticket:
+                  type: object
+                  required: [title]
+                  properties:
+                    title:        { type: string }
+                    description:  { type: string }
+                    ticket_type:  { type: string, enum: [incidente, problema, "mudança", "requisição"] }
+                    priority_id:  { type: integer }
+                    category_id:  { type: integer }
+                    queue_id:     { type: integer }
+                    assignee_id:  { type: integer }
+                    tag_ids:
+                      type: array
+                      items: { type: integer }
+                    custom_field_values:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          custom_field_id: { type: integer }
+                          value:           { type: string }
+      responses:
+        "201":
+          description: Ticket criado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TicketFull" }
+        "422":
+          description: Erro de validação
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Errors" }
+
+  /api/v1/tickets/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string, example: "TK-0001" }
+    get:
+      tags: [Tickets]
+      summary: Exibe um ticket
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TicketFull" }
+    patch:
+      tags: [Tickets]
+      summary: Atualiza um ticket
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ticket:
+                  type: object
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TicketFull" }
+    delete:
+      tags: [Tickets]
+      summary: Remove um ticket
+      responses:
+        "204": { description: Removido }
+
+  /api/v1/tickets/{id}/triage:
+    patch:
+      tags: [Tickets]
+      summary: Triagem de ticket (admin/analyst)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                priority_id:  { type: integer }
+                category_id:  { type: integer }
+                queue_id:     { type: integer }
+                assignee_id:  { type: integer }
+                deadline:     { type: string, format: date-time }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TicketFull" }
+
+  /api/v1/tickets/{id}/change_status:
+    patch:
+      tags: [Tickets]
+      summary: Muda o status do ticket
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TicketFull" }
+        "422":
+          description: Transição de status inválida
+
+  /api/v1/tickets/bulk_triage:
+    post:
+      tags: [Tickets]
+      summary: Triagem em lote
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ticket_ids]
+              properties:
+                ticket_ids:
+                  type: array
+                  items: { type: string }
+                priority_id:  { type: integer }
+                category_id:  { type: integer }
+                queue_id:     { type: integer }
+                assignee_id:  { type: integer }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:  { type: boolean }
+                  triaged:  { type: array, items: { type: string } }
+                  skipped:  { type: array, items: { type: string } }
+                  errors:   { type: array, items: { type: string } }
+
+  # ── Events (Event Sourcing) ──────────────────────────────────────────────────
+  /api/v1/events:
+    get:
+      tags: [Events]
+      summary: Lista eventos de auditoria (event sourcing)
+      parameters:
+        - in: query
+          name: aggregate_type
+          schema: { type: string, example: "Ticket" }
+        - in: query
+          name: aggregate_id
+          schema: { type: string, example: "TK-0001" }
+        - in: query
+          name: event_type
+          schema: { type: string }
+        - in: query
+          name: from
+          schema: { type: string, format: date }
+        - in: query
+          name: to
+          schema: { type: string, format: date }
+        - in: query
+          name: page
+          schema: { type: integer }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items: { $ref: "#/components/schemas/Event" }
+                  pagination: { $ref: "#/components/schemas/Pagination" }
+
+  # ── SSO ─────────────────────────────────────────────────────────────────────
+  /api/v1/sso/init:
+    get:
+      tags: [SSO]
+      summary: Inicia fluxo SAML — redireciona ao IdP
+      security: []
+      parameters:
+        - in: query
+          name: org
+          required: true
+          schema: { type: string }
+          description: Slug da organização
+      responses:
+        "302":
+          description: Redirect para IdP SAML
+        "404":
+          description: Organização sem SSO configurado
+
+  /api/v1/sso/callback:
+    post:
+      tags: [SSO]
+      summary: Callback SAML — processa SAMLResponse e retorna JWT
+      security: []
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                SAMLResponse: { type: string }
+                RelayState:   { type: string }
+      responses:
+        "200":
+          description: JWT no header Authorization
+          headers:
+            Authorization:
+              schema: { type: string }
+        "401":
+          description: Resposta SAML inválida
+
+  # ── Accounts (MSP) ───────────────────────────────────────────────────────────
+  /api/v1/accounts:
+    get:
+      tags: [Accounts (MSP)]
+      summary: Lista contas MSP (msp_admin only)
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:    { type: integer }
+                    name:  { type: string }
+                    slug:  { type: string }
+                    plan:  { type: string }
+    post:
+      tags: [Accounts (MSP)]
+      summary: Cria uma conta MSP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [account]
+              properties:
+                account:
+                  type: object
+                  required: [name, slug]
+                  properties:
+                    name: { type: string }
+                    slug: { type: string }
+                    plan: { type: string, enum: [standard, enterprise] }
+      responses:
+        "201": { description: Conta criada }
+
+  /api/v1/accounts/{id}/organizations:
+    get:
+      tags: [Accounts (MSP)]
+      summary: Lista organizações de uma conta MSP
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:   { type: integer }
+                    name: { type: string }
+                    slug: { type: string }
+
+  # ── Métricas ─────────────────────────────────────────────────────────────────
+  /metrics:
+    get:
+      tags: [Observability]
+      summary: Endpoint Prometheus (scraping de métricas)
+      security: []
+      responses:
+        "200":
+          description: Métricas no formato text/plain Prometheus
+
+  # ── Health ───────────────────────────────────────────────────────────────────
+  /api/v1/health:
+    get:
+      tags: [Health]
+      summary: Healthcheck da API
+      security: []
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:    { type: string, example: "ok" }
+                  version:   { type: string }
+                  timestamp: { type: string, format: date-time }

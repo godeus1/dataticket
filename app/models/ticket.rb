@@ -68,6 +68,17 @@ class Ticket < ApplicationRecord
   after_create_commit  :fire_webhook_created
   after_update_commit  :fire_webhook_updated
 
+  # Event sourcing
+  after_create_commit  :publish_created_event
+  after_update_commit  :publish_updated_event
+
+  # Prometheus metrics
+  after_create_commit  -> { DataticketMetrics.ticket_created(self) }
+  after_update_commit  -> {
+    DataticketMetrics.ticket_resolved(self) if saved_change_to_status? && status == "Resolvido"
+    DataticketMetrics.ticket_escalated(self) if saved_change_to_escalated? && escalated?
+  }
+
   scope :open,      -> { where.not(status: %w[Resolvido Fechado]) }
   scope :overdue,   -> { open.where("deadline < ?", Time.current) }
   scope :by_period, ->(days) { where("created_at >= ?", days.days.ago) }
@@ -156,6 +167,37 @@ class Ticket < ApplicationRecord
     TicketsChannel.broadcast_to(
       organization,
       { event: "ticket_updated", ticket: TicketBlueprint.render_as_hash(self, view: :summary) }
+    )
+  end
+
+  def publish_created_event
+    EventStore.publish(
+      event_type:   "ticket.created",
+      aggregate:    self,
+      payload:      { title: title, ticket_type: ticket_type, status: status },
+      actor:        Current.user || requester
+    )
+  end
+
+  def publish_updated_event
+    changes_payload = saved_changes.except("updated_at")
+    return if changes_payload.empty?
+
+    type = if saved_change_to_status?
+             status == "Fechado" ? "ticket.closed" : "ticket.status_changed"
+           elsif saved_change_to_assignee_id?
+             "ticket.assigned"
+           elsif saved_change_to_escalated? && escalated?
+             "ticket.escalated"
+           else
+             "ticket.updated"
+           end
+
+    EventStore.publish(
+      event_type: type,
+      aggregate:  self,
+      payload:    changes_payload,
+      actor:      Current.user
     )
   end
 

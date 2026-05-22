@@ -10,9 +10,19 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_22_000005) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_22_000006) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
+
+  create_table "accounts", force: :cascade do |t|
+    t.boolean "active", default: true, null: false
+    t.datetime "created_at", null: false
+    t.string "name", null: false
+    t.string "plan", default: "standard", null: false
+    t.string "slug", null: false
+    t.datetime "updated_at", null: false
+    t.index ["slug"], name: "index_accounts_on_slug", unique: true
+  end
 
   create_table "action_mailbox_inbound_emails", force: :cascade do |t|
     t.datetime "created_at", null: false
@@ -74,6 +84,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_22_000005) do
     t.index ["organization_id"], name: "index_custom_fields_on_organization_id"
   end
 
+  create_table "events", force: :cascade do |t|
+    t.bigint "actor_id"
+    t.string "aggregate_id", null: false
+    t.string "aggregate_type", null: false
+    t.datetime "created_at", null: false
+    t.string "event_type", null: false
+    t.datetime "occurred_at", null: false
+    t.bigint "organization_id", null: false
+    t.jsonb "payload", default: {}, null: false
+    t.datetime "updated_at", null: false
+    t.integer "version", default: 1, null: false
+    t.index ["actor_id"], name: "index_events_on_actor_id"
+    t.index ["aggregate_type", "aggregate_id"], name: "index_events_on_aggregate_type_and_aggregate_id"
+    t.index ["occurred_at"], name: "index_events_on_occurred_at"
+    t.index ["organization_id", "event_type"], name: "index_events_on_organization_id_and_event_type"
+    t.index ["organization_id"], name: "index_events_on_organization_id"
+  end
+
   create_table "holidays", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.date "date", null: false
@@ -106,6 +134,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_22_000005) do
   end
 
   create_table "organizations", force: :cascade do |t|
+    t.bigint "account_id"
     t.datetime "created_at", null: false
     t.string "date_format", default: "DD/MM/YYYY"
     t.boolean "emails_enabled", default: false
@@ -116,6 +145,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_22_000005) do
     t.string "smtp_user"
     t.string "timezone", default: "America/Sao_Paulo"
     t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_organizations_on_account_id"
     t.index ["slug"], name: "index_organizations_on_slug", unique: true
   end
 
@@ -178,6 +208,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_22_000005) do
     t.index ["organization_id", "priority_id", "category_id"], name: "idx_sla_policies_org_priority_category", unique: true
     t.index ["organization_id"], name: "index_sla_policies_on_organization_id"
     t.index ["priority_id"], name: "index_sla_policies_on_priority_id"
+  end
+
+  create_table "sso_configurations", force: :cascade do |t|
+    t.boolean "active", default: true, null: false
+    t.datetime "created_at", null: false
+    t.text "idp_cert", null: false
+    t.string "idp_entity_id", null: false
+    t.string "idp_sso_url", null: false
+    t.string "name_id_format", default: "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress"
+    t.bigint "organization_id", null: false
+    t.string "sp_entity_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["organization_id"], name: "index_sso_configurations_on_organization_id", unique: true
   end
 
   create_table "tags", force: :cascade do |t|
@@ -342,9 +385,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_22_000005) do
   add_foreign_key "audit_logs", "users"
   add_foreign_key "categories", "organizations"
   add_foreign_key "custom_fields", "organizations"
+  add_foreign_key "events", "organizations"
+  add_foreign_key "events", "users", column: "actor_id"
   add_foreign_key "holidays", "organizations"
   add_foreign_key "notifications", "tickets"
   add_foreign_key "notifications", "users"
+  add_foreign_key "organizations", "accounts"
   add_foreign_key "priorities", "organizations"
   add_foreign_key "queue_memberships", "queues"
   add_foreign_key "queue_memberships", "users"
@@ -355,6 +401,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_22_000005) do
   add_foreign_key "sla_policies", "categories"
   add_foreign_key "sla_policies", "organizations"
   add_foreign_key "sla_policies", "priorities"
+  add_foreign_key "sso_configurations", "organizations"
   add_foreign_key "tags", "organizations"
   add_foreign_key "ticket_attachments", "tickets"
   add_foreign_key "ticket_attachments", "users"

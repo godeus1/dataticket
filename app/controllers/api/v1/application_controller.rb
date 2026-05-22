@@ -23,7 +23,15 @@ module Api
       private
 
       def set_organization
-        @organization = current_user.organization
+        if current_user.msp_admin? && request.headers["X-Organization-Id"].present?
+          org_id = request.headers["X-Organization-Id"].to_i
+          account = current_user.organization.account
+          # msp_admin can only access orgs under the same account
+          @organization = account&.organizations&.find_by(id: org_id) ||
+                          raise(ActiveRecord::RecordNotFound, "Organização não encontrada nesta conta")
+        else
+          @organization = current_user.organization
+        end
       end
 
       def set_current_user
