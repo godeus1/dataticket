@@ -43,6 +43,16 @@ gem "aws-sdk-s3", require: false
 gem "prawn",       "~> 2.5", require: false
 gem "prawn-table", "~> 0.2", require: false
 
+# ── OpenAPI / Swagger docs ────────────────────────────────────────────────────
+gem "rswag-api",  "~> 2.16"
+gem "rswag-ui",   "~> 2.16"
+
+# ── SSO / SAML ────────────────────────────────────────────────────────────────
+gem "ruby-saml",  "~> 1.16"
+
+# ── Métricas Prometheus ───────────────────────────────────────────────────────
+gem "prometheus-client", "~> 4.2"
+
 # ── Monitoramento ─────────────────────────────────────────────────────────────
 gem "sentry-ruby"
 gem "sentry-rails"

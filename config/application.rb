@@ -52,6 +52,9 @@ module DataticketApi
     # https://<host>/rails/action_mailbox/relay/inbound_emails)
     config.action_mailbox.ingress = :relay
 
+    # PrometheusMiddleware is registered via config/initializers/prometheus.rb
+    # after the app constants are loaded
+
     # Action Cable — origens permitidas para WebSocket
     allowed = ENV.fetch("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:4173")
                  .split(",")

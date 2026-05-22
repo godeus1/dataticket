@@ -1,4 +1,6 @@
 class Organization < ApplicationRecord
+  belongs_to :account, optional: true   # nil = standalone; present = managed by MSP
+
   has_many :users,             dependent: :destroy
   has_many :tickets,           dependent: :destroy
   has_many :categories,        dependent: :destroy
@@ -12,6 +14,7 @@ class Organization < ApplicationRecord
   has_many :sla_policies,      dependent: :destroy
   has_many :tags,              dependent: :destroy
   has_many :custom_fields,     dependent: :destroy
+  has_one  :sso_configuration, dependent: :destroy
 
   validates :name, :slug, presence: true
   validates :slug, uniqueness: true, format: { with: /\A[a-z0-9\-]+\z/, message: "apenas letras minúsculas, números e hífens" }
