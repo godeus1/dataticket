@@ -7,13 +7,17 @@ class ReportService
 
   def call
     {
-      summary:           summary,
-      by_status:         by_status,
-      by_priority:       by_priority,
-      by_category:       by_category,
-      by_assignee:       by_assignee,
-      sla_compliance:    sla_compliance,
-      avg_resolution_time: avg_resolution_time
+      summary:             summary,
+      by_status:           by_status,
+      by_priority:         by_priority,
+      by_category:         by_category,
+      by_ticket_type:      by_ticket_type,
+      by_assignee:         by_assignee,
+      sla_compliance:      sla_compliance,
+      avg_resolution_time: avg_resolution_time,
+      volume_by_day:       volume_by_day,
+      csat:                csat_summary,
+      escalated_count:     escalated_count
     }
   end
 
@@ -75,5 +79,32 @@ class ReportService
     return nil unless avg_seconds
 
     (avg_seconds / 3600).round(1)
+  end
+
+  def by_ticket_type
+    base_scope.group(:ticket_type).count
+  end
+
+  def volume_by_day
+    base_scope
+      .group("DATE(created_at AT TIME ZONE 'UTC' AT TIME ZONE '#{@organization.timezone}')")
+      .order("1 ASC")
+      .count
+      .map { |date, count| { date: date.to_s, count: count } }
+  end
+
+  def csat_summary
+    rated = base_scope.where.not(csat_score: nil)
+    total = rated.count
+    return { avg: nil, total: 0, distribution: {} } if total.zero?
+
+    avg          = rated.average(:csat_score)&.round(2)
+    distribution = rated.group(:csat_score).count
+
+    { avg: avg, total: total, distribution: distribution }
+  end
+
+  def escalated_count
+    base_scope.where(escalated: true).count
   end
 end
