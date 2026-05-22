@@ -11,6 +11,10 @@ production:
     class: SlaDigestJob
     schedule: "0 8 * * 1-5"      # dias uteis as 08:00
 
+  queue_monitor:
+    class: QueueMonitorJob
+    schedule: "*/30 * * * *"     # a cada 30 min — monitora DLQ e jobs bloqueados
+
 development:
   escalation_check:
     class: EscalationJob
@@ -19,3 +23,7 @@ development:
   sla_digest:
     class: SlaDigestJob
     schedule: "0 8 * * *"
+
+  queue_monitor:
+    class: QueueMonitorJob
+    schedule: "*/5 * * * *"      # a cada 5 min em dev para facilitar testes
