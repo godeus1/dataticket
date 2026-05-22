@@ -78,8 +78,8 @@ unless requester.persisted?
     password:             admin_password,
     role:                 "user",
     active:               true,
-    available_hours:      0,
-    max_hours_per_ticket: 0,
+    available_hours:      8,
+    max_hours_per_ticket: 4,
     avatar_initials:      "CM",
     avatar_color:         "#059669"
   )

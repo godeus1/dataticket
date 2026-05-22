@@ -8,8 +8,21 @@ default: &default
   password: "<%= ENV.fetch('DB_PASSWORD', 'postgres') %>"
 
 development:
-  <<: *default
-  database: dataticket_api_development
+  primary: &primary_development
+    <<: *default
+    database: dataticket_api_development
+  cache:
+    <<: *primary_development
+    database: dataticket_api_development_cache
+    migrations_paths: db/cache_migrate
+  queue:
+    <<: *primary_development
+    database: dataticket_api_development_queue
+    migrations_paths: db/queue_migrate
+  cable:
+    <<: *primary_development
+    database: dataticket_api_development_cable
+    migrations_paths: db/cable_migrate
 
 test:
   <<: *default
