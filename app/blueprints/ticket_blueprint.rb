@@ -3,7 +3,7 @@ class TicketBlueprint < Blueprinter::Base
 
   # Summary view — used in index
   view :summary do
-    fields :id, :title, :status, :created_at, :deadline, :resolved_at
+    fields :id, :title, :status, :ticket_type, :escalated, :created_at, :deadline, :resolved_at
 
     association :requester, blueprint: UserBlueprint, view: :summary
     association :assignee,  blueprint: UserBlueprint, view: :summary
@@ -25,10 +25,10 @@ class TicketBlueprint < Blueprinter::Base
   view :full do
     include_view :summary
 
-    fields :description, :updated_at
+    fields :description, :updated_at, :csat_score, :csat_comment, :escalated_at
 
-    association :comments, blueprint: TicketCommentBlueprint
-    association :attachments, blueprint: TicketAttachmentBlueprint
+    association :comments,     blueprint: TicketCommentBlueprint
+    association :attachments,  blueprint: TicketAttachmentBlueprint
 
     field :queue_name do |ticket|
       ticket.queue&.name

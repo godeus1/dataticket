@@ -25,8 +25,10 @@ class User < ApplicationRecord
   before_validation :normalize_email
   before_create     :generate_jti
 
-  scope :active, -> { where(active: true) }
-  scope :staff,  -> { where(role: %w[admin analyst]) }
+  scope :active,   -> { where(active: true) }
+  scope :staff,    -> { where(role: %w[admin analyst]) }
+  scope :admins,   -> { where(role: "admin") }
+  scope :analysts, -> { where(role: "analyst") }
 
   def full_name
     "#{first_name} #{last_name}"
