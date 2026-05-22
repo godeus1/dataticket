@@ -2,6 +2,9 @@ Rails.application.routes.draw do
   # Rails built-in health check
   get "up" => "rails/health#show", as: :rails_health_check
 
+  # Action Mailbox ingress (relay, SendGrid, Mailgun, etc.)
+  # Mounted automatically by the engine at /rails/action_mailbox/*
+
   devise_for :users,
     path: "api/v1",
     path_names: { sign_in: "login", sign_out: "logout" },
@@ -61,10 +64,24 @@ Rails.application.routes.draw do
 
       # Relatórios e Auditoria
       resources :audit_logs, only: %i[index]
-      resources :reports,    only: %i[index]
+      resources :reports,    only: %i[index] do
+        collection { get :export }
+      end
 
       # Organização (single resource — Salvabras)
       resource :organization, only: %i[show update]
+
+      # ── Fase 4: Automação e Inteligência ──────────────────────────────────
+      # Auto-triagem por regras configuráveis
+      resources :triage_rules
+
+      # Webhook outbound (Slack, Teams, qualquer URL)
+      resources :webhook_endpoints do
+        member { post :test_delivery }
+      end
+
+      # SLA por categoria + prioridade
+      resources :sla_policies
     end
   end
 end

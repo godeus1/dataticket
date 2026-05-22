@@ -48,6 +48,10 @@ module DataticketApi
     # Rate limiting
     config.middleware.use Rack::Attack
 
+    # Action Mailbox — relay ingress (configure MX/SMTP forwarder to POST to
+    # https://<host>/rails/action_mailbox/relay/inbound_emails)
+    config.action_mailbox.ingress = :relay
+
     # Action Cable — origens permitidas para WebSocket
     allowed = ENV.fetch("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:4173")
                  .split(",")
