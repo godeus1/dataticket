@@ -6,25 +6,25 @@ module Api
       def index
         authorize Holiday
         holidays = @organization.holidays.order(:date)
-        render json: holidays.as_json(only: %i[id name date recurring active])
+        render json: HolidayBlueprint.render_as_hash(holidays)
       end
 
       def show
         authorize @holiday
-        render json: @holiday.as_json(only: %i[id name date recurring active created_at updated_at])
+        render json: HolidayBlueprint.render_as_hash(@holiday)
       end
 
       def create
         authorize Holiday
         holiday = @organization.holidays.new(holiday_params)
         holiday.save!
-        render json: holiday.as_json(only: %i[id name date recurring active]), status: :created
+        render json: HolidayBlueprint.render_as_hash(holiday), status: :created
       end
 
       def update
         authorize @holiday
         @holiday.update!(holiday_params)
-        render json: @holiday.as_json(only: %i[id name date recurring active])
+        render json: HolidayBlueprint.render_as_hash(@holiday)
       end
 
       def destroy

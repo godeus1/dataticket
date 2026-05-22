@@ -39,9 +39,18 @@ class Ticket < ApplicationRecord
   validates :title,  presence: true, length: { maximum: 255 }
   validates :status, inclusion: { in: STATUSES }
 
+  # Campos auditados além de status
+  TRACKED_ASSOCIATIONS = {
+    "assignee_id"  => ->(org, id) { id ? org.users.find_by(id: id)&.then { |u| "#{u.first_name} #{u.last_name}" } : nil },
+    "priority_id"  => ->(org, id) { id ? org.priorities.find_by(id: id)&.name : nil },
+    "category_id"  => ->(org, id) { id ? org.categories.find_by(id: id)&.name : nil },
+    "queue_id"     => ->(org, id) { id ? org.queues.find_by(id: id)&.name : nil }
+  }.freeze
+
   before_create  :generate_ticket_id
   before_save    :stamp_resolved_at, if: :will_save_change_to_status?
-  after_update   :record_status_history, if: :saved_change_to_status?
+  after_update   :record_status_history,     if: :saved_change_to_status?
+  after_update   :record_field_histories
 
   after_create_commit  :broadcast_ticket_created
   after_update_commit  :broadcast_ticket_updated
@@ -69,6 +78,22 @@ class Ticket < ApplicationRecord
                              .where("id ~ ?", "^TK-\\d+$")
                              .maximum("CAST(SUBSTRING(id, 4) AS INTEGER)") || 0
       self.id = "TK-#{format('%04d', last_num + 1)}"
+    end
+  end
+
+  # ── Registra histórico de campos de associação (assignee, priority, category, queue) ──
+  def record_field_histories
+    actor = Current.user || assignee || requester
+    TRACKED_ASSOCIATIONS.each do |field, resolver|
+      next unless saved_changes.key?(field)
+
+      old_id, new_id = saved_changes[field]
+      histories.create!(
+        user:       actor,
+        field:      field.sub("_id", ""),
+        from_value: resolver.call(organization, old_id),
+        to_value:   resolver.call(organization, new_id)
+      )
     end
   end
 

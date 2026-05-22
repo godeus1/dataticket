@@ -18,7 +18,10 @@ Rails.application.configure do
   # Enable serving of images, stylesheets, and JavaScripts from an asset server.
   # config.asset_host = "http://assets.example.com"
 
-  # Store uploaded files on the local file system (see config/storage.yml for options).
+  # Anexos usam S3Uploader diretamente (aws-sdk-s3).
+  # Variáveis necessárias no Railway: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY,
+  # AWS_S3_BUCKET, AWS_REGION.  Sem elas, o upload falha com erro 422.
+  # Active Storage não é usado para ticket_attachments.
   config.active_storage.service = :local
 
   # Assume all access to the app is happening through a SSL-terminating reverse proxy.

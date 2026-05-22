@@ -19,7 +19,9 @@ Rails.application.routes.draw do
       # Tickets
       resources :tickets do
         resources :comments,    only: %i[index create destroy], module: :tickets
-        resources :attachments, only: %i[index create destroy], module: :tickets
+        resources :attachments, only: %i[index create destroy], module: :tickets do
+          member { get :download }
+        end
         member do
           patch :triage
           patch :change_status

@@ -5,32 +5,26 @@ module Api
 
       def index
         authorize TicketQueue
-        queues = @organization.queues.includes(:users)
-        render json: queues.as_json(
-          only: %i[id name description active],
-          include: { users: { only: %i[id first_name last_name email role] } }
-        )
+        queues = @organization.queues.includes(:users, :category)
+        render json: QueueBlueprint.render_as_hash(queues)
       end
 
       def show
         authorize @queue
-        render json: @queue.as_json(
-          only: %i[id name description active created_at updated_at],
-          include: { users: { only: %i[id first_name last_name email role] } }
-        )
+        render json: QueueBlueprint.render_as_hash(@queue)
       end
 
       def create
         authorize TicketQueue
         queue = @organization.queues.new(queue_params)
         queue.save!
-        render json: queue.as_json(only: %i[id name description active]), status: :created
+        render json: QueueBlueprint.render_as_hash(queue), status: :created
       end
 
       def update
         authorize @queue
         @queue.update!(queue_params)
-        render json: @queue.as_json(only: %i[id name description active])
+        render json: QueueBlueprint.render_as_hash(@queue)
       end
 
       def destroy
@@ -56,7 +50,7 @@ module Api
       private
 
       def set_queue
-        @queue = @organization.queues.find(params[:id])
+        @queue = @organization.queues.includes(:users, :category).find(params[:id])
       end
 
       def queue_params

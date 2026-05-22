@@ -7,31 +7,25 @@ module Api
         authorize Article
         articles = @organization.articles.includes(:author).recent
         articles = articles.published if params[:published] == "true"
-        render json: articles.as_json(
-          only: %i[id title body keywords published created_at updated_at],
-          include: { author: { only: %i[id first_name last_name email] } }
-        )
+        render json: ArticleBlueprint.render_as_hash(articles)
       end
 
       def show
         authorize @article
-        render json: @article.as_json(
-          only: %i[id title body keywords published created_at updated_at],
-          include: { author: { only: %i[id first_name last_name email] } }
-        )
+        render json: ArticleBlueprint.render_as_hash(@article)
       end
 
       def create
         authorize Article
         article = @organization.articles.new(article_params.merge(author: current_user))
         article.save!
-        render json: article.as_json(only: %i[id title body keywords published]), status: :created
+        render json: ArticleBlueprint.render_as_hash(article), status: :created
       end
 
       def update
         authorize @article
         @article.update!(article_params)
-        render json: @article.as_json(only: %i[id title body keywords published])
+        render json: ArticleBlueprint.render_as_hash(@article)
       end
 
       def destroy
@@ -43,7 +37,7 @@ module Api
       private
 
       def set_article
-        @article = @organization.articles.find(params[:id])
+        @article = @organization.articles.includes(:author).find(params[:id])
       end
 
       def article_params
