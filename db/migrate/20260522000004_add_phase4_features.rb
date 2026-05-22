@@ -7,7 +7,7 @@ class AddPhase4Features < ActiveRecord::Migration[8.1]
       t.string     :keyword,      null: false   # matched against title + description
       t.references :category,     foreign_key: true
       t.references :priority,     foreign_key: true
-      t.references :queue,        foreign_key: { to_table: :ticket_queues }
+      t.references :queue,        foreign_key: { to_table: :queues }
       t.integer    :position,     default: 0, null: false
       t.boolean    :active,       default: true, null: false
       t.timestamps
@@ -24,7 +24,7 @@ class AddPhase4Features < ActiveRecord::Migration[8.1]
       t.boolean  :active,         default: true, null: false
       t.timestamps
     end
-    add_index :webhook_endpoints, :organization_id
+    # (index on organization_id already created by t.references above)
 
     # ── SLA Policies (by priority + optional category) ───────────────────────
     create_table :sla_policies do |t|
