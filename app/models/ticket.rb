@@ -61,6 +61,10 @@ class Ticket < ApplicationRecord
   after_create_commit  :broadcast_ticket_created
   after_update_commit  :broadcast_ticket_updated
 
+  after_create_commit  :run_auto_triage
+  after_create_commit  :fire_webhook_created
+  after_update_commit  :fire_webhook_updated
+
   scope :open,      -> { where.not(status: %w[Resolvido Fechado]) }
   scope :overdue,   -> { open.where("deadline < ?", Time.current) }
   scope :by_period, ->(days) { where("created_at >= ?", days.days.ago) }
@@ -149,6 +153,38 @@ class Ticket < ApplicationRecord
     TicketsChannel.broadcast_to(
       organization,
       { event: "ticket_updated", ticket: TicketBlueprint.render_as_hash(self, view: :summary) }
+    )
+  end
+
+  def run_auto_triage
+    AutoTriageService.new(self).apply
+  rescue StandardError => e
+    Rails.logger.error("[AutoTriageService] ticket #{id}: #{e.message}")
+  end
+
+  def fire_webhook_created
+    WebhookDeliveryJob.perform_later(
+      organization_id,
+      "ticket.created",
+      TicketBlueprint.render_as_hash(self, view: :summary)
+    )
+  end
+
+  def fire_webhook_updated
+    event = if saved_change_to_status?
+              status == "Fechado" ? "ticket.closed" : "ticket.status_changed"
+            elsif saved_change_to_assignee_id?
+              "ticket.assigned"
+            elsif saved_change_to_escalated? && escalated?
+              "ticket.escalated"
+            else
+              "ticket.updated"
+            end
+
+    WebhookDeliveryJob.perform_later(
+      organization_id,
+      event,
+      TicketBlueprint.render_as_hash(self, view: :summary)
     )
   end
 end

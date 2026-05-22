@@ -39,6 +39,10 @@ gem "pagy", "~> 9.3"
 # ── Upload S3 (ativo quando STORAGE=s3) ──────────────────────────────────────
 gem "aws-sdk-s3", require: false
 
+# ── Exportação PDF ────────────────────────────────────────────────────────────
+gem "prawn",       "~> 2.5", require: false
+gem "prawn-table", "~> 0.2", require: false
+
 # ── Monitoramento ─────────────────────────────────────────────────────────────
 gem "sentry-ruby"
 gem "sentry-rails"
@@ -50,6 +54,7 @@ group :development, :test do
   gem "faker",             "~> 3.4"
   gem "shoulda-matchers",  "~> 6.0"
   gem "simplecov",         require: false
+  gem "webmock",           "~> 3.0"
   gem "debug", platforms: %i[mri windows], require: "debug/prelude"
 end
 
