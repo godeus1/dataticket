@@ -1,20 +1,10 @@
-<h2>Olá, <%= @user.first_name %>!</h2>
-
-<p>O status do seu ticket foi atualizado.</p>
-
-<table style="border-collapse:collapse;width:100%;max-width:600px">
-  <tr><td style="padding:8px;font-weight:bold;background:#f3f4f6">Ticket</td><td style="padding:8px"><%= @ticket.id %> — <%= @ticket.title %></td></tr>
-  <tr><td style="padding:8px;font-weight:bold;background:#f3f4f6">Status anterior</td><td style="padding:8px;color:#6b7280"><%= @old_status %></td></tr>
-  <tr><td style="padding:8px;font-weight:bold;background:#f3f4f6">Novo status</td><td style="padding:8px;font-weight:bold;color:#2383e2"><%= @new_status %></td></tr>
-  <tr><td style="padding:8px;font-weight:bold;background:#f3f4f6">Atualizado em</td><td style="padding:8px"><%= @ticket.updated_at.strftime('%d/%m/%Y %H:%M') %></td></tr>
+﻿<h2>Status do ticket atualizado</h2>
+<p>Ola, <strong><%= @user.first_name %></strong>.</p>
+<p>O status do ticket <strong><%= @ticket.id %></strong> foi atualizado.</p>
+<table>
+  <tr><th>ID</th><td><%= @ticket.id %></td></tr>
+  <tr><th>Título</th><td><%= @ticket.title %></td></tr>
+  <tr><th>Status anterior</th><td><%= @old_status %></td></tr>
+  <tr><th>Novo status</th><td><%= @new_status %></td></tr>
 </table>
-
-<p style="margin-top:24px">
-  <a href="<%= @url %>" style="background:#2383e2;color:white;padding:10px 20px;border-radius:6px;text-decoration:none">
-    Ver ticket
-  </a>
-</p>
-
-<p style="color:#6b7280;font-size:12px;margin-top:32px">
-  Este e-mail foi enviado automaticamente pelo DataTicket. Não responda a este e-mail.
-</p>
+<a href="<%= @url %>" class="btn">Ver Ticket</a>

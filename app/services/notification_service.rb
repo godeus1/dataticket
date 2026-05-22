@@ -8,7 +8,7 @@ class NotificationService
 
     assignee.notifications.create!(
       ticket:  @ticket,
-      kind:    "assignment",
+      kind:    "assign",
       title:   "Ticket atribuído: #{@ticket.id}",
       body:    "Você foi atribuído ao ticket #{@ticket.id}: #{@ticket.title}"
     )
@@ -19,7 +19,7 @@ class NotificationService
     recipients.each do |user|
       user.notifications.create!(
         ticket:  @ticket,
-        kind:    "status_change",
+        kind:    "status",
         title:   "Status alterado — #{@ticket.id}",
         body:    "Status alterado de '#{old_status}' para '#{new_status}'"
       )
@@ -31,7 +31,7 @@ class NotificationService
     recipients.each do |user|
       user.notifications.create!(
         ticket:  @ticket,
-        kind:    "new_comment",
+        kind:    "comment",
         title:   "Novo comentário — #{@ticket.id}",
         body:    "Novo comentário no ticket: #{@ticket.title}"
       )

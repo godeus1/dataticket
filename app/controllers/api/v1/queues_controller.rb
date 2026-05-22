@@ -5,10 +5,10 @@ module Api
 
       def index
         authorize TicketQueue
-        queues = @organization.queues.includes(:members)
+        queues = @organization.queues.includes(:users)
         render json: queues.as_json(
           only: %i[id name description active],
-          include: { members: { only: %i[id first_name last_name email role] } }
+          include: { users: { only: %i[id first_name last_name email role] } }
         )
       end
 
@@ -16,7 +16,7 @@ module Api
         authorize @queue
         render json: @queue.as_json(
           only: %i[id name description active created_at updated_at],
-          include: { members: { only: %i[id first_name last_name email role] } }
+          include: { users: { only: %i[id first_name last_name email role] } }
         )
       end
 
@@ -42,14 +42,14 @@ module Api
       def add_member
         authorize @queue, :update?
         user = @organization.users.find(params[:user_id])
-        @queue.members << user unless @queue.members.include?(user)
+        @queue.users << user unless @queue.users.include?(user)
         render json: { message: "Membro adicionado com sucesso" }
       end
 
       def remove_member
         authorize @queue, :update?
         user = @organization.users.find(params[:user_id])
-        @queue.members.delete(user)
+        @queue.users.delete(user)
         head :no_content
       end
 

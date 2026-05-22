@@ -8,38 +8,40 @@ class Ticket < ApplicationRecord
   belongs_to :priority,  optional: true
   belongs_to :queue,     class_name: "TicketQueue", optional: true
 
-  has_many :comments,     class_name: "TicketComment",    foreign_key: :ticket_id, dependent: :destroy
-  has_many :histories,    class_name: "TicketHistory",    foreign_key: :ticket_id, dependent: :destroy
-  has_many :attachments,  class_name: "TicketAttachment", foreign_key: :ticket_id, dependent: :destroy
-  has_many :notifications,                                foreign_key: :ticket_id, dependent: :nullify
-  has_many :scheduled_days,                               foreign_key: :ticket_id, dependent: :destroy
+  has_many :comments,      class_name: "TicketComment",    foreign_key: :ticket_id, dependent: :destroy
+  has_many :histories,     class_name: "TicketHistory",    foreign_key: :ticket_id, dependent: :destroy
+  has_many :ticket_attachments, foreign_key: :ticket_id, dependent: :destroy
+  has_many :notifications,                                 foreign_key: :ticket_id, dependent: :nullify
+  has_many :scheduled_days,                                foreign_key: :ticket_id, dependent: :destroy
 
   STATUSES = [
     "Não iniciado",
     "Triado, aguardando atendimento",
     "Em andamento",
     "Aguardando terceiros",
+    "Aguardando solicitante",
     "Resolvido",
     "Fechado",
     "Reaberto"
   ].freeze
 
   ALLOWED_TRANSITIONS = {
-    "Não iniciado"                    => %w[Triado,\ aguardando\ atendimento Em\ andamento Fechado],
-    "Triado, aguardando atendimento"  => [ "Em andamento", "Aguardando terceiros", "Fechado" ],
-    "Em andamento"                    => [ "Aguardando terceiros", "Resolvido", "Fechado" ],
-    "Aguardando terceiros"            => [ "Em andamento", "Resolvido", "Fechado" ],
-    "Resolvido"                       => [ "Reaberto", "Fechado" ],
-    "Fechado"                         => [ "Reaberto" ],
-    "Reaberto"                        => [ "Em andamento", "Triado, aguardando atendimento" ]
+    "Não iniciado"                   => [ "Triado, aguardando atendimento", "Em andamento", "Fechado" ],
+    "Triado, aguardando atendimento" => [ "Em andamento", "Aguardando terceiros", "Aguardando solicitante", "Fechado" ],
+    "Em andamento"                   => [ "Aguardando terceiros", "Aguardando solicitante", "Resolvido", "Fechado" ],
+    "Aguardando terceiros"           => [ "Em andamento", "Resolvido", "Fechado" ],
+    "Aguardando solicitante"         => [ "Em andamento", "Resolvido", "Fechado" ],
+    "Resolvido"                      => [ "Reaberto", "Fechado" ],
+    "Fechado"                        => [ "Reaberto" ],
+    "Reaberto"                       => [ "Em andamento", "Triado, aguardando atendimento" ]
   }.freeze
 
   validates :title,  presence: true, length: { maximum: 255 }
   validates :status, inclusion: { in: STATUSES }
 
   before_create  :generate_ticket_id
+  before_save    :stamp_resolved_at, if: :will_save_change_to_status?
   after_update   :record_status_history, if: :saved_change_to_status?
-  after_update   :stamp_resolved_at,     if: :saved_change_to_status?
 
   after_create_commit  :broadcast_ticket_created
   after_update_commit  :broadcast_ticket_updated
@@ -58,16 +60,21 @@ class Ticket < ApplicationRecord
 
   private
 
+  # ── ID geração com lock para evitar race condition ───────────────────────────
+  # organization.with_lock faz SELECT ... FOR UPDATE na linha da organização,
+  # serializando a geração de IDs por organização.
   def generate_ticket_id
-    # Extrai o número da última TK da organização e incrementa
-    last_num = organization.tickets
-                           .where("id ~ ?", "^TK-\\d+$")
-                           .maximum("CAST(SUBSTRING(id, 4) AS INTEGER)") || 0
-    self.id = "TK-#{format("%04d", last_num + 1)}"
+    organization.with_lock do
+      last_num = organization.tickets
+                             .where("id ~ ?", "^TK-\\d+$")
+                             .maximum("CAST(SUBSTRING(id, 4) AS INTEGER)") || 0
+      self.id = "TK-#{format('%04d', last_num + 1)}"
+    end
   end
 
+  # ── Registra histórico de status com o actor real (Current.user) ─────────────
   def record_status_history
-    actor = assignee || requester
+    actor = Current.user || assignee || requester
     histories.create!(
       user:       actor,
       field:      "status",
@@ -76,9 +83,17 @@ class Ticket < ApplicationRecord
     )
   end
 
+  # ── Marca resolved_at no mesmo UPDATE (evita segundo UPDATE via update_column) ─
   def stamp_resolved_at
-    if %w[Resolvido Fechado].include?(status) && resolved_at.nil?
-      update_column(:resolved_at, Time.current)
+    if will_save_change_to_status? &&
+       %w[Resolvido Fechado].include?(status_in_database == status ? status : changes["status"]&.last) &&
+       resolved_at.nil?
+      self.resolved_at = Time.current
+    end
+
+    # Reabertura: limpa resolved_at
+    if will_save_change_to_status? && status == "Reaberto"
+      self.resolved_at = nil
     end
   end
 

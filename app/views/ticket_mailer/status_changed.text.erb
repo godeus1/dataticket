@@ -1,13 +1,12 @@
-Olá, <%= @user.first_name %>!
+﻿Status do ticket atualizado
 
-O status do seu ticket foi atualizado.
+Ola, <%= @user.first_name %>.
 
-Ticket         : <%= @ticket.id %> — <%= @ticket.title %>
+O status do ticket <%= @ticket.id %> foi atualizado.
+
+ID: <%= @ticket.id %>
+Titulo: <%= @ticket.title %>
 Status anterior: <%= @old_status %>
-Novo status    : <%= @new_status %>
-Atualizado em  : <%= @ticket.updated_at.strftime('%d/%m/%Y %H:%M') %>
+Novo status: <%= @new_status %>
 
-Ver ticket: <%= @url %>
-
----
-Este e-mail foi enviado automaticamente pelo DataTicket.
+Acesse: <%= @url %>

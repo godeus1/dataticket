@@ -45,6 +45,9 @@ module DataticketApi
     config.middleware.use ActionDispatch::Cookies
     config.middleware.use ActionDispatch::Session::CookieStore, key: "_dataticket_session"
 
+    # Rate limiting
+    config.middleware.use Rack::Attack
+
     # Action Cable — origens permitidas para WebSocket
     allowed = ENV.fetch("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:4173")
                  .split(",")
