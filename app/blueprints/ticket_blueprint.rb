@@ -19,6 +19,8 @@ class TicketBlueprint < Blueprinter::Base
     field :sla_expired do |ticket|
       ticket.sla_expired?
     end
+
+    association :tags, blueprint: TagBlueprint
   end
 
   # Full view — used in show/create/update
@@ -27,8 +29,9 @@ class TicketBlueprint < Blueprinter::Base
 
     fields :description, :updated_at, :csat_score, :csat_comment, :escalated_at
 
-    association :comments,     blueprint: TicketCommentBlueprint
-    association :attachments,  blueprint: TicketAttachmentBlueprint
+    association :comments,      blueprint: TicketCommentBlueprint
+    association :attachments,   blueprint: TicketAttachmentBlueprint
+    association :field_values,  blueprint: TicketFieldValueBlueprint
 
     field :queue_name do |ticket|
       ticket.queue&.name

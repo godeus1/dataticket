@@ -7,7 +7,7 @@ module Api
 
       def index
         authorize Ticket
-        tickets = policy_scope(Ticket).includes(:requester, :assignee, :category, :priority, :queue)
+        tickets = policy_scope(Ticket).includes(:requester, :assignee, :category, :priority, :queue, :tags)
         tickets = apply_filters(tickets)
         tickets = apply_search(tickets)
         tickets = tickets.order(created_at: :desc)
@@ -29,6 +29,8 @@ module Api
         authorize Ticket
         ticket = @organization.tickets.new(ticket_params.merge(requester: current_user))
         ticket.save!
+        apply_tags(ticket)
+        apply_custom_field_values(ticket)
         TicketMailer.created(ticket).deliver_later if ticket.organization.emails_enabled?
         render json: TicketBlueprint.render_as_hash(ticket, view: :full), status: :created
       end
@@ -36,6 +38,8 @@ module Api
       def update
         authorize @ticket
         @ticket.update!(ticket_params)
+        apply_tags(@ticket)
+        apply_custom_field_values(@ticket)
         render json: TicketBlueprint.render_as_hash(@ticket, view: :full)
       end
 
@@ -104,7 +108,8 @@ module Api
       def set_ticket
         @ticket = policy_scope(Ticket)
                     .includes(:requester, :assignee, :category, :priority, :queue,
-                              :comments, :ticket_attachments, :histories)
+                              :comments, :ticket_attachments, :histories,
+                              :tags, field_values: :custom_field)
                     .find(params[:id])
       end
 
@@ -119,13 +124,41 @@ module Api
         params.permit(:priority_id, :category_id, :queue_id, :assignee_id)
       end
 
+      # Replaces all tags on the ticket when tag_ids is present in params
+      def apply_tags(ticket)
+        return unless params[:ticket]&.key?(:tag_ids)
+
+        tag_ids = Array(params[:ticket][:tag_ids]).map(&:to_i)
+        # Scope to org's tags to prevent cross-tenant assignment
+        valid_ids = @organization.tags.where(id: tag_ids).pluck(:id)
+        ticket.tag_ids = valid_ids
+      end
+
+      # Upserts custom field values when custom_field_values is present in params
+      def apply_custom_field_values(ticket)
+        values = params[:ticket]&.dig(:custom_field_values)
+        return unless values.present?
+
+        CustomFieldValueService.new(ticket, values).save!
+      rescue CustomFieldValueService::ValidationError => e
+        render json: { errors: [ e.message ] }, status: :unprocessable_entity and return
+      rescue ArgumentError => e
+        render json: { errors: [ e.message ] }, status: :unprocessable_entity and return
+      end
+
       def apply_filters(scope)
-        scope = scope.where(status: params[:status])        if params[:status].present?
+        scope = scope.where(status: params[:status])           if params[:status].present?
         scope = scope.where(priority_id: params[:priority_id]) if params[:priority_id].present?
         scope = scope.where(assignee_id: params[:assignee_id]) if params[:assignee_id].present?
         scope = scope.where(category_id: params[:category_id]) if params[:category_id].present?
         scope = scope.where(queue_id: params[:queue_id])       if params[:queue_id].present?
         scope = scope.overdue                                  if params[:overdue] == "true"
+        # Filter by tag: returns tickets that have ALL specified tags
+        if params[:tag_ids].present?
+          Array(params[:tag_ids]).each do |tag_id|
+            scope = scope.joins(:ticket_tags).where(ticket_tags: { tag_id: tag_id })
+          end
+        end
         scope
       end
 

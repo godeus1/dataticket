@@ -10,13 +10,22 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_20_000002) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_22_000005) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
+  create_table "action_mailbox_inbound_emails", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "message_checksum", null: false
+    t.string "message_id", null: false
+    t.integer "status", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.index ["message_id", "message_checksum"], name: "index_action_mailbox_inbound_emails_uniqueness", unique: true
+  end
+
   create_table "articles", force: :cascade do |t|
     t.bigint "author_id", null: false
-    t.text "content"
+    t.text "body"
     t.datetime "created_at", null: false
     t.string "keywords"
     t.bigint "organization_id", null: false
@@ -51,12 +60,27 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_20_000002) do
     t.index ["organization_id"], name: "index_categories_on_organization_id"
   end
 
+  create_table "custom_fields", force: :cascade do |t|
+    t.boolean "active", default: true, null: false
+    t.datetime "created_at", null: false
+    t.string "field_type", default: "text", null: false
+    t.string "name", null: false
+    t.jsonb "options", default: [], null: false
+    t.bigint "organization_id", null: false
+    t.integer "position", default: 0, null: false
+    t.boolean "required", default: false, null: false
+    t.datetime "updated_at", null: false
+    t.index ["organization_id", "position"], name: "index_custom_fields_on_organization_id_and_position"
+    t.index ["organization_id"], name: "index_custom_fields_on_organization_id"
+  end
+
   create_table "holidays", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.date "date", null: false
     t.string "kind", default: "Nacional"
     t.string "name", null: false
     t.bigint "organization_id", null: false
+    t.boolean "recurring", default: false, null: false
     t.datetime "updated_at", null: false
     t.index ["organization_id"], name: "index_holidays_on_organization_id"
   end
@@ -76,6 +100,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_20_000002) do
     t.string "title", null: false
     t.datetime "updated_at", null: false
     t.bigint "user_id", null: false
+    t.index ["ticket_id"], name: "index_notifications_on_ticket_id"
     t.index ["user_id", "read"], name: "index_notifications_on_user_id_and_read"
     t.index ["user_id"], name: "index_notifications_on_user_id"
   end
@@ -121,6 +146,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_20_000002) do
     t.boolean "active", default: true
     t.bigint "category_id"
     t.datetime "created_at", null: false
+    t.string "description"
     t.string "name", null: false
     t.bigint "organization_id", null: false
     t.datetime "updated_at", null: false
@@ -139,6 +165,31 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_20_000002) do
     t.index ["user_id"], name: "index_scheduled_days_on_user_id"
   end
 
+  create_table "sla_policies", force: :cascade do |t|
+    t.boolean "active", default: true, null: false
+    t.bigint "category_id"
+    t.datetime "created_at", null: false
+    t.bigint "organization_id", null: false
+    t.bigint "priority_id"
+    t.integer "resolve_hours", null: false
+    t.integer "response_hours", null: false
+    t.datetime "updated_at", null: false
+    t.index ["category_id"], name: "index_sla_policies_on_category_id"
+    t.index ["organization_id", "priority_id", "category_id"], name: "idx_sla_policies_org_priority_category", unique: true
+    t.index ["organization_id"], name: "index_sla_policies_on_organization_id"
+    t.index ["priority_id"], name: "index_sla_policies_on_priority_id"
+  end
+
+  create_table "tags", force: :cascade do |t|
+    t.string "color", default: "#6b7280", null: false
+    t.datetime "created_at", null: false
+    t.string "name", null: false
+    t.bigint "organization_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["organization_id", "name"], name: "index_tags_on_organization_id_and_name", unique: true
+    t.index ["organization_id"], name: "index_tags_on_organization_id"
+  end
+
   create_table "ticket_attachments", force: :cascade do |t|
     t.integer "byte_size"
     t.string "content_type"
@@ -148,6 +199,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_20_000002) do
     t.string "ticket_id", null: false
     t.datetime "updated_at", null: false
     t.bigint "user_id", null: false
+    t.index ["ticket_id"], name: "index_ticket_attachments_on_ticket_id"
     t.index ["user_id"], name: "index_ticket_attachments_on_user_id"
   end
 
@@ -162,6 +214,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_20_000002) do
     t.index ["user_id"], name: "index_ticket_comments_on_user_id"
   end
 
+  create_table "ticket_field_values", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.bigint "custom_field_id", null: false
+    t.string "ticket_id", null: false
+    t.datetime "updated_at", null: false
+    t.text "value"
+    t.index ["custom_field_id"], name: "index_ticket_field_values_on_custom_field_id"
+    t.index ["ticket_id", "custom_field_id"], name: "index_ticket_field_values_on_ticket_id_and_custom_field_id", unique: true
+  end
+
   create_table "ticket_histories", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "field"
@@ -174,20 +236,36 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_20_000002) do
     t.index ["user_id"], name: "index_ticket_histories_on_user_id"
   end
 
+  create_table "ticket_tags", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.bigint "tag_id", null: false
+    t.string "ticket_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["tag_id"], name: "index_ticket_tags_on_tag_id"
+    t.index ["ticket_id", "tag_id"], name: "index_ticket_tags_on_ticket_id_and_tag_id", unique: true
+  end
+
   create_table "tickets", id: :string, force: :cascade do |t|
     t.bigint "assignee_id"
     t.bigint "category_id"
     t.datetime "created_at", null: false
+    t.text "csat_comment"
+    t.integer "csat_score"
+    t.datetime "csat_sent_at"
+    t.string "csat_token"
     t.datetime "deadline"
     t.text "description"
     t.decimal "effort_estimated", precision: 6, scale: 2, default: "0.0"
     t.decimal "effort_used", precision: 6, scale: 2, default: "0.0"
+    t.boolean "escalated", default: false, null: false
+    t.datetime "escalated_at"
     t.bigint "organization_id", null: false
     t.bigint "priority_id"
     t.bigint "queue_id"
     t.bigint "requester_id", null: false
     t.datetime "resolved_at"
     t.string "status", default: "Não iniciado", null: false
+    t.string "ticket_type", default: "incidente", null: false
     t.string "title", null: false
     t.boolean "triaged", default: false
     t.datetime "triaged_at"
@@ -195,12 +273,33 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_20_000002) do
     t.index ["assignee_id", "status"], name: "index_tickets_on_assignee_id_and_status"
     t.index ["category_id"], name: "index_tickets_on_category_id"
     t.index ["created_at"], name: "index_tickets_on_created_at"
+    t.index ["csat_token"], name: "index_tickets_on_csat_token", unique: true
     t.index ["deadline"], name: "index_tickets_on_deadline"
     t.index ["organization_id", "status"], name: "index_tickets_on_organization_id_and_status"
     t.index ["organization_id"], name: "index_tickets_on_organization_id"
     t.index ["priority_id"], name: "index_tickets_on_priority_id"
     t.index ["queue_id"], name: "index_tickets_on_queue_id"
+    t.index ["requester_id"], name: "index_tickets_on_requester_id"
     t.index ["status"], name: "index_tickets_on_status"
+    t.index ["ticket_type"], name: "index_tickets_on_ticket_type"
+  end
+
+  create_table "triage_rules", force: :cascade do |t|
+    t.boolean "active", default: true, null: false
+    t.bigint "category_id"
+    t.datetime "created_at", null: false
+    t.string "keyword", null: false
+    t.string "name", null: false
+    t.bigint "organization_id", null: false
+    t.integer "position", default: 0, null: false
+    t.bigint "priority_id"
+    t.bigint "queue_id"
+    t.datetime "updated_at", null: false
+    t.index ["category_id"], name: "index_triage_rules_on_category_id"
+    t.index ["organization_id", "position"], name: "index_triage_rules_on_organization_id_and_position"
+    t.index ["organization_id"], name: "index_triage_rules_on_organization_id"
+    t.index ["priority_id"], name: "index_triage_rules_on_priority_id"
+    t.index ["queue_id"], name: "index_triage_rules_on_queue_id"
   end
 
   create_table "users", force: :cascade do |t|
@@ -225,11 +324,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_20_000002) do
     t.index ["organization_id"], name: "index_users_on_organization_id"
   end
 
+  create_table "webhook_endpoints", force: :cascade do |t|
+    t.boolean "active", default: true, null: false
+    t.datetime "created_at", null: false
+    t.string "events", default: [], array: true
+    t.string "name", null: false
+    t.bigint "organization_id", null: false
+    t.string "secret"
+    t.datetime "updated_at", null: false
+    t.string "url", null: false
+    t.index ["organization_id"], name: "index_webhook_endpoints_on_organization_id"
+  end
+
   add_foreign_key "articles", "organizations"
   add_foreign_key "articles", "users", column: "author_id"
   add_foreign_key "audit_logs", "organizations"
   add_foreign_key "audit_logs", "users"
   add_foreign_key "categories", "organizations"
+  add_foreign_key "custom_fields", "organizations"
   add_foreign_key "holidays", "organizations"
   add_foreign_key "notifications", "tickets"
   add_foreign_key "notifications", "users"
@@ -240,17 +352,30 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_20_000002) do
   add_foreign_key "queues", "organizations"
   add_foreign_key "scheduled_days", "tickets"
   add_foreign_key "scheduled_days", "users"
+  add_foreign_key "sla_policies", "categories"
+  add_foreign_key "sla_policies", "organizations"
+  add_foreign_key "sla_policies", "priorities"
+  add_foreign_key "tags", "organizations"
   add_foreign_key "ticket_attachments", "tickets"
   add_foreign_key "ticket_attachments", "users"
   add_foreign_key "ticket_comments", "tickets"
   add_foreign_key "ticket_comments", "users"
+  add_foreign_key "ticket_field_values", "custom_fields"
+  add_foreign_key "ticket_field_values", "tickets"
   add_foreign_key "ticket_histories", "tickets"
   add_foreign_key "ticket_histories", "users"
+  add_foreign_key "ticket_tags", "tags"
+  add_foreign_key "ticket_tags", "tickets"
   add_foreign_key "tickets", "categories"
   add_foreign_key "tickets", "organizations"
   add_foreign_key "tickets", "priorities"
   add_foreign_key "tickets", "queues"
   add_foreign_key "tickets", "users", column: "assignee_id"
   add_foreign_key "tickets", "users", column: "requester_id"
+  add_foreign_key "triage_rules", "categories"
+  add_foreign_key "triage_rules", "organizations"
+  add_foreign_key "triage_rules", "priorities"
+  add_foreign_key "triage_rules", "queues"
   add_foreign_key "users", "organizations"
+  add_foreign_key "webhook_endpoints", "organizations"
 end

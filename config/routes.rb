@@ -72,16 +72,15 @@ Rails.application.routes.draw do
       resource :organization, only: %i[show update]
 
       # ── Fase 4: Automação e Inteligência ──────────────────────────────────
-      # Auto-triagem por regras configuráveis
       resources :triage_rules
-
-      # Webhook outbound (Slack, Teams, qualquer URL)
       resources :webhook_endpoints do
         member { post :test_delivery }
       end
-
-      # SLA por categoria + prioridade
       resources :sla_policies
+
+      # ── Fase 5: Tags e Campos Customizados ────────────────────────────────
+      resources :tags
+      resources :custom_fields
     end
   end
 end
