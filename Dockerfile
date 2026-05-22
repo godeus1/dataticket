@@ -60,6 +60,8 @@ RUN chmod +x bin/* && \
 
 
 # Final stage for app image
+# ARG abaixo quebra o cache do Railway quando precisar forçar rebuild
+ARG BUILD_DATE
 FROM base
 
 # Run and own only the runtime files as a non-root user for security
