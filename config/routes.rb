@@ -16,12 +16,16 @@ Rails.application.routes.draw do
       # Perfil do usuário autenticado
       get "me", to: "users#me"
 
+      # CSAT (público — sem autenticação)
+      post "csat/:token", to: "csat#submit", as: :csat_submit
+
       # Tickets
       resources :tickets do
         resources :comments,    only: %i[index create destroy], module: :tickets
         resources :attachments, only: %i[index create destroy], module: :tickets do
           member { get :download }
         end
+        collection { post :bulk_triage }
         member do
           patch :triage
           patch :change_status

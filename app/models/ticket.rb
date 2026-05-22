@@ -14,6 +14,8 @@ class Ticket < ApplicationRecord
   has_many :notifications,                                 foreign_key: :ticket_id, dependent: :nullify
   has_many :scheduled_days,                                foreign_key: :ticket_id, dependent: :destroy
 
+  TICKET_TYPES = %w[incidente problema mudança requisição].freeze
+
   STATUSES = [
     "Não iniciado",
     "Triado, aguardando atendimento",
@@ -36,8 +38,10 @@ class Ticket < ApplicationRecord
     "Reaberto"                       => [ "Em andamento", "Triado, aguardando atendimento" ]
   }.freeze
 
-  validates :title,  presence: true, length: { maximum: 255 }
-  validates :status, inclusion: { in: STATUSES }
+  validates :title,       presence: true, length: { maximum: 255 }
+  validates :status,      inclusion: { in: STATUSES }
+  validates :ticket_type, inclusion: { in: TICKET_TYPES }
+  validates :csat_score,  inclusion: { in: 1..5 }, allow_nil: true
 
   # Campos auditados além de status
   TRACKED_ASSOCIATIONS = {
@@ -47,10 +51,12 @@ class Ticket < ApplicationRecord
     "queue_id"     => ->(org, id) { id ? org.queues.find_by(id: id)&.name : nil }
   }.freeze
 
-  before_create  :generate_ticket_id
-  before_save    :stamp_resolved_at, if: :will_save_change_to_status?
-  after_update   :record_status_history,     if: :saved_change_to_status?
-  after_update   :record_field_histories
+  before_create        :generate_ticket_id
+  before_create        :generate_csat_token
+  before_save          :stamp_resolved_at,        if: :will_save_change_to_status?
+  after_update         :record_status_history,    if: :saved_change_to_status?
+  after_update         :record_field_histories
+  after_update_commit  :schedule_csat_survey,     if: -> { saved_change_to_status? && status == "Fechado" }
 
   after_create_commit  :broadcast_ticket_created
   after_update_commit  :broadcast_ticket_updated
@@ -68,6 +74,16 @@ class Ticket < ApplicationRecord
   end
 
   private
+
+  # ── CSAT: gera token único para URL de avaliação ──────────────────────────────
+  def generate_csat_token
+    self.csat_token = SecureRandom.urlsafe_base64(24)
+  end
+
+  # ── CSAT: agenda envio do survey após fechamento ───────────────────────────────
+  def schedule_csat_survey
+    CsatSurveyJob.set(wait: 1.hour).perform_later(id)
+  end
 
   # ── ID geração com lock para evitar race condition ───────────────────────────
   # organization.with_lock faz SELECT ... FOR UPDATE na linha da organização,

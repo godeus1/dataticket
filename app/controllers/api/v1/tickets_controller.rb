@@ -83,6 +83,22 @@ module Api
         )
       end
 
+      def bulk_triage
+        authorize Ticket, :triage?
+        result = BulkTriageService.new(
+          params[:ticket_ids],
+          bulk_triage_params,
+          current_user
+        ).call
+
+        render json: {
+          success:  result.success?,
+          triaged:  result.triaged,
+          skipped:  result.skipped,
+          errors:   result.errors
+        }, status: result.success? ? :ok : :unprocessable_entity
+      end
+
       private
 
       def set_ticket
@@ -94,9 +110,13 @@ module Api
 
       def ticket_params
         params.require(:ticket).permit(
-          :title, :description, :status, :priority_id,
-          :category_id, :queue_id, :assignee_id, :deadline
+          :title, :description, :status, :ticket_type,
+          :priority_id, :category_id, :queue_id, :assignee_id, :deadline
         )
+      end
+
+      def bulk_triage_params
+        params.permit(:priority_id, :category_id, :queue_id, :assignee_id)
       end
 
       def apply_filters(scope)

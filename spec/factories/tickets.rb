@@ -1,16 +1,17 @@
 FactoryBot.define do
   factory :ticket do
     organization
-    requester { association :user, organization: organization }
-    title     { Faker::Lorem.sentence(word_count: 4) }
-    status    { "Não iniciado" }
+    requester   { association :user, organization: organization }
+    title       { Faker::Lorem.sentence(word_count: 4) }
+    status      { "Não iniciado" }
+    ticket_type { "incidente" }
 
     trait :in_progress do
       status { "Em andamento" }
     end
 
     trait :resolved do
-      status     { "Resolvido" }
+      status      { "Resolvido" }
       resolved_at { Time.current }
     end
 
