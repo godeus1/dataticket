@@ -33,6 +33,9 @@ module Api
         status  = failed >= QueueMonitorJob::FAILURE_ALERT_THRESHOLD ? "degraded" : "ok"
 
         { status: status, failed_jobs: failed, blocked_jobs: blocked }
+      rescue ActiveRecord::StatementInvalid, PG::UndefinedTable
+        # Tabelas do Solid Queue não existem neste ambiente (ex: dev sem db:migrate completo)
+        { status: "ok", failed_jobs: 0, blocked_jobs: 0, note: "solid_queue not migrated" }
       rescue StandardError => e
         { status: "unknown", error: e.message }
       end
