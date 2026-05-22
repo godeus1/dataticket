@@ -50,8 +50,8 @@ export const api = {
   login:                (email, password)        => req('/login',                  { method: 'POST', body: j({ user: { email, password } }) }),
   logout:               ()                       => req('/logout',                 { method: 'DELETE' }),
   me:                   ()                       => req('/me'),
-  requestPasswordReset: (email)                  => req('/password_reset/request', { method: 'POST', body: j({ email }) }),
-  resetPassword:        (email, code, password)  => req('/password_reset',         { method: 'POST', body: j({ email, code, password }) }),
+  requestPasswordReset: (email)                 => req('/password_reset/request', { method: 'POST', body: j({ email }) }),
+  resetPassword:        (email, code, password) => req('/password_reset/confirm', { method: 'POST', body: j({ email, code, password }) }),
 
   // ── Tickets ───────────────────────────────────────────────────────────
   tickets:      (params = {}) => req(`/tickets?${new URLSearchParams({ per_page: 500, ...params })}`),
