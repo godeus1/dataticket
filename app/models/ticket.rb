@@ -13,6 +13,9 @@ class Ticket < ApplicationRecord
   has_many :ticket_attachments, foreign_key: :ticket_id, dependent: :destroy
   has_many :notifications,                                 foreign_key: :ticket_id, dependent: :nullify
   has_many :scheduled_days,                                foreign_key: :ticket_id, dependent: :destroy
+  has_many :ticket_tags,   foreign_key: :ticket_id, dependent: :destroy
+  has_many :tags,          through: :ticket_tags
+  has_many :field_values,  class_name: "TicketFieldValue", foreign_key: :ticket_id, dependent: :destroy
 
   TICKET_TYPES = %w[incidente problema mudança requisição].freeze
 
