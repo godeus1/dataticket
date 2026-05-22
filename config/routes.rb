@@ -21,10 +21,8 @@ Rails.application.routes.draw do
       get "health", to: "health#index"
 
       # Reset de senha público (fluxo "esqueci minha senha")
-      scope :password_reset do
-        post :request, to: "password_resets#request_reset"
-        post :confirm, to: "password_resets#create"
-      end
+      post "password_reset_request", to: "password_resets#request_reset"
+      post "password_reset_confirm", to: "password_resets#create"
 
       # Perfil do usuário autenticado
       get "me", to: "users#me"
