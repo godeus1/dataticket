@@ -25,7 +25,7 @@ gem "devise-jwt"   # sem constraint — usa versão mais recente
 gem "pundit", "~> 2.3"
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
-gem "rack-cors", "~> 2.0"
+gem "rack-cors", "~> 3.0"
 
 # ── Rate limiting ─────────────────────────────────────────────────────────────
 gem "rack-attack"
