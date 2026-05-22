@@ -6,25 +6,25 @@ module Api
       def index
         authorize Category
         categories = @organization.categories.order(:name)
-        render json: categories.as_json(only: %i[id name color active])
+        render json: CategoryBlueprint.render_as_hash(categories)
       end
 
       def show
         authorize @category
-        render json: @category.as_json(only: %i[id name color active created_at updated_at])
+        render json: CategoryBlueprint.render_as_hash(@category)
       end
 
       def create
         authorize Category
         category = @organization.categories.new(category_params)
         category.save!
-        render json: category.as_json(only: %i[id name color active]), status: :created
+        render json: CategoryBlueprint.render_as_hash(category), status: :created
       end
 
       def update
         authorize @category
         @category.update!(category_params)
-        render json: @category.as_json(only: %i[id name color active])
+        render json: CategoryBlueprint.render_as_hash(@category)
       end
 
       def destroy

@@ -6,25 +6,25 @@ module Api
       def index
         authorize Priority
         priorities = @organization.priorities.ordered
-        render json: priorities.as_json(only: %i[id name color sla_hours sla_days active position])
+        render json: PriorityBlueprint.render_as_hash(priorities)
       end
 
       def show
         authorize @priority
-        render json: @priority.as_json(only: %i[id name color sla_hours sla_days active position created_at updated_at])
+        render json: PriorityBlueprint.render_as_hash(@priority)
       end
 
       def create
         authorize Priority
         priority = @organization.priorities.new(priority_params)
         priority.save!
-        render json: priority.as_json(only: %i[id name color sla_hours sla_days active position]), status: :created
+        render json: PriorityBlueprint.render_as_hash(priority), status: :created
       end
 
       def update
         authorize @priority
         @priority.update!(priority_params)
-        render json: @priority.as_json(only: %i[id name color sla_hours sla_days active position])
+        render json: PriorityBlueprint.render_as_hash(@priority)
       end
 
       def destroy
