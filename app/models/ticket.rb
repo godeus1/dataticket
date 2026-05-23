@@ -11,6 +11,7 @@ class Ticket < ApplicationRecord
   has_many :comments,      class_name: "TicketComment",    foreign_key: :ticket_id, dependent: :destroy
   has_many :histories,     class_name: "TicketHistory",    foreign_key: :ticket_id, dependent: :destroy
   has_many :ticket_attachments, foreign_key: :ticket_id, dependent: :destroy
+  alias_method :attachments, :ticket_attachments
   has_many :notifications,                                 foreign_key: :ticket_id, dependent: :nullify
   has_many :scheduled_days,                                foreign_key: :ticket_id, dependent: :destroy
   has_many :ticket_tags,   foreign_key: :ticket_id, dependent: :destroy
