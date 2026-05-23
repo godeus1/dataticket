@@ -1,0 +1,16 @@
+#!/bin/bash
+# bin/start — ponto de entrada do processo web no Railway / Docker
+# Responsável por: aplicar migrations pendentes e iniciar o servidor Puma.
+#
+# Separar a migração do startCommand evita o problema de dupla execução
+# que ocorria quando o Docker ENTRYPOINT detectava "rails server" no $* e
+# rodava db:prepare, e em seguida o sh -c "... && rails server" também
+# rodava db:prepare, causando conflito de advisory lock em deploys rolling.
+
+set -e
+
+echo "==> [$(date -u '+%Y-%m-%dT%H:%M:%SZ')] Applying pending migrations (db:prepare)..."
+bundle exec rails db:prepare
+
+echo "==> [$(date -u '+%Y-%m-%dT%H:%M:%SZ')] Starting Puma..."
+exec bundle exec rails server -b 0.0.0.0

@@ -23,9 +23,13 @@ module Api
 
       def create
         authorize User
+        # Gera senha temporária se o admin não forneceu uma
+        auto_password = user_params[:password].blank? ? SecureRandom.hex(12) : nil
         user = @organization.users.new(user_params)
-        user.password = SecureRandom.hex(12) unless user_params[:password].present?
+        user.password = auto_password if auto_password
         user.save!
+        # Envia e-mail de boas-vindas com a senha gerada automaticamente
+        TicketMailer.welcome(user, auto_password).deliver_later if auto_password
         render json: UserBlueprint.render_as_hash(user), status: :created
       end
 
@@ -51,7 +55,9 @@ module Api
         authorize @user, :update?
         new_password = SecureRandom.hex(8)
         @user.update!(password: new_password)
-        render json: { message: "Senha redefinida com sucesso" }
+        # Envia a nova senha por e-mail (reutiliza template de boas-vindas)
+        TicketMailer.welcome(@user, new_password).deliver_later
+        render json: { message: "Senha redefinida. Um e-mail foi enviado para #{@user.email}." }
       end
 
       private

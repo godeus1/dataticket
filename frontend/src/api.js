@@ -66,7 +66,7 @@ export const api = {
 
   // ── Comments ──────────────────────────────────────────────────────────
   comments:      (tid)      => req(`/tickets/${tid}/comments`),
-  createComment: (tid, d)   => req(`/tickets/${tid}/comments`,     { method: 'POST',   body: j({ comment: d }) }),
+  createComment: (tid, d)   => req(`/tickets/${tid}/comments`,     { method: 'POST',   body: j({ ticket_comment: d }) }),
   deleteComment: (tid, cid) => req(`/tickets/${tid}/comments/${cid}`, { method: 'DELETE' }),
 
   // ── Users ─────────────────────────────────────────────────────────────

@@ -1,7 +1,11 @@
 #!/bin/bash -e
 
-# Prepara o banco apenas quando for o processo web (evita colisão no worker)
-if [[ "$*" == *"rails"* && "$*" == *"server"* ]] || [[ "$*" == *"thrust"* ]]; then
+# Prepara o banco apenas quando for chamada DIRETA ao rails server ou thrust
+# (i.e., sem passar por bin/start, que já cuida do db:prepare).
+# Condição usa grep para ser compatível tanto com:
+#   ./bin/rails server     → $* contém "rails server"
+#   bundle exec thrust ...  → $* contém "thrust"
+if echo "$*" | grep -qE "rails[[:space:]]+server|thrust"; then
   echo "==> Running db:prepare..."
   ./bin/rails db:prepare
 fi
