@@ -1,7 +1,7 @@
 #!/bin/bash -e
 
 # Prepara o banco apenas quando for o processo web (evita colisão no worker)
-if [[ "$1" == *"rails"* && "$*" == *"server"* ]] || [[ "$*" == *"thrust"* ]]; then
+if [[ "$*" == *"rails"* && "$*" == *"server"* ]] || [[ "$*" == *"thrust"* ]]; then
   echo "==> Running db:prepare..."
   ./bin/rails db:prepare
 fi
