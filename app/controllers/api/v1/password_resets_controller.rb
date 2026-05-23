@@ -1,8 +1,8 @@
 module Api
   module V1
     class PasswordResetsController < ApplicationController
-      skip_before_action :authenticate_user_from_token!
-      skip_after_action  :verify_authorized
+      skip_before_action :authenticate_user!, raise: false
+      skip_after_action  :verify_authorized,  raise: false
 
       CODE_EXPIRY = 15.minutes
 
