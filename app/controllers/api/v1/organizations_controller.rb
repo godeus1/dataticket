@@ -16,7 +16,7 @@ module Api
 
       def org_json(org)
         org.as_json(only: %i[id name slug timezone date_format emails_enabled created_at updated_at])
-           .merge(attachments_enabled: S3Uploader.enabled?)
+           .merge(attachments_enabled: true)
       end
 
       def organization_params

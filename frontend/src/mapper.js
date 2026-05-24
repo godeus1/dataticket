@@ -31,11 +31,12 @@ export function mapComment(c) {
 export function mapAttachment(a) {
   if (!a) return null
   return {
-    id:   a.id,
-    name: a.filename ?? a.name ?? '',
-    url:  a.url      ?? null,
-    size: a.file_size ?? a.size ?? 0,
-    type: a.content_type ?? a.type ?? '',
+    id:       a.id,
+    ticketId: a.ticket_id ?? a.ticketId ?? null,
+    name:     a.filename  ?? a.name     ?? '',
+    url:      a.download_url ?? a.url   ?? null,
+    size:     a.byte_size ?? a.file_size ?? a.size ?? 0,
+    type:     a.content_type ?? a.type  ?? '',
   }
 }
 

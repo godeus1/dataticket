@@ -1,4 +1,4 @@
-// ── API Client — centraliza todas as chamadas ao Rails API ────────────────
+﻿// ── API Client — centraliza todas as chamadas ao Rails API ────────────────
 // Em dev: proxy Vite redireciona /api → http://localhost:3001
 // Em prod: VITE_API_URL deve apontar para a URL do Railway
 
@@ -131,5 +131,49 @@ export const api = {
   updateOrganization: (d) => req('/organization', { method: 'PATCH', body: j({ organization: d }) }),
 
   // ── Audit log ─────────────────────────────────────────────────────────
+
+  // -- Attachments
+  attachments: (ticketId) => req(`/tickets/${ticketId}/attachments`),
+
+  uploadAttachment: (ticketId, file) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    const token = getToken()
+    return fetch(`${BASE}/tickets/${ticketId}/attachments`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: fd,
+    }).then(async res => {
+      if (res.status === 204) return null
+      let data
+      try { data = await res.json() } catch { data = {} }
+      if (!res.ok) {
+        const err = new Error(data?.error ?? `HTTP ${res.status}`)
+        err.status = res.status
+        throw err
+      }
+      return data
+    })
+  },
+
+  deleteAttachment: (ticketId, attId) =>
+    req(`/tickets/${ticketId}/attachments/${attId}`, { method: 'DELETE' }),
+
+  downloadAttachment: async (ticketId, attId, filename) => {
+    const token = getToken()
+    const res = await fetch(`${BASE}/tickets/${ticketId}/attachments/${attId}/download`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename || 'arquivo'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  },
   auditLogs: (params = {}) => req(`/audit_logs?${new URLSearchParams(params)}`),
 }

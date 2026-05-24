@@ -1,4 +1,6 @@
-import { useState, useMemo } from 'react'
+﻿import { useState, useMemo, useEffect } from 'react'
+import { api } from '../api.js'
+import { mapAttachment } from '../mapper.js'
 import { useApp } from '../AppContext.jsx'
 import { PT, EN, PERM, STATUS_LIST, ALLOWED_TRANSITIONS, isExpired, formatDate, formatDateTime } from '../data.js'
 import { Avatar, Badge, PriBadge, CatChip, ModalOverlay, EmptyState } from '../components.jsx'
@@ -326,6 +328,16 @@ export function NewTicket() {
           </div>
         </div>`
       )
+      // Upload de anexos (se houver)
+      if (files.length > 0) {
+        const uploadResults = await Promise.allSettled(
+          files.map(f => api.uploadAttachment(ticket.id, f))
+        )
+        const failed = uploadResults.filter(r => r.status === 'rejected')
+        if (failed.length > 0) {
+          showToast(`Ticket criado, mas ${failed.length} anexo(s) falharam no upload.`)
+        }
+      }
       showToast(`Ticket ${ticket.id} aberto!`)
       setScreen('tickets')
     } catch (err) {
@@ -382,28 +394,22 @@ export function NewTicket() {
         </div>
         <div className="form-row">
           <label className="label">📎 Anexos (PDF, PNG, JPG, DOCX — máx. 20 MB cada)</label>
-          {systemConfig?.attachmentsEnabled ? (
-            <>
-              <input type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.txt,.xlsx,.zip"
-                style={{ fontSize: 13, color: 'var(--text)', padding: '6px 0' }}
-                onChange={e => setFiles(Array.from(e.target.files))} />
-              {files.length > 0 && (
-                <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  {files.map((f, i) => (
-                    <span key={i} style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, padding: '2px 8px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
-                      📎 {f.name}
-                      <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', fontSize: 13, padding: 0 }}
-                        onClick={() => setFiles(prev => prev.filter((_, j) => j !== i))}>×</button>
-                    </span>
-                  ))}
-                </div>
-              )}
-            </>
-          ) : (
-            <div style={{ padding: '8px 12px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12, color: 'var(--text2)', display: 'flex', alignItems: 'center', gap: 8 }}>
-              🔒 Upload de anexos indisponível — armazenamento S3 não configurado. Contate o administrador.
-            </div>
-          )}
+          <>
+            <input type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.txt,.xlsx,.zip"
+              style={{ fontSize: 13, color: 'var(--text)', padding: '6px 0' }}
+              onChange={e => setFiles(Array.from(e.target.files))} />
+            {files.length > 0 && (
+              <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {files.map((f, i) => (
+                  <span key={i} style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, padding: '2px 8px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    📎 {f.name}
+                    <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', fontSize: 13, padding: 0 }}
+                      onClick={() => setFiles(prev => prev.filter((_, j) => j !== i))}>x</button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </>
         </div>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
           <button className="btn btn-secondary" onClick={() => setScreen('tickets')}>{t.cancel}</button>
@@ -439,6 +445,14 @@ export function TicketDetail() {
   const MORE_PER = 25
   const [newAttFile, setNewAttFile] = useState(null)
   const [addingAtt, setAddingAtt] = useState(false)
+  const [localAttachments, setLocalAttachments] = useState(null) // null = not loaded yet
+
+  useEffect(() => {
+    if (!tk) return
+    api.attachments(tk.id)
+      .then(data => setLocalAttachments((data ?? []).map(mapAttachment)))
+      .catch(() => setLocalAttachments(tk.attachments ?? []))
+  }, [tk?.id])
 
   const p = PERM[currentUser.role]
 
@@ -760,49 +774,58 @@ export function TicketDetail() {
           </div>
 
           {/* Anexos */}
-          {((tk.attachments || []).length > 0 || p.createTicket) && (
+          {(p.createTicket || (localAttachments ?? []).length > 0) && (
             <div className="card" style={{ marginBottom: 12 }}>
               <div style={{ fontWeight: 600, marginBottom: 10 }}>📎 Anexos</div>
-              {(tk.attachments || []).length === 0 && (
+              {localAttachments === null && (
+                <div style={{ fontSize: 12, color: 'var(--text2)' }}>Carregando...</div>
+              )}
+              {localAttachments !== null && localAttachments.length === 0 && (
                 <div style={{ fontSize: 12, color: 'var(--text2)' }}>Nenhum anexo.</div>
               )}
-              {(tk.attachments || []).map((att, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid var(--border)', fontSize: 12 }}>
+              {(localAttachments ?? []).map((att) => (
+                <div key={att.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid var(--border)', fontSize: 12 }}>
                   <span>📄</span>
                   <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{att.name}</span>
                   <span style={{ color: 'var(--text2)', flexShrink: 0 }}>{att.size ? (att.size / 1024).toFixed(0) + ' KB' : ''}</span>
-                  {att.url
-                    ? <a href={att.url} target="_blank" rel="noreferrer" className="btn btn-secondary btn-sm" style={{ flexShrink: 0 }}>⬇ Baixar</a>
-                    : <span style={{ color: 'var(--text2)', fontSize: 11 }}>Sem link</span>
-                  }
+                  <button className="btn btn-secondary btn-sm" style={{ flexShrink: 0 }}
+                    onClick={() => api.downloadAttachment(tk.id, att.id, att.name).catch(e => alert(`Erro no download: ${e.message}`))}>
+                    ⬇ Baixar
+                  </button>
+                  {p.deleteTicket && (
+                    <button className="btn btn-danger btn-sm" style={{ flexShrink: 0, padding: '2px 6px' }}
+                      onClick={async () => {
+                        if (!confirm(`Remover "${att.name}"?`)) return
+                        try {
+                          await api.deleteAttachment(tk.id, att.id)
+                          setLocalAttachments(prev => prev.filter(a => a.id !== att.id))
+                        } catch (e) { alert(`Erro ao remover: ${e.message}`) }
+                      }}>✕</button>
+                  )}
                 </div>
               ))}
               {/* Upload de novo anexo */}
               {p.createTicket && (
-                <div style={{ marginTop: 10 }}>
-                  {systemConfig?.attachmentsEnabled ? (
-                    <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-                      <input type="file" style={{ fontSize: 11, flex: 1, minWidth: 0 }}
-                        onChange={e => setNewAttFile(e.target.files[0] || null)} />
-                      <button className="btn btn-secondary btn-sm" disabled={!newAttFile || addingAtt}
-                        onClick={async () => {
-                          if (!newAttFile) return
-                          setAddingAtt(true)
-                          const newAtt = { id: Date.now(), name: newAttFile.name, url: null, size: newAttFile.size, type: newAttFile.type }
-                          setTickets(prev => prev.map(x => x.id === tk.id
-                            ? { ...x, attachments: [...(x.attachments || []), newAtt] }
-                            : x
-                          ))
-                          setNewAttFile(null); setAddingAtt(false)
-                        }}>
-                        {addingAtt ? '⏳' : '➕ Enviar'}
-                      </button>
-                    </div>
-                  ) : (
-                    <div style={{ padding: '6px 10px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, fontSize: 11, color: 'var(--text2)' }}>
-                      🔒 Upload indisponível — armazenamento S3 não configurado.
-                    </div>
-                  )}
+                <div style={{ marginTop: 10, display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <input type="file" style={{ fontSize: 11, flex: 1, minWidth: 0 }}
+                    onChange={e => setNewAttFile(e.target.files[0] || null)} />
+                  <button className="btn btn-secondary btn-sm" disabled={!newAttFile || addingAtt}
+                    onClick={async () => {
+                      if (!newAttFile) return
+                      setAddingAtt(true)
+                      try {
+                        const att = await api.uploadAttachment(tk.id, newAttFile)
+                        setLocalAttachments(prev => [...(prev ?? []), mapAttachment(att)])
+                        setNewAttFile(null)
+                        showToast('Anexo enviado!')
+                      } catch (e) {
+                        alert(`Erro no upload: ${e.message}`)
+                      } finally {
+                        setAddingAtt(false)
+                      }
+                    }}>
+                    {addingAtt ? '⏳ Enviando...' : '➕ Enviar'}
+                  </button>
                 </div>
               )}
             </div>

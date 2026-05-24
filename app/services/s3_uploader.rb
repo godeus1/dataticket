@@ -52,6 +52,8 @@ class S3Uploader
   end
 
   # ── Helpers ─────────────────────────────────────────────────────────────────
+
+  # S3 disponível apenas quando credenciais AWS presentes
   def self.enabled?
     ENV["AWS_ACCESS_KEY_ID"].present? && ENV["AWS_SECRET_ACCESS_KEY"].present?
   end
@@ -59,6 +61,13 @@ class S3Uploader
   def self.build_key(ticket_id, filename)
     safe = filename.gsub(/[^0-9A-Za-z.\-_]/, "_")
     "tickets/#{ticket_id}/#{SecureRandom.uuid}/#{safe}"
+  end
+
+  # Caminho absoluto no disco para armazenamento local.
+  # Em produção usar STORAGE_PATH=/data/attachments (volume Railway).
+  def self.local_path(key)
+    base = ENV.fetch("STORAGE_PATH", Rails.root.join("tmp", "attachments").to_s)
+    File.join(base, key)
   end
 
   private_class_method def self.client
@@ -72,16 +81,13 @@ class S3Uploader
   private_class_method def self.local_save(io, key)
     dest = local_path(key)
     FileUtils.mkdir_p(File.dirname(dest))
-    File.binwrite(dest, io.respond_to?(:read) ? io.read : io)
+    data = io.respond_to?(:read) ? io.read : io
+    File.binwrite(dest, data)
     Result.new(success?: true, key: key, error: nil)
   end
 
-  private_class_method def self.local_path(key)
-    Rails.root.join("tmp", "attachments", key).to_s
-  end
-
   private_class_method def self.local_url(key)
-    # Retorna nil em produção sem S3; o controller trata esse caso
+    # Download é feito via endpoint autenticado; não há URL pública local
     nil
   end
 end
