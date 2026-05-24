@@ -65,7 +65,9 @@ Rails.application.configure do
     user_name:            ENV.fetch("SMTP_USER",  "mobile@salvabras.com.br"),
     password:             ENV.fetch("SMTP_PASS",  ""),
     authentication:       :login,
-    enable_starttls_auto: true
+    enable_starttls_auto: true,
+    open_timeout:         10,
+    read_timeout:         15
   }
 
   # Enable locale fallbacks for I18n (makes lookups for any locale fall back to

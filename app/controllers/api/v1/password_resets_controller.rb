@@ -27,8 +27,9 @@ module Api
         )
         begin
           PasswordResetMailer.reset_code(user, code).deliver_now
+          Rails.logger.info "[password_reset] e-mail enviado com sucesso para #{user.email}"
         rescue => e
-          Rails.logger.error "[password_reset] falha no envio de e-mail: #{e.message}"
+          Rails.logger.error "[password_reset] #{e.class}: #{e.message}"
           render json: { error: "Não foi possível enviar o e-mail. Verifique as configurações SMTP." },
                  status: :service_unavailable
           return
