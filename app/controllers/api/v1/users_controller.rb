@@ -1,6 +1,8 @@
 module Api
   module V1
     class UsersController < ApplicationController
+      include Pagy::Backend
+
       before_action :set_user, only: %i[show update destroy toggle_active reset_password]
 
       def me
@@ -11,9 +13,20 @@ module Api
       def index
         authorize User
         users = @organization.users.order(:first_name, :last_name)
-        users = users.where(role: params[:role]) if params[:role].present?
+        users = users.where(role: params[:role])   if params[:role].present?
         users = users.where(active: params[:active]) if params[:active].present?
-        render json: UserBlueprint.render_as_hash(users)
+
+        # Paginação opcional: se per_page=all (ou não informado), retorna todos
+        # para compatibilidade com selects/dropdowns do frontend.
+        if params[:per_page].present? && params[:per_page] != "all"
+          @pagy, users = pagy(users, limit: params[:per_page].to_i)
+          render json: {
+            users:      UserBlueprint.render_as_hash(users),
+            pagination: pagy_metadata(@pagy)
+          }
+        else
+          render json: UserBlueprint.render_as_hash(users)
+        end
       end
 
       def show
@@ -29,7 +42,7 @@ module Api
         user.password = auto_password if auto_password
         user.save!
         # Envia e-mail de boas-vindas com a senha gerada automaticamente
-        TicketMailer.welcome(user, auto_password).deliver_now if auto_password
+        TicketMailer.welcome(user, auto_password).deliver_later if auto_password
         render json: UserBlueprint.render_as_hash(user), status: :created
       end
 

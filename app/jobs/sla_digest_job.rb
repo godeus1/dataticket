@@ -11,7 +11,7 @@ class SlaDigestJob < ApplicationJob
       next if expired.empty? && expiring_today.empty?
 
       org.users.staff.active.find_each do |user|
-        SlaDigestMailer.daily(user, expired, expiring_today).deliver_now
+        SlaDigestMailer.daily(user, expired, expiring_today).deliver_later
       end
     end
   end

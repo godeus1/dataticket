@@ -19,6 +19,10 @@ production:
     class: DatabaseBackupJob
     schedule: "0 3 * * *"        # diariamente às 03:00 UTC — envia para S3 ou alerta o admin
 
+  jwt_cleanup:
+    class: JwtCleanupJob
+    schedule: "0 4 * * 0"        # toda domingo às 04:00 UTC — remove tokens JWT expirados
+
 development:
   escalation_check:
     class: EscalationJob

@@ -50,7 +50,7 @@ class EscalationService
         body:    "SLA excedido em #{sla_exceeded_percent}%. Ticket: #{@ticket.title}"
       )
       next unless @org.emails_enabled?
-      TicketMailer.escalated(@ticket, user).deliver_now
+      TicketMailer.escalated(@ticket, user).deliver_later
     rescue => e
       Rails.logger.error("[escalation_email] falha ao notificar #{user.email}: #{e.message}")
     end

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { useApp } from '../AppContext.jsx'
 import { PT, EN } from '../data.js'
 import { api } from '../api.js'
@@ -52,7 +52,7 @@ export default function LoginScreen() {
   async function doResetPassword() {
     setErr('')
     if (!inputCode.trim()) { setErr('Informe o código recebido por e-mail.'); return }
-    if (!newPw || newPw.length < 6) { setErr('A nova senha deve ter pelo menos 6 caracteres.'); return }
+    if (!newPw || newPw.length < 12) { setErr('A nova senha deve ter pelo menos 12 caracteres.'); return }
     if (newPw !== confirmPw) { setErr('As senhas não conferem.'); return }
     setLoading(true)
     try {

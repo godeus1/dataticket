@@ -8,7 +8,7 @@
     return unless ticket.organization.emails_enabled?
     return if ticket.csat_sent_at.present?  # ja enviado
 
-    CsatMailer.survey(ticket).deliver_now
+    CsatMailer.survey(ticket).deliver_later
     ticket.update_column(:csat_sent_at, Time.current)
   end
 end

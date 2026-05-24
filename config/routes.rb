@@ -3,8 +3,12 @@ Rails.application.routes.draw do
   get "/metrics", to: "metrics#index"
 
   # Swagger / OpenAPI UI
-  mount Rswag::Ui::Engine => "/api-docs"
-  mount Rswag::Api::Engine => "/api-docs"
+  # Em produção só é exposto se API_DOCS_ENABLED=true estiver definido no Railway.
+  # Isso evita vazar o contrato da API publicamente.
+  if !Rails.env.production? || ENV["API_DOCS_ENABLED"] == "true"
+    mount Rswag::Ui::Engine => "/api-docs"
+    mount Rswag::Api::Engine => "/api-docs"
+  end
 
   # Rails built-in health check
   get "up" => "rails/health#show", as: :rails_health_check

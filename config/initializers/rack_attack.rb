@@ -34,17 +34,32 @@ class Rack::Attack
     end
   end
 
-  # 4. SSO callback por IP: 20 req / min (IdP relay abuse)
+  # 4. Reset de senha por IP: 5 tentativas / 15 min (evita enumeração de e-mails)
+  throttle("password_reset/ip", limit: 5, period: 15.minutes) do |req|
+    req.ip if req.path == "/api/v1/password_reset_request" && req.post?
+  end
+
+  # 5. Reset de senha por e-mail: 3 tentativas / 15 min (força bruta em e-mails específicos)
+  throttle("password_reset/email", limit: 3, period: 15.minutes) do |req|
+    if req.path == "/api/v1/password_reset_request" && req.post?
+      body = req.body.read
+      req.body.rewind
+      params = JSON.parse(body) rescue {}
+      params["email"]&.downcase&.strip
+    end
+  end
+
+  # 7. SSO callback por IP: 20 req / min (IdP relay abuse)
   throttle("sso/ip", limit: 20, period: 1.minute) do |req|
     req.ip if req.path == "/api/v1/sso/callback" && req.post?
   end
 
-  # 5. CSAT público por IP: 10 envios / hora (ballot stuffing)
+  # 8. CSAT público por IP: 10 envios / hora (ballot stuffing)
   throttle("csat/ip", limit: 10, period: 1.hour) do |req|
     req.ip if req.path.match?(%r{\A/api/v1/csat/}) && req.post?
   end
 
-  # 6. API autenticada por token: 600 req / 5 min por token
+  # 9. API autenticada por token: 600 req / 5 min por token
   throttle("api/token", limit: 600, period: 5.minutes) do |req|
     if req.path.start_with?("/api/v1/")
       # Armazena apenas prefixo do token (evita guardar credenciais no cache)

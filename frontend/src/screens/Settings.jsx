@@ -639,7 +639,7 @@ export function MyProfile() {
   async function doChangePw() {
     if (!pwFields.current || !pwFields.next) { showToast('Preencha todos os campos.'); return }
     if (pwFields.next !== pwFields.confirm) { showToast('Nova senha e confirmação não conferem.'); return }
-    if (pwFields.next.length < 6) { showToast('A nova senha deve ter pelo menos 6 caracteres.'); return }
+    if (pwFields.next.length < 12) { showToast('A nova senha deve ter pelo menos 12 caracteres.'); return }
     setPwLoading(true)
     try {
       await updateUserAction(currentUser.id, { password: pwFields.next })

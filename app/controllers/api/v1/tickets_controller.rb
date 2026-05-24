@@ -31,7 +31,7 @@ module Api
         ticket.save!
         apply_tags(ticket)
         apply_custom_field_values(ticket)
-        TicketMailer.created(ticket).deliver_now if ticket.organization.emails_enabled?
+        TicketMailer.created(ticket).deliver_later if ticket.organization.emails_enabled?
         render json: TicketBlueprint.render_as_hash(ticket, view: :full), status: :created
       end
 
@@ -74,7 +74,7 @@ module Api
         assignee = @organization.users.find(params[:assignee_id])
         @ticket.update!(assignee: assignee)
         NotificationService.new(@ticket).notify_assignee(assignee)
-        TicketMailer.assigned(@ticket).deliver_now if @ticket.organization.emails_enabled?
+        TicketMailer.assigned(@ticket).deliver_later if @ticket.organization.emails_enabled?
         render json: TicketBlueprint.render_as_hash(@ticket, view: :full)
       end
 

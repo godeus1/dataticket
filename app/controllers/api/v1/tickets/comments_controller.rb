@@ -42,7 +42,7 @@ module Api
           # Assignee recebe se quem comentou não é o próprio assignee
           recipients << @ticket.assignee  if @ticket.assignee  && @ticket.assignee  != current_user
           recipients.uniq.each do |user|
-            TicketMailer.new_comment(@ticket, comment, user).deliver_now
+            TicketMailer.new_comment(@ticket, comment, user).deliver_later
           rescue => e
             Rails.logger.error("[comment_email] falha ao notificar #{user.email}: #{e.message}")
           end

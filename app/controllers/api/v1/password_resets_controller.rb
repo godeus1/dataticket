@@ -69,8 +69,8 @@ module Api
         end
 
         # Validar senha
-        if password.length < 6
-          render json: { error: "A senha deve ter pelo menos 6 caracteres." }, status: :unprocessable_entity
+        if password.length < 12
+          render json: { error: "A senha deve ter pelo menos 12 caracteres." }, status: :unprocessable_entity
           return
         end
 

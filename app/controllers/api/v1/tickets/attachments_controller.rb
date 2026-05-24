@@ -58,9 +58,21 @@ module Api
             redirect_to url, allow_other_host: true
           else
             path = S3Uploader.local_path(@attachment.storage_key)
-            return render json: { error: "Arquivo não encontrado no servidor" }, status: :not_found unless File.exist?(path)
 
-            send_file path,
+            # Proteção contra path traversal: garante que o arquivo resolvido
+            # permanece dentro do diretório de armazenamento configurado.
+            storage_root = File.realpath(
+              ENV.fetch("STORAGE_PATH", Rails.root.join("tmp", "attachments").to_s)
+            )
+            resolved = File.expand_path(path)
+            unless resolved.start_with?(storage_root)
+              Rails.logger.warn("[attachment_download] Tentativa de path traversal bloqueada: storage_key=#{@attachment.storage_key.inspect}")
+              return render json: { error: "Arquivo não disponível" }, status: :forbidden
+            end
+
+            return render json: { error: "Arquivo não encontrado no servidor" }, status: :not_found unless File.exist?(resolved)
+
+            send_file resolved,
               filename:    @attachment.filename,
               type:        @attachment.content_type,
               disposition: "attachment"
