@@ -1,8 +1,9 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { useApp } from '../AppContext.jsx'
 import { PT, EN, PERM } from '../data.js'
 import { Avatar, CatChip, PriBadge, ModalOverlay } from '../components.jsx'
 import { formatDateTime } from '../data.js'
+import { api } from '../api.js'
 import { api } from '../api.js'
 
 
@@ -412,8 +413,10 @@ export function SettingsQueues() {
               </div>
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button className="btn btn-secondary" onClick={() => setShowForm(false)}>{t.cancel}</button>
-              <button className="btn btn-primary" onClick={save}>{t.save}</button>
+              <button className="btn btn-secondary" onClick={() => setShowForm(false)} disabled={saving}>{t.cancel}</button>
+              <button className="btn btn-primary" onClick={save} disabled={saving}>
+                {saving ? '⏳ Salvando...' : t.save}
+              </button>
             </div>
           </div>
         </ModalOverlay>

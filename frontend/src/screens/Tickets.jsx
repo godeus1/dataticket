@@ -22,7 +22,7 @@ export function TicketList() {
 
   const [showInlineTriage, setShowInlineTriage] = useState(false)
   const [triageTarget, setTriageTarget] = useState(null)
-  const [inlineTriageForm, setInlineTriageForm] = useState({ priorityId: '', categoryId: '', effortEstimated: '', queueId: '' })
+  const [inlineTriageForm, setInlineTriageForm] = useState({ priorityId: '', categoryId: '', effortEstimated: '', queueId: '', assigneeId: '' })
 
   const filtered = useMemo(() => {
     let tks = [...tickets]
@@ -56,7 +56,7 @@ export function TicketList() {
     const tk = tickets.find(x => x.id === triageTarget)
     if (!tk) return
     const q = queues.find(x => x.id === Number(inlineTriageForm.queueId))
-    const assigneeId = q?.members[0] ?? null
+    const assigneeId = inlineTriageForm.assigneeId ? Number(inlineTriageForm.assigneeId) : (q?.members[0] ?? null)
     try {
       await triageAction(triageTarget, {
         priority_id: Number(inlineTriageForm.priorityId) || null,
@@ -70,7 +70,7 @@ export function TicketList() {
     }
     setShowInlineTriage(false)
     setTriageTarget(null)
-    setInlineTriageForm({ priorityId: '', categoryId: '', effortEstimated: '', queueId: '' })
+    setInlineTriageForm({ priorityId: '', categoryId: '', effortEstimated: '', queueId: '', assigneeId: '' })
   }
 
   function MultiFilter({ label, options, selected, setSelected, filterKey }) {
@@ -258,9 +258,22 @@ export function TicketList() {
               </div>
               <div>
                 <label className="label">Fila *</label>
-                <select className="select" style={{ width: '100%' }} value={inlineTriageForm.queueId} onChange={e => setInlineTriageForm(f => ({ ...f, queueId: e.target.value }))}>
+                <select className="select" style={{ width: '100%' }} value={inlineTriageForm.queueId}
+                  onChange={e => setInlineTriageForm(f => ({ ...f, queueId: e.target.value, assigneeId: '' }))}>
                   <option value="">Selecione…</option>
                   {queues.map(q => <option key={q.id} value={q.id}>{q.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="label">Responsável</label>
+                <select className="select" style={{ width: '100%' }} value={inlineTriageForm.assigneeId}
+                  onChange={e => setInlineTriageForm(f => ({ ...f, assigneeId: e.target.value }))}>
+                  <option value="">— Selecione o responsável —</option>
+                  {(() => {
+                    const q = queues.find(x => x.id === Number(inlineTriageForm.queueId))
+                    return users.filter(u => (q?.members ?? []).includes(u.id))
+                      .map(u => <option key={u.id} value={u.id}>{u.firstName} {u.lastName}</option>)
+                  })()}
                 </select>
               </div>
             </div>
@@ -431,7 +444,7 @@ export function TicketDetail() {
   const [commentText, setCommentText] = useState('')
   const [commentType, setCommentType] = useState('public')
   const [showTriage, setShowTriage] = useState(false)
-  const [triageForm, setTriageForm] = useState({ priorityId: '', categoryId: '', effortEstimated: '', queueId: '' })
+  const [triageForm, setTriageForm] = useState({ priorityId: '', categoryId: '', effortEstimated: '', queueId: '', assigneeId: '' })
   const [timerRunning, setTimerRunning] = useState(false)
   const [timerStart, setTimerStart] = useState(null)
   const [sessions, setSessions] = useState([])
@@ -531,7 +544,7 @@ export function TicketDetail() {
   async function doTriage() {
     if (!triageForm.priorityId || !triageForm.queueId) { alert('Preencha prioridade e fila.'); return }
     const q = queues.find(x => x.id === Number(triageForm.queueId))
-    const assigneeId = q?.members[0] || null
+    const assigneeId = triageForm.assigneeId ? Number(triageForm.assigneeId) : (q?.members[0] ?? null)
     try {
       await triageAction(tk.id, {
         priority_id: Number(triageForm.priorityId) || null,
@@ -583,7 +596,7 @@ export function TicketDetail() {
             <table style="width:100%;border-collapse:collapse;margin:16px 0">
               <tr><td style="padding:8px;background:#f9fafb;font-weight:600;width:120px">Nº</td><td style="padding:8px;border-bottom:1px solid #e5e7eb">${tk.id}</td></tr>
               <tr><td style="padding:8px;background:#f9fafb;font-weight:600">Título</td><td style="padding:8px;border-bottom:1px solid #e5e7eb">${tk.title}</td></tr>
-              <tr><td style="padding:8px;background:#f9fafb;font-weight:600">Prioridade</td><td style="padding:8px;border-bottom:1px solid #e5e7eb">${pri2?.name || '—'}</td></tr>
+              <tr><td style="padding:8px;background:#f9fafb;font-weight:600">Prioridade</td><td style="padding:8px;border-bottom:1px solid #e5e7eb">${pri?.name || '—'}</td></tr>
               <tr><td style="padding:8px;background:#f9fafb;font-weight:600">Prazo</td><td style="padding:8px">${deadlineStr}</td></tr>
             </table>
           </div>
@@ -975,21 +988,25 @@ export function TicketDetail() {
               </div>
               <div>
                 <label className="label">Fila *</label>
-                <select className="select" style={{ width: '100%' }} value={triageForm.queueId} onChange={e => setTriageForm(f => ({ ...f, queueId: e.target.value }))}>
+                <select className="select" style={{ width: '100%' }} value={triageForm.queueId}
+                  onChange={e => setTriageForm(f => ({ ...f, queueId: e.target.value, assigneeId: '' }))}>
                   <option value="">Selecione…</option>
                   {queues.map(q => <option key={q.id} value={q.id}>{q.name}</option>)}
                 </select>
               </div>
-            </div>
-            {triageForm.queueId && (
-              <div style={{ marginTop: 10, padding: '8px 12px', background: 'var(--bg2)', borderRadius: 8, fontSize: 12, color: 'var(--text2)' }}>
-                🤖 Responsável automático: {(() => {
-                  const q = queues.find(x => x.id === Number(triageForm.queueId))
-                  const u = users.find(x => x.id === q?.members[0])
-                  return u ? `${u.firstName} ${u.lastName}` : 'Nenhum disponível'
-                })()}
+              <div>
+                <label className="label">Responsável</label>
+                <select className="select" style={{ width: '100%' }} value={triageForm.assigneeId || ''}
+                  onChange={e => setTriageForm(f => ({ ...f, assigneeId: e.target.value }))}>
+                  <option value="">— Selecione o responsável —</option>
+                  {(() => {
+                    const q = queues.find(x => x.id === Number(triageForm.queueId))
+                    return users.filter(u => (q?.members ?? []).includes(u.id))
+                      .map(u => <option key={u.id} value={u.id}>{u.firstName} {u.lastName}</option>)
+                  })()}
+                </select>
               </div>
-            )}
+            </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 18 }}>
               <button className="btn btn-secondary" onClick={() => setShowTriage(false)}>{t.cancel}</button>
               <button className="btn btn-primary" onClick={doTriage}>Confirmar Triagem</button>

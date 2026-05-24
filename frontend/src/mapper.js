@@ -100,6 +100,7 @@ export function mapQueue(q) {
     name:         q.name,
     description:  q.description  ?? '',
     active:       q.active        ?? true,
+    categoryId:   q.category_id  ?? q.categoryId  ?? null,
     categoryName: q.category_name ?? q.categoryName ?? '',
     members:      (q.users ?? []).map(u => u.id),
   }

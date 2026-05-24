@@ -1,6 +1,6 @@
-﻿class QueueBlueprint < Blueprinter::Base
+class QueueBlueprint < Blueprinter::Base
   identifier :id
-  fields :name, :description, :active, :created_at, :updated_at
+  fields :name, :description, :active, :category_id, :created_at, :updated_at
 
   association :users, blueprint: UserBlueprint, view: :summary
 
