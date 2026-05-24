@@ -1,1 +1,1 @@
-Resend.api_key = ENV.fetch("RESEND_API_KEY", "")
+# Resend substituído por MailerSend — ver config/initializers/mailersend.rb

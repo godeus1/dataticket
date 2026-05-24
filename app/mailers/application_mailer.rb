@@ -1,5 +1,5 @@
 class ApplicationMailer < ActionMailer::Base
-  default from: ENV.fetch("MAIL_FROM", "onboarding@resend.dev")
+  default from: ENV.fetch("MAIL_FROM", "noreply@test-2p0347z36vylzdrn.mlsender.net")
   layout "mailer"
 
   after_action :log_delivery

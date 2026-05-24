@@ -53,9 +53,9 @@ Rails.application.configure do
   config.active_job.queue_adapter = :solid_queue
   config.solid_queue.connects_to = { database: { writing: :queue } }
 
-  # E-mail via Resend HTTP API (evita bloqueio de porta SMTP no Railway)
+  # E-mail via MailerSend HTTP API (evita bloqueio de porta SMTP no Railway)
   config.action_mailer.raise_delivery_errors = true
-  config.action_mailer.delivery_method       = :resend
+  config.action_mailer.delivery_method       = :mailersend
   config.action_mailer.default_url_options   = {
     host: ENV.fetch("APP_HOST", "api.dataticket.app")
   }
