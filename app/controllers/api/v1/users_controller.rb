@@ -29,7 +29,7 @@ module Api
         user.password = auto_password if auto_password
         user.save!
         # Envia e-mail de boas-vindas com a senha gerada automaticamente
-        TicketMailer.welcome(user, auto_password).deliver_later if auto_password
+        TicketMailer.welcome(user, auto_password).deliver_now if auto_password
         render json: UserBlueprint.render_as_hash(user), status: :created
       end
 
@@ -56,7 +56,7 @@ module Api
         new_password = SecureRandom.hex(8)
         @user.update!(password: new_password)
         # Envia a nova senha por e-mail (reutiliza template de boas-vindas)
-        TicketMailer.welcome(@user, new_password).deliver_later
+        TicketMailer.welcome(@user, new_password).deliver_now
         render json: { message: "Senha redefinida. Um e-mail foi enviado para #{@user.email}." }
       end
 

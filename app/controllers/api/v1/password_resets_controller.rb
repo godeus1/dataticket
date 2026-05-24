@@ -25,7 +25,7 @@ module Api
           reset_password_token:   Digest::SHA256.hexdigest(code),
           reset_password_sent_at: Time.current
         )
-        PasswordResetMailer.reset_code(user, code).deliver_later
+        PasswordResetMailer.reset_code(user, code).deliver_now
 
         render json: { message: "Código enviado para #{user.email}." }
       end

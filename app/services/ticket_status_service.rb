@@ -24,7 +24,7 @@ class TicketStatusService
     end
 
     if @ticket.organization.emails_enabled?
-      TicketMailer.status_changed(@ticket, old_status).deliver_later
+      TicketMailer.status_changed(@ticket, old_status).deliver_now
     end
 
     Result.new(success?: true, ticket: @ticket, errors: [])
