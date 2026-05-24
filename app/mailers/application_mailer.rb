@@ -7,11 +7,11 @@ class ApplicationMailer < ActionMailer::Base
   private
 
   def safe_smtp_pass(org)
-    org&.smtp_pass.presence
+    org&.smtp_pass.presence || ENV.fetch("SMTP_PASS", "")
   rescue => e
     Rails.logger.error("[mailer] falha ao ler smtp_pass: #{e.message} — usando fallback env var")
-    nil
-  end.then { |v| v || ENV.fetch("SMTP_PASS", "") }
+    ENV.fetch("SMTP_PASS", "")
+  end
 
   def log_delivery
     to = message.to&.join(", ") || "(sem destinatário)"
@@ -42,7 +42,9 @@ class ApplicationMailer < ActionMailer::Base
         user_name:            from_addr,
         password:             pass,
         authentication:       :login,
-        enable_starttls_auto: true
+        enable_starttls_auto: true,
+        open_timeout:         10,
+        read_timeout:         15
       }
     end
     super
