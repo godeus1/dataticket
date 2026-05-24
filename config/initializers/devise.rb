@@ -19,6 +19,6 @@ Devise.setup do |config|
     jwt.secret            = ENV.fetch("DEVISE_JWT_SECRET_KEY", "fallback-insecure-key-for-dev-only")
     jwt.dispatch_requests = [ [ "POST", %r{^/api/v1/login$} ] ]
     jwt.revocation_requests = [ [ "DELETE", %r{^/api/v1/logout$} ] ]
-    jwt.expiration_time   = 6.hours.to_i
+    jwt.expiration_time   = 24.hours.to_i
   end
 end

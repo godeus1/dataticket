@@ -9,6 +9,10 @@ export const getToken  = ()  => localStorage.getItem(TOKEN_KEY)
 export const setToken  = (t) => t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY)
 export const clearToken = () => localStorage.removeItem(TOKEN_KEY)
 
+// Callback chamado quando qualquer request retorna 401 — registrado pelo AppContext
+let _on401 = null
+export const setOn401Handler = (fn) => { _on401 = fn }
+
 // ── Core fetch wrapper ─────────────────────────────────────────────────────
 async function req(path, opts = {}) {
   const token = getToken()
@@ -31,6 +35,14 @@ async function req(path, opts = {}) {
 
   let data
   try { data = await res.json() } catch { data = {} }
+
+  if (res.status === 401) {
+    clearToken()
+    _on401?.()
+    const err = new Error('Sessão expirada. Faça login novamente.')
+    err.status = 401
+    throw err
+  }
 
   if (!res.ok) {
     const err = new Error(data?.error ?? `HTTP ${res.status}`)

@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react'
 import * as Sentry from '@sentry/react'
-import { api, getToken, setToken } from './api.js'
+import { api, getToken, setToken, setOn401Handler } from './api.js'
 import {
   mapUser, mapTicket, mapPriority, mapCategory, mapQueue,
   mapHoliday, mapArticle, mapNotification, mapAuditLog, mapOrganization, mapComment,
@@ -102,6 +102,15 @@ export function AppProvider({ children }) {
     setArticles(      (articlesData ?? []).map(mapArticle))
     setNotifications( (notifData  ?? []).map(mapNotification))
     if (orgData) setSystemConfig(mapOrganization(orgData))
+  }, [])
+
+  // ── Interceptor global de 401 — desloga automaticamente ─────────────
+  useEffect(() => {
+    setOn401Handler(() => {
+      setToken(null)
+      setCurrentUserState(null)
+      setSessionExpiredMsg(true)
+    })
   }, [])
 
   // ── Restore session on app boot ───────────────────────────────────────
