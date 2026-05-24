@@ -56,7 +56,7 @@ export default function LoginScreen() {
     if (newPw !== confirmPw) { setErr('As senhas não conferem.'); return }
     setLoading(true)
     try {
-      await api.resetPassword(resetEmail, inputCode.trim().toUpperCase(), newPw)
+      await api.confirmPasswordReset(resetEmail, inputCode.trim().toUpperCase(), newPw)
       setStep('login')
       setEm(resetEmail)
       setPw('')

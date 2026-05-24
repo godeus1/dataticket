@@ -55,9 +55,17 @@ module Api
         authorize @user, :update?
         new_password = SecureRandom.hex(8)
         @user.update!(password: new_password)
-        # Envia a nova senha por e-mail (reutiliza template de boas-vindas)
-        TicketMailer.welcome(@user, new_password).deliver_now
-        render json: { message: "Senha redefinida. Um e-mail foi enviado para #{@user.email}." }
+        begin
+          TicketMailer.welcome(@user, new_password).deliver_now
+          render json: { message: "Senha redefinida. E-mail enviado para #{@user.email}." }
+        rescue => e
+          Rails.logger.error "[reset_password] falha no envio de e-mail: #{e.message}"
+          render json: {
+            message: "Senha redefinida, mas o e-mail não pôde ser entregue. " \
+                     "Verifique as configurações SMTP nas Configurações do sistema.",
+            email_error: e.message
+          }
+        end
       end
 
       private

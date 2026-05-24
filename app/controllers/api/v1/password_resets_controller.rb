@@ -25,7 +25,14 @@ module Api
           reset_password_token:   Digest::SHA256.hexdigest(code),
           reset_password_sent_at: Time.current
         )
-        PasswordResetMailer.reset_code(user, code).deliver_now
+        begin
+          PasswordResetMailer.reset_code(user, code).deliver_now
+        rescue => e
+          Rails.logger.error "[password_reset] falha no envio de e-mail: #{e.message}"
+          render json: { error: "Não foi possível enviar o e-mail. Verifique as configurações SMTP." },
+                 status: :service_unavailable
+          return
+        end
 
         render json: { message: "Código enviado para #{user.email}." }
       end

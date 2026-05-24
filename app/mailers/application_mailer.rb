@@ -8,15 +8,19 @@ class ApplicationMailer < ActionMailer::Base
   # Permite que o admin configure tudo pela tela de Configurações sem acesso ao Railway.
   # Se smtp_pass não estiver na org, cai no fallback das variáveis de ambiente.
   def mail(headers = {}, &block)
-    org = Organization.first
-    if org&.smtp_pass.present?
-      from_addr = org.smtp_user.presence || ENV.fetch("SMTP_USER", "noreply@dataticket.app")
+    org       = Organization.first
+    pass      = org&.smtp_pass.presence || ENV.fetch("SMTP_PASS", "")
+    host      = org&.smtp_host.presence || ENV.fetch("SMTP_HOST", "smtp.office365.com")
+    port      = (org&.smtp_port || ENV.fetch("SMTP_PORT", "587")).to_i
+    from_addr = org&.smtp_user.presence || ENV.fetch("SMTP_USER", "noreply@dataticket.app")
+
+    if pass.present?
       headers[:from] ||= from_addr
       headers[:delivery_method_options] = {
-        address:              org.smtp_host.presence || ENV.fetch("SMTP_HOST", "smtp.office365.com"),
-        port:                 (org.smtp_port || ENV.fetch("SMTP_PORT", "587")).to_i,
+        address:              host,
+        port:                 port,
         user_name:            from_addr,
-        password:             org.smtp_pass,
+        password:             pass,
         authentication:       :login,
         enable_starttls_auto: true
       }
