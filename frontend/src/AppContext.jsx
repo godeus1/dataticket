@@ -50,42 +50,58 @@ export function AppProvider({ children }) {
   const [toast,         setToast]         = useState(null)
 
   // ── Load all application data from Rails API ──────────────────────────
+  // Usa settle() para que um 403 em /users ou /queues (role:user não tem
+  // acesso) não cancele o Promise.all inteiro e deixe categorias vazias.
+  // 401 ainda expira a sessão; qualquer outro erro vira array vazio.
   const loadData = useCallback(async () => {
-    try {
-      const [
-        usersData, ticketsRes, catsData, prisData,
-        queuesData, holidaysData, articlesData, notifData, orgData,
-      ] = await Promise.all([
-        api.users(),
-        api.tickets(),
-        api.categories(),
-        api.priorities(),
-        api.queues(),
-        api.holidays(),
-        api.articles(),
-        api.notifications(),
-        api.organization(),
-      ])
+    const settle = (p) => p.then(v => ({ ok: true, value: v })).catch(e => ({ ok: false, error: e }))
 
-      setUsers(         (usersData     ?? []).map(mapUser))
-      setTickets(       (ticketsRes?.tickets ?? ticketsRes ?? []).map(mapTicket))
-      setCategories(    (catsData      ?? []).map(mapCategory))
-      setPriorities(    (prisData      ?? []).map(mapPriority))
-      setQueues(        (queuesData    ?? []).map(mapQueue))
-      setHolidays(      (holidaysData  ?? []).map(mapHoliday))
-      setArticles(      (articlesData  ?? []).map(mapArticle))
-      setNotifications( (notifData     ?? []).map(mapNotification))
-      if (orgData) setSystemConfig(mapOrganization(orgData))
-    } catch (e) {
-      // 401 = session expired
-      if (e.status === 401) {
-        setToken(null)
-        setCurrentUserState(null)
-        setSessionExpiredMsg(true)
-      } else {
-        setApiError(e.message)
-      }
+    const [
+      usersRes, ticketsRes, catsRes, prisRes,
+      queuesRes, holidaysRes, articlesRes, notifRes, orgRes,
+    ] = await Promise.all([
+      settle(api.users()),
+      settle(api.tickets()),
+      settle(api.categories()),
+      settle(api.priorities()),
+      settle(api.queues()),
+      settle(api.holidays()),
+      settle(api.articles()),
+      settle(api.notifications()),
+      settle(api.organization()),
+    ])
+
+    // Se qualquer endpoint retornar 401 a sessão expirou
+    const allRes = [usersRes, ticketsRes, catsRes, prisRes, queuesRes, holidaysRes, articlesRes, notifRes, orgRes]
+    const expired = allRes.find(r => !r.ok && r.error?.status === 401)
+    if (expired) {
+      setToken(null)
+      setCurrentUserState(null)
+      setSessionExpiredMsg(true)
+      return
     }
+
+    const val = (r, fallback = []) => (r.ok ? r.value : fallback)
+
+    const usersData    = val(usersRes)
+    const ticketsData  = val(ticketsRes)
+    const catsData     = val(catsRes)
+    const prisData     = val(prisRes)
+    const queuesData   = val(queuesRes)
+    const holidaysData = val(holidaysRes)
+    const articlesData = val(articlesRes)
+    const notifData    = val(notifRes)
+    const orgData      = val(orgRes, null)
+
+    setUsers(         (usersData  ?? []).map(mapUser))
+    setTickets(       (ticketsData?.tickets ?? ticketsData ?? []).map(mapTicket))
+    setCategories(    (catsData   ?? []).map(mapCategory))
+    setPriorities(    (prisData   ?? []).map(mapPriority))
+    setQueues(        (queuesData ?? []).map(mapQueue))
+    setHolidays(      (holidaysData ?? []).map(mapHoliday))
+    setArticles(      (articlesData ?? []).map(mapArticle))
+    setNotifications( (notifData  ?? []).map(mapNotification))
+    if (orgData) setSystemConfig(mapOrganization(orgData))
   }, [])
 
   // ── Restore session on app boot ───────────────────────────────────────
