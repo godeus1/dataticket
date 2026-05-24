@@ -158,14 +158,15 @@ export function mapAuditLog(l) {
 export function mapOrganization(o) {
   if (!o) return null
   return {
-    id:            o.id,
-    companyName:   o.name          ?? '',
-    emailSender:   o.smtp_user     ?? o.smtpUser     ?? '',
-    enableEmails:  o.emails_enabled ?? o.emailsEnabled ?? false,
-    timezone:      o.timezone      ?? 'America/Sao_Paulo',
-    dateFormat:    o.date_format   ?? o.dateFormat   ?? 'DD/MM/YYYY',
-    smtpHost:      o.smtp_host     ?? o.smtpHost     ?? '',
-    smtpPort:      o.smtp_port     ?? o.smtpPort     ?? 587,
-    slug:          o.slug          ?? '',
+    id:                 o.id,
+    companyName:        o.name             ?? '',
+    emailSender:        o.smtp_user        ?? o.smtpUser        ?? '',
+    enableEmails:       o.emails_enabled   ?? o.emailsEnabled   ?? false,
+    timezone:           o.timezone         ?? 'America/Sao_Paulo',
+    dateFormat:         o.date_format      ?? o.dateFormat      ?? 'DD/MM/YYYY',
+    smtpHost:           o.smtp_host        ?? o.smtpHost        ?? '',
+    smtpPort:           o.smtp_port        ?? o.smtpPort        ?? 587,
+    slug:               o.slug             ?? '',
+    attachmentsEnabled: o.attachments_enabled ?? false,
   }
 }

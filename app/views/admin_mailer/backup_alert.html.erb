@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+    <style>
+      body { font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0; background: #f5f5f5; }
+      .container { max-width: 560px; margin: 32px auto; background: #fff; border-radius: 10px; border: 1px solid #e5e7eb; padding: 36px; }
+      .header { font-size: 22px; font-weight: 700; color: #1d4ed8; margin-bottom: 4px; }
+      .sub { font-size: 13px; color: #6b7280; margin-bottom: 28px; }
+      .alert-box { background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px 20px; margin-bottom: 24px; }
+      .alert-box p { margin: 0; color: #991b1b; font-size: 14px; line-height: 1.7; white-space: pre-wrap; }
+      .footer { font-size: 11px; color: #9ca3af; margin-top: 28px; border-top: 1px solid #f3f4f6; padding-top: 16px; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">⚠️ Alerta de Backup — DataTicket</div>
+      <div class="sub"><%= @date %></div>
+
+      <p style="font-size: 14px; margin-bottom: 16px;">Olá, <strong><%= @admin.first_name %></strong>.</p>
+
+      <div class="alert-box">
+        <p><%= @message %></p>
+      </div>
+
+      <p style="font-size: 13px; color: #6b7280; line-height: 1.7;">
+        Este é um alerta automático do sistema DataTicket.<br />
+        Para configurar os backups automáticos, acesse o painel do Railway e configure as
+        variáveis de ambiente no serviço web, ou ative os snapshots automáticos do PostgreSQL
+        nas configurações do banco de dados.
+      </p>
+
+      <div class="footer">DataTicket &bull; Salvabras &bull; Mensagem automática — não responda este e-mail.</div>
+    </div>
+  </body>
+</html>

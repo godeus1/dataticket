@@ -15,6 +15,10 @@ production:
     class: QueueMonitorJob
     schedule: "*/30 * * * *"     # a cada 30 min — monitora DLQ e jobs bloqueados
 
+  database_backup:
+    class: DatabaseBackupJob
+    schedule: "0 3 * * *"        # diariamente às 03:00 UTC — envia para S3 ou alerta o admin
+
 development:
   escalation_check:
     class: EscalationJob

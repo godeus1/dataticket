@@ -275,7 +275,7 @@ export function TicketList() {
 
 // ── New Ticket ────────────────────────────────────────────────────────────
 export function NewTicket() {
-  const { currentUser, lang, categories, articles, setScreen, addNotification, addAudit, showToast, notifyEmail, createTicketAction } = useApp()
+  const { currentUser, lang, categories, articles, setScreen, addNotification, addAudit, showToast, notifyEmail, createTicketAction, systemConfig } = useApp()
   const t = lang === 'pt' ? PT : EN
   const [form, setForm] = useState({ title: '', description: '', categoryId: '', attachments: [] })
   const [errors, setErrors] = useState({})
@@ -381,23 +381,28 @@ export function NewTicket() {
           )}
         </div>
         <div className="form-row">
-          <label className="label">📎 Anexos (PDF, PNG, JPG, DOCX — máx. 10 MB cada)</label>
-          <input type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.txt,.xlsx,.zip"
-            style={{ fontSize: 13, color: 'var(--text)', padding: '6px 0' }}
-            onChange={e => setFiles(Array.from(e.target.files))} />
-          {files.length > 0 && (
-            <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {files.map((f, i) => (
-                <span key={i} style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, padding: '2px 8px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
-                  📎 {f.name}
-                  <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', fontSize: 13, padding: 0 }}
-                    onClick={() => setFiles(prev => prev.filter((_, j) => j !== i))}>×</button>
-                </span>
-              ))}
+          <label className="label">📎 Anexos (PDF, PNG, JPG, DOCX — máx. 20 MB cada)</label>
+          {systemConfig?.attachmentsEnabled ? (
+            <>
+              <input type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.txt,.xlsx,.zip"
+                style={{ fontSize: 13, color: 'var(--text)', padding: '6px 0' }}
+                onChange={e => setFiles(Array.from(e.target.files))} />
+              {files.length > 0 && (
+                <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {files.map((f, i) => (
+                    <span key={i} style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, padding: '2px 8px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      📎 {f.name}
+                      <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', fontSize: 13, padding: 0 }}
+                        onClick={() => setFiles(prev => prev.filter((_, j) => j !== i))}>×</button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
+            <div style={{ padding: '8px 12px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12, color: 'var(--text2)', display: 'flex', alignItems: 'center', gap: 8 }}>
+              🔒 Upload de anexos indisponível — armazenamento S3 não configurado. Contate o administrador.
             </div>
-          )}
-          {files.length > 0 && (
-            <p style={{ fontSize: 11, color: 'var(--warning)', marginTop: 4 }}>⚠️ Anexos serão enviados junto com o ticket (upload de arquivos em breve).</p>
           )}
         </div>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
@@ -413,7 +418,7 @@ export function NewTicket() {
 
 // ── Ticket Detail ─────────────────────────────────────────────────────────
 export function TicketDetail() {
-  const { currentUser, lang, tickets, setTickets, priorities, categories, users, queues, setScreen, addNotification, addAudit, showToast, selectedTicket, notifyEmail, changeStatusAction, addCommentAction, triageAction, assignAction } = useApp()
+  const { currentUser, lang, tickets, setTickets, priorities, categories, users, queues, setScreen, addNotification, addAudit, showToast, selectedTicket, notifyEmail, changeStatusAction, addCommentAction, triageAction, assignAction, systemConfig } = useApp()
   const t = lang === 'pt' ? PT : EN
   const tk = tickets.find(x => x.id === selectedTicket)
 
@@ -774,22 +779,30 @@ export function TicketDetail() {
               ))}
               {/* Upload de novo anexo */}
               {p.createTicket && (
-                <div style={{ marginTop: 10, display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <input type="file" style={{ fontSize: 11, flex: 1, minWidth: 0 }}
-                    onChange={e => setNewAttFile(e.target.files[0] || null)} />
-                  <button className="btn btn-secondary btn-sm" disabled={!newAttFile || addingAtt}
-                    onClick={async () => {
-                      if (!newAttFile) return
-                      setAddingAtt(true)
-                      const newAtt = { id: Date.now(), name: newAttFile.name, url: null, size: newAttFile.size, type: newAttFile.type }
-                      setTickets(prev => prev.map(x => x.id === tk.id
-                        ? { ...x, attachments: [...(x.attachments || []), newAtt] }
-                        : x
-                      ))
-                      setNewAttFile(null); setAddingAtt(false)
-                    }}>
-                    {addingAtt ? '⏳' : '➕ Enviar'}
-                  </button>
+                <div style={{ marginTop: 10 }}>
+                  {systemConfig?.attachmentsEnabled ? (
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <input type="file" style={{ fontSize: 11, flex: 1, minWidth: 0 }}
+                        onChange={e => setNewAttFile(e.target.files[0] || null)} />
+                      <button className="btn btn-secondary btn-sm" disabled={!newAttFile || addingAtt}
+                        onClick={async () => {
+                          if (!newAttFile) return
+                          setAddingAtt(true)
+                          const newAtt = { id: Date.now(), name: newAttFile.name, url: null, size: newAttFile.size, type: newAttFile.type }
+                          setTickets(prev => prev.map(x => x.id === tk.id
+                            ? { ...x, attachments: [...(x.attachments || []), newAtt] }
+                            : x
+                          ))
+                          setNewAttFile(null); setAddingAtt(false)
+                        }}>
+                        {addingAtt ? '⏳' : '➕ Enviar'}
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ padding: '6px 10px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, fontSize: 11, color: 'var(--text2)' }}>
+                      🔒 Upload indisponível — armazenamento S3 não configurado.
+                    </div>
+                  )}
                 </div>
               )}
             </div>

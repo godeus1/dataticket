@@ -6,6 +6,13 @@ module Api
       private
 
       def respond_with(resource, _opts = {})
+        # Guard: warden pode chamar respond_with com um recurso não autenticado
+        # (sem id) quando a senha está errada. Retorna 401 explícito nesses casos.
+        unless resource.persisted?
+          render json: { error: "E-mail ou senha inválidos." }, status: :unauthorized
+          return
+        end
+
         render json: {
           user: {
             id:         resource.id,

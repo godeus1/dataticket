@@ -16,6 +16,12 @@ module Api
         def create
           authorize TicketAttachment
 
+          unless S3Uploader.enabled?
+            return render json: {
+              error: "Upload de arquivos indisponível. Configure as variáveis AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY e AWS_S3_BUCKET no ambiente de produção."
+            }, status: :service_unavailable
+          end
+
           file = params[:file]
           return render json: { error: "Arquivo não enviado" }, status: :unprocessable_entity unless file.present?
           return render json: { error: "Arquivo excede o limite de 20 MB" }, status: :unprocessable_entity if file.size > MAX_SIZE

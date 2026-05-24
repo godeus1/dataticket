@@ -3,20 +3,21 @@ module Api
     class OrganizationsController < ApplicationController
       def show
         authorize @organization
-        render json: @organization.as_json(
-          only: %i[id name slug timezone date_format created_at updated_at]
-        )
+        render json: org_json(@organization)
       end
 
       def update
         authorize @organization
         @organization.update!(organization_params)
-        render json: @organization.as_json(
-          only: %i[id name slug timezone date_format created_at updated_at]
-        )
+        render json: org_json(@organization)
       end
 
       private
+
+      def org_json(org)
+        org.as_json(only: %i[id name slug timezone date_format created_at updated_at])
+           .merge(attachments_enabled: S3Uploader.enabled?)
+      end
 
       def organization_params
         params.require(:organization).permit(:name, :timezone, :date_format)
