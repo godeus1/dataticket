@@ -18,7 +18,13 @@ class User < ApplicationRecord
             format: { with: URI::MailTo::EMAIL_REGEXP },
             uniqueness: { scope: :organization_id, message: "já está em uso nesta organização", case_sensitive: false }
   validates :first_name, :last_name, presence: true
-  ROLES = %w[admin analyst user msp_admin].freeze
+  # Hierarquia de perfis:
+  #   admin    → acesso total + exclusão + configurações de sistema
+  #   manager  → vê todos os tickets, tria, comenta tudo, muda status — SEM config de admin
+  #   analyst  → vê/comenta/registra esforço APENAS nos tickets atribuídos a ele
+  #   user     → vê/comenta APENAS seus próprios tickets
+  #   msp_admin → administrador multi-org (plataforma)
+  ROLES = %w[admin manager analyst user msp_admin].freeze
   validates :role, inclusion: { in: ROLES }
   validates :available_hours,      numericality: { greater_than: 0, less_than_or_equal_to: 24 }
   validates :max_hours_per_ticket, numericality: { greater_than: 0 }
@@ -27,12 +33,14 @@ class User < ApplicationRecord
   before_create     :generate_jti
 
   scope :active,     -> { where(active: true) }
-  scope :staff,      -> { where(role: %w[admin analyst]) }
+  scope :staff,      -> { where(role: %w[admin manager analyst]) }
   scope :admins,     -> { where(role: "admin") }
+  scope :managers,   -> { where(role: "manager") }
   scope :analysts,   -> { where(role: "analyst") }
   scope :msp_admins, -> { where(role: "msp_admin") }
 
   def msp_admin? = role == "msp_admin"
+  def manager?   = role == "manager"
 
   def full_name
     "#{first_name} #{last_name}"

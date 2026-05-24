@@ -135,7 +135,8 @@ export function Topbar() {
     const arts = articles
       .filter(a => a.name.toLowerCase().includes(q) || a.keywords.toLowerCase().includes(q))
       .slice(0, 3).map(a => ({ type: 'Artigo', label: a.name }))
-    const us = currentUser.role === 'admin'
+    // Admin e Manager têm acesso à lista de usuários
+    const us = ['admin', 'manager'].includes(currentUser.role)
       ? users.filter(u => (u.firstName + ' ' + u.lastName).toLowerCase().includes(q) || u.email.toLowerCase().includes(q))
           .slice(0, 2).map(u => ({ type: 'Usuário', label: u.firstName + ' ' + u.lastName, sub: u.email }))
       : []

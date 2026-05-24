@@ -88,7 +88,7 @@ module Api
       end
 
       def bulk_triage
-        authorize Ticket, :triage?
+        authorize Ticket, :bulk_triage?
         result = BulkTriageService.new(
           params[:ticket_ids],
           bulk_triage_params,
@@ -114,10 +114,18 @@ module Api
       end
 
       def ticket_params
-        params.require(:ticket).permit(
-          :title, :description, :status, :ticket_type,
-          :priority_id, :category_id, :queue_id, :assignee_id, :deadline
-        )
+        if current_user.analyst?
+          # Analista: só pode registrar esforço no ticket atribuído a ele.
+          # Não pode mudar título, status, prioridade, atribuição, etc.
+          params.require(:ticket).permit(:effort_used, :effort_estimated)
+        else
+          # Admin e Manager: acesso completo aos campos do ticket
+          params.require(:ticket).permit(
+            :title, :description, :status, :ticket_type,
+            :priority_id, :category_id, :queue_id, :assignee_id, :deadline,
+            :effort_used, :effort_estimated
+          )
+        end
       end
 
       def bulk_triage_params

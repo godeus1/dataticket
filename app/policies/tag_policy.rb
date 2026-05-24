@@ -1,8 +1,13 @@
 class TagPolicy < ApplicationPolicy
-  def index?   = true            # todos os usuários autenticados podem ver tags
-  def show?    = true
-  def create?  = admin_or_analyst?
-  def update?  = admin_or_analyst?
+  # Tags visíveis para todos (necessário ao criar tickets)
+  def index? = true
+  def show?  = true
+
+  # Criar e editar tags: equipe operacional
+  def create?  = staff?
+  def update?  = staff?
+
+  # Excluir: somente admin
   def destroy? = admin?
 
   class Scope < ApplicationPolicy::Scope

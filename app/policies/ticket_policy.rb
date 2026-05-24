@@ -1,37 +1,37 @@
 class TicketPolicy < ApplicationPolicy
-  def index?         = true  # scope handles visibility
-  def show?          = owner_or_staff?
-  def create?        = true  # any authenticated user can open a ticket
-  def update?        = admin_or_analyst?
-  def destroy?       = admin?
-  def triage?        = admin_or_analyst?
-  def change_status? = admin_or_analyst?
-  def assign?        = admin_or_analyst?
+  # Qualquer autenticado pode abrir ticket; escopo controla visibilidade
+  def index?   = true
+  def show?    = can_access_ticket?
+  def create?  = true
+
+  # Admin/Manager: edita tudo. Analyst: só campos de esforço (controlado no controller).
+  def update?  = can_access_ticket? && (admin_or_manager? || analyst?)
+
+  # Somente admin pode excluir tickets
+  def destroy? = admin?
+
+  # Triagem, mudança de status e atribuição: admin e manager apenas
+  def triage?        = admin_or_manager?
+  def change_status? = admin_or_manager?
+  def assign?        = admin_or_manager?
+  def bulk_triage?   = admin_or_manager?
 
   class Scope < ApplicationPolicy::Scope
     def resolve
       base = @scope.where(organization: @user.organization)
 
       case @user.role
-      when "admin"
+      when "admin", "manager"
+        # Admin e Gestor veem TODOS os tickets da organização
         base
+
       when "analyst"
-        # Analyst sees:
-        #   • Tickets atribuídos a eles, OU
-        #   • Tickets não atribuídos que: não têm fila, ou têm fila à qual o analista pertence
-        # Isso evita que analistas vejam tickets de filas onde não trabalham.
-        analyst_queue_ids = @user.queue_ids
-        if analyst_queue_ids.any?
-          base.where(
-            "assignee_id = :uid OR (assignee_id IS NULL AND (queue_id IS NULL OR queue_id IN (:qids)))",
-            uid: @user.id, qids: analyst_queue_ids
-          )
-        else
-          # Analista sem filas: vê apenas os próprios + não atribuídos sem fila
-          base.where("assignee_id = ? OR (assignee_id IS NULL AND queue_id IS NULL)", @user.id)
-        end
+        # Analista vê APENAS tickets atribuídos a ele.
+        # Tickets sem triagem (não atribuídos) são invisíveis para analistas.
+        base.where(assignee_id: @user.id)
+
       else
-        # Regular user sees only their own tickets
+        # Usuário comum vê apenas os tickets que ele criou
         base.where(requester_id: @user.id)
       end
     end
@@ -39,7 +39,15 @@ class TicketPolicy < ApplicationPolicy
 
   private
 
-  def owner_or_staff?
-    admin_or_analyst? || record.requester_id == user.id
+  # Verifica se o usuário tem acesso ao ticket específico
+  def can_access_ticket?
+    case user.role
+    when "admin", "manager"
+      true
+    when "analyst"
+      record.assignee_id == user.id
+    else
+      record.requester_id == user.id
+    end
   end
 end

@@ -1,8 +1,13 @@
 class ArticlePolicy < ApplicationPolicy
-  def index?   = true
-  def show?    = true
-  def create?  = admin_or_analyst?
-  def update?  = admin_or_analyst?
+  # Base de conhecimento: todos podem ler
+  def index? = true
+  def show?  = true
+
+  # Criar e editar artigos: equipe operacional (admin, manager, analyst)
+  def create?  = staff?
+  def update?  = staff?
+
+  # Excluir: somente admin
   def destroy? = admin?
 
   class Scope < ApplicationPolicy::Scope

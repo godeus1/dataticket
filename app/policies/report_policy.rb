@@ -1,3 +1,5 @@
 class ReportPolicy < ApplicationPolicy
-  def index? = admin_or_analyst?
+  # Relatórios disponíveis para admin, manager e analyst
+  def index?  = staff?
+  def export? = staff?
 end

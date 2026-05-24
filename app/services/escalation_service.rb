@@ -35,13 +35,14 @@ class EscalationService
   end
 
   def system_actor
-    @org.users.admins.first || @ticket.requester
+    @org.users.admins.first || @org.users.managers.first || @ticket.requester
   end
 
   def notify_stakeholders
     recipients = []
     recipients << @ticket.assignee if @ticket.assignee.present?
-    recipients += @org.users.admins.to_a
+    # Notifica admins e managers (gestores), pois ambos têm visibilidade total
+    recipients += @org.users.where(role: %w[admin manager]).to_a
     recipients.uniq.each do |user|
       user.notifications.create!(
         ticket:  @ticket,

@@ -8,7 +8,8 @@ module Api
         def index
           authorize TicketComment
           comments = @ticket.comments.includes(:user).order(created_at: :asc)
-          comments = comments.public_only unless current_user.role.in?(%w[admin analyst])
+          # Comentários internos visíveis apenas para equipe operacional
+          comments = comments.public_only unless current_user.role.in?(%w[admin manager analyst])
           render json: comments.as_json(
             only: %i[id body kind created_at updated_at],
             include: { user: { only: %i[id first_name last_name email avatar_initials avatar_color] } }
@@ -17,7 +18,12 @@ module Api
 
         def create
           authorize TicketComment
-          comment = @ticket.comments.new(comment_params.merge(user: current_user))
+          # Usuários comuns e analistas sem acesso staff não podem criar comentários internos
+          safe_params = comment_params
+          if current_user.role.in?(%w[user]) || !current_user.role.in?(%w[admin manager analyst])
+            safe_params = safe_params.merge(kind: "public")
+          end
+          comment = @ticket.comments.new(safe_params.merge(user: current_user))
           comment.save!
           NotificationService.new(@ticket).notify_new_comment(current_user)
           send_comment_emails(comment) if @ticket.organization.emails_enabled? && comment.kind != "internal"

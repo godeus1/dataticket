@@ -59,13 +59,13 @@ module Api
       end
 
       def toggle_active
-        authorize @user, :update?
+        authorize @user, :toggle_active?
         @user.update!(active: !@user.active)
         render json: UserBlueprint.render_as_hash(@user)
       end
 
       def reset_password
-        authorize @user, :update?
+        authorize @user, :reset_password?
         new_password = SecureRandom.hex(8)
         @user.update!(password: new_password)
         begin

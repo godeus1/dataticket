@@ -1,8 +1,11 @@
 class TicketAttachmentPolicy < ApplicationPolicy
-  def index?    = true
-  def show?     = true   # usado pelo download
-  def create?   = true
-  def destroy?  = admin? || record.user_id == user.id
+  # Acesso ao ticket já é validado via policy_scope(Ticket) no controller
+  def index?   = true
+  def show?    = true   # download
+  def create?  = true
+
+  # Pode apagar: admin, manager ou o próprio autor
+  def destroy? = admin_or_manager? || record.user_id == user.id
 
   class Scope < ApplicationPolicy::Scope
     def resolve

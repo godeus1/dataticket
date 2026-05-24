@@ -26,8 +26,10 @@ export function TicketList() {
 
   const filtered = useMemo(() => {
     let tks = [...tickets]
+    // Filtragem local como fallback (o backend ja filtra por escopo no servidor)
     if (currentUser.role === 'user') tks = tks.filter(tk => tk.requesterId === currentUser.id)
-    else if (currentUser.role === 'analyst') tks = tks.filter(tk => tk.assigneeId === currentUser.id || tk.assigneeId === null)
+    else if (currentUser.role === 'analyst') tks = tks.filter(tk => tk.assigneeId === currentUser.id)
+    // manager e admin: veem todos os tickets (sem filtro adicional)
     if (search) tks = tks.filter(tk => tk.title.toLowerCase().includes(search.toLowerCase()) || tk.id.toLowerCase().includes(search.toLowerCase()))
     if (filterStatus.length) tks = tks.filter(tk => filterStatus.includes(tk.status))
     if (filterPri.length) tks = tks.filter(tk => filterPri.includes(tk.priorityId))

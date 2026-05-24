@@ -1,6 +1,9 @@
 class SlaPolicyPolicy < ApplicationPolicy
-  def index?   = admin_or_analyst?
-  def show?    = admin_or_analyst?
+  # Manager pode ver políticas de SLA (visibilidade operacional)
+  def index? = admin_or_manager?
+  def show?  = admin_or_manager?
+
+  # Criar/editar/excluir: somente admin
   def create?  = admin?
   def update?  = admin?
   def destroy? = admin?

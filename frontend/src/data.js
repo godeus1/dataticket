@@ -1,4 +1,4 @@
-// ── i18n ──────────────────────────────────────────────────────────────────
+﻿// ── i18n ──────────────────────────────────────────────────────────────────
 export const PT = {
   dashboard:'Painel', tickets:'Tickets', calendar:'Calendário', kb:'Base de Conhecimento',
   reports:'Relatórios', settings:'Configurações', profile:'Meu Perfil', logout:'Sair',
@@ -67,9 +67,14 @@ export const EN = {
 
 // ── Permissions ──────────────────────────────────────────────────────────
 export const PERM = {
-  admin:    { createTicket:true,  editTicket:true,  reassign:true,  closeTicket:true,  reopenTicket:true,  comment:true, internalComment:true,  calendar:true,  allTickets:true,  reports:true,  settings:true,  triage:true  },
-  analyst:  { createTicket:true,  editTicket:true,  reassign:false, closeTicket:false, reopenTicket:false, comment:true, internalComment:true,  calendar:true,  allTickets:false, reports:true,  settings:false, triage:false },
-  user:     { createTicket:true,  editTicket:false, reassign:false, closeTicket:false, reopenTicket:false, comment:true, internalComment:false, calendar:false, allTickets:false, reports:false, settings:false, triage:false },
+  // admin: tudo + exclusão + configurações de sistema
+  admin:    { createTicket:true,  editTicket:true,  deleteTicket:true,  reassign:true,  closeTicket:true,  reopenTicket:true,  comment:true, internalComment:true,  calendar:true,  allTickets:true,  reports:true,  settings:true,  triage:true,  logEffort:true  },
+  // manager: visão total, tria, muda status, sem config de admin
+  manager:  { createTicket:true,  editTicket:true,  deleteTicket:false, reassign:true,  closeTicket:true,  reopenTicket:true,  comment:true, internalComment:true,  calendar:true,  allTickets:true,  reports:true,  settings:false, triage:true,  logEffort:true  },
+  // analyst: apenas tickets atribuídos, pode comentar e registrar esforço
+  analyst:  { createTicket:true,  editTicket:false, deleteTicket:false, reassign:false, closeTicket:false, reopenTicket:false, comment:true, internalComment:true,  calendar:true,  allTickets:false, reports:true,  settings:false, triage:false, logEffort:true  },
+  // user: apenas seus próprios tickets
+  user:     { createTicket:true,  editTicket:false, deleteTicket:false, reassign:false, closeTicket:false, reopenTicket:false, comment:true, internalComment:false, calendar:false, allTickets:false, reports:false, settings:false, triage:false, logEffort:false },
 };
 
 // ── Status ───────────────────────────────────────────────────────────────

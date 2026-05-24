@@ -16,7 +16,8 @@ export function SettingsUsers() {
   const [form, setForm] = useState({ firstName: '', lastName: '', email: '', role: 'user', active: true, availableHours: 8, maxHoursPerTicket: 4, password: '', newPassword: '' })
   const [savingPw, setSavingPw] = useState(false)
 
-  const ROLE_COLORS = { admin: '#2383e2', analyst: '#7c3aed', user: '#6b7280' }
+  const ROLE_COLORS  = { admin: '#2383e2', manager: '#0891b2', analyst: '#7c3aed', user: '#6b7280' }
+  const ROLE_LABELS  = { admin: 'Admin', manager: 'Gestor', analyst: 'Analista', user: 'Usuário' }
 
   function openCreate() { setEditUser(null); setForm({ firstName: '', lastName: '', email: '', role: 'user', active: true, availableHours: 8, maxHoursPerTicket: 4, password: '', newPassword: '' }); setShowForm(true) }
   function openEdit(u) { setEditUser(u); setForm({ ...u, password: '', newPassword: '' }); setShowForm(true) }
@@ -102,7 +103,7 @@ export function SettingsUsers() {
               <tr key={u.id}>
                 <td><div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Avatar user={u} size={28} />{u.firstName} {u.lastName}</div></td>
                 <td style={{ color: 'var(--text2)', fontSize: 12 }}>{u.email}</td>
-                <td><span style={{ background: ROLE_COLORS[u.role] + '22', color: ROLE_COLORS[u.role], padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600 }}>{u.role}</span></td>
+                <td><span style={{ background: (ROLE_COLORS[u.role] ?? '#6b7280') + '22', color: ROLE_COLORS[u.role] ?? '#6b7280', padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600 }}>{ROLE_LABELS[u.role] ?? u.role}</span></td>
                 <td><span style={{ color: u.active ? 'var(--success)' : 'var(--danger)', fontWeight: 500 }}>{u.active ? t.active : t.inactive}</span></td>
                 <td>{u.availableHours}h</td>
                 <td>
@@ -131,6 +132,7 @@ export function SettingsUsers() {
                 <label className="label">{t.role}</label>
                 <select className="select" style={{ width: '100%' }} value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))}>
                   <option value="admin">{t.admin}</option>
+                  <option value="manager">Gestor</option>
                   <option value="analyst">{t.analyst}</option>
                   <option value="user">{t.user}</option>
                 </select>
@@ -140,7 +142,7 @@ export function SettingsUsers() {
               {!editUser && (
                 <div style={{ gridColumn: '1/-1' }}>
                   <label className="label">Senha inicial *</label>
-                  <input className="input" type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} placeholder="Mínimo 6 caracteres" />
+                  <input className="input" type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} placeholder="Mínimo 12 caracteres" />
                 </div>
               )}
               {editUser && (
@@ -170,16 +172,26 @@ export function SettingsProfiles() {
   const { lang } = useApp()
   const t = lang === 'pt' ? PT : EN
   const roles = [
-    { key: 'admin', name: 'Administrador', desc: 'Acesso total ao sistema', color: '#2383e2' },
-    { key: 'analyst', name: 'Analista', desc: 'Acesso operacional', color: '#7c3aed' },
-    { key: 'user', name: 'Usuário', desc: 'Acesso restrito', color: '#6b7280' },
+    { key: 'admin',   name: 'Administrador', desc: 'Acesso total + configurações de sistema',  color: '#2383e2' },
+    { key: 'manager', name: 'Gestor',         desc: 'Visão total, tria e gerencia tickets',    color: '#0891b2' },
+    { key: 'analyst', name: 'Analista',        desc: 'Trabalha nos tickets atribuídos a ele',  color: '#7c3aed' },
+    { key: 'user',    name: 'Usuário',         desc: 'Abre e acompanha seus próprios tickets', color: '#6b7280' },
   ]
   const permLabels = {
-    createTicket: 'Criar ticket', editTicket: 'Editar ticket', reassign: 'Reatribuir ticket',
-    closeTicket: 'Fechar ticket', reopenTicket: 'Reabrir ticket', comment: 'Comentar',
-    internalComment: 'Ver comentário interno', calendar: 'Acessar calendário',
-    allTickets: 'Ver todos os tickets', reports: 'Acessar relatórios',
-    settings: 'Acessar configurações', triage: 'Triar ticket',
+    createTicket:    'Criar ticket',
+    editTicket:      'Editar ticket',
+    deleteTicket:    'Excluir ticket',
+    reassign:        'Reatribuir ticket',
+    closeTicket:     'Fechar ticket',
+    reopenTicket:    'Reabrir ticket',
+    comment:         'Comentar',
+    internalComment: 'Ver comentário interno',
+    calendar:        'Acessar calendário',
+    allTickets:      'Ver todos os tickets',
+    reports:         'Acessar relatórios',
+    logEffort:       'Registrar esforço (timer)',
+    settings:        'Acessar configurações',
+    triage:          'Triar ticket',
   }
   return (
     <div>
