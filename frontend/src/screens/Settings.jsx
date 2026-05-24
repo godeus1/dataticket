@@ -559,25 +559,6 @@ export function SettingsSystem() {
       <h2 className="page-title" style={{ marginBottom: 22 }}>{t.systemConfig}</h2>
       <div className="card">
         <div className="form-row"><label className="label">{t.companyName}</label><input className="input" value={form.companyName} onChange={e => setForm(f => ({ ...f, companyName: e.target.value }))} /></div>
-        <div className="form-row"><label className="label">E-mail remetente</label><input className="input" type="email" value={form.emailSender} onChange={e => setForm(f => ({ ...f, emailSender: e.target.value }))} placeholder="mobile@salvabras.com.br" /></div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: 10, marginBottom: 14 }}>
-          <div><label className="label">Servidor SMTP</label><input className="input" value={form.smtpHost || ''} onChange={e => setForm(f => ({ ...f, smtpHost: e.target.value }))} placeholder="smtp.office365.com" /></div>
-          <div><label className="label">Porta</label><input className="input" type="number" value={form.smtpPort || 587} onChange={e => setForm(f => ({ ...f, smtpPort: Number(e.target.value) }))} /></div>
-        </div>
-        <div className="form-row">
-          <label className="label">Senha SMTP</label>
-          <input
-            className="input"
-            type="password"
-            value={form.smtpPass || ''}
-            onChange={e => setForm(f => ({ ...f, smtpPass: e.target.value }))}
-            placeholder={form.smtpPassSet ? '••••••••  (preenchida — deixe vazio para não alterar)' : 'Informe a senha do e-mail remetente'}
-            autoComplete="new-password"
-          />
-          {form.smtpPassSet && (
-            <p style={{ fontSize: 11, color: 'var(--text2)', marginTop: 4 }}>✅ Senha configurada. Deixe o campo vazio para manter a atual.</p>
-          )}
-        </div>
         <div className="form-row">
           <label className="label">{t.timezone}</label>
           <select className="select" style={{ width: '100%' }} value={form.timezone} onChange={e => setForm(f => ({ ...f, timezone: e.target.value }))}>
@@ -604,19 +585,12 @@ export function SettingsSystem() {
           try {
             const payload = {
               name:           form.companyName,
-              smtp_user:      form.emailSender,
               emails_enabled: form.enableEmails,
               timezone:       form.timezone,
               date_format:    form.dateFormat,
-              smtp_host:      form.smtpHost,
-              smtp_port:      form.smtpPort,
-            }
-            // Só envia smtp_pass se o admin digitou algo novo
-            if (form.smtpPass && form.smtpPass.trim() !== '') {
-              payload.smtp_pass = form.smtpPass.trim()
             }
             const updated = await api.updateOrganization(payload)
-            setSystemConfig({ ...form, smtpPass: '', smtpPassSet: updated?.smtp_pass_set ?? form.smtpPassSet })
+            setSystemConfig({ ...form })
             showToast('Configurações salvas!')
           } catch (e) {
             showToast(`Erro ao salvar: ${e.message}`)
