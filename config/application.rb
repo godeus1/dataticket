@@ -42,9 +42,11 @@ module DataticketApi
     config.api_only = true
 
     # ActiveRecord Encryption — smtp_pass e outros campos sensíveis
-    config.active_record.encryption.primary_key        = ENV.fetch("ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY", "dev-primary-key-32-chars-padding!")
-    config.active_record.encryption.deterministic_key  = ENV.fetch("ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY", "dev-deterministic-key-32-chars!!")
-    config.active_record.encryption.key_derivation_salt = ENV.fetch("ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT", "dev-key-derivation-salt-32-chars!")
+    config.active_record.encryption.primary_key         = ENV.fetch("ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY", "dev-primary-key-32-chars-paddin!")
+    config.active_record.encryption.deterministic_key   = ENV.fetch("ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY", "dev-deterministic-key-32-chars!!")
+    config.active_record.encryption.key_derivation_salt = ENV.fetch("ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT", "dev-key-derivation-salt-32-char!")
+    # Permite ler valores em texto plano herdados (ex: smtp_pass antes da migration)
+    config.active_record.encryption.support_unencrypted_data = true
 
     # Devise/Warden precisa de session + cookie middleware mesmo em API mode
     config.middleware.use ActionDispatch::Cookies

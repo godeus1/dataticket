@@ -6,6 +6,13 @@ class ApplicationMailer < ActionMailer::Base
 
   private
 
+  def safe_smtp_pass(org)
+    org&.smtp_pass.presence
+  rescue => e
+    Rails.logger.error("[mailer] falha ao ler smtp_pass: #{e.message} — usando fallback env var")
+    nil
+  end.then { |v| v || ENV.fetch("SMTP_PASS", "") }
+
   def log_delivery
     to = message.to&.join(", ") || "(sem destinatário)"
     Rails.logger.info("[mailer] #{mailer_name}##{action_name} → #{to}")
@@ -15,8 +22,14 @@ class ApplicationMailer < ActionMailer::Base
   # Permite que o admin configure tudo pela tela de Configurações sem acesso ao Railway.
   # Se smtp_pass não estiver na org, cai no fallback das variáveis de ambiente.
   def mail(headers = {}, &block)
-    org       = Organization.first
-    pass      = org&.smtp_pass.presence || ENV.fetch("SMTP_PASS", "")
+    org = begin
+      Organization.first
+    rescue => e
+      Rails.logger.error("[mailer] falha ao carregar organização: #{e.message}")
+      nil
+    end
+
+    pass      = safe_smtp_pass(org)
     host      = org&.smtp_host.presence || ENV.fetch("SMTP_HOST", "smtp.office365.com")
     port      = (org&.smtp_port || ENV.fetch("SMTP_PORT", "587")).to_i
     from_addr = org&.smtp_user.presence || ENV.fetch("SMTP_USER", "noreply@dataticket.app")
