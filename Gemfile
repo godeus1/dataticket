@@ -57,6 +57,9 @@ gem "prometheus-client", "~> 4.2"
 gem "sentry-ruby"
 gem "sentry-rails"
 
+# ── E-mail via API HTTP (evita bloqueio de porta SMTP) ───────────────────────
+gem "resend", "~> 1.3"
+
 group :development, :test do
   gem "dotenv-rails"
   gem "rspec-rails",       "~> 7.0"

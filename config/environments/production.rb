@@ -53,21 +53,11 @@ Rails.application.configure do
   config.active_job.queue_adapter = :solid_queue
   config.solid_queue.connects_to = { database: { writing: :queue } }
 
-  # E-mail
+  # E-mail via Resend HTTP API (evita bloqueio de porta SMTP no Railway)
   config.action_mailer.raise_delivery_errors = true
-  config.action_mailer.delivery_method       = :smtp
+  config.action_mailer.delivery_method       = :resend
   config.action_mailer.default_url_options   = {
     host: ENV.fetch("APP_HOST", "api.dataticket.app")
-  }
-  config.action_mailer.smtp_settings = {
-    address:              ENV.fetch("SMTP_HOST",  "smtp.office365.com"),
-    port:                 ENV.fetch("SMTP_PORT",  "587").to_i,
-    user_name:            ENV.fetch("SMTP_USER",  "mobile@salvabras.com.br"),
-    password:             ENV.fetch("SMTP_PASS",  ""),
-    authentication:       :login,
-    enable_starttls_auto: true,
-    open_timeout:         10,
-    read_timeout:         15
   }
 
   # Enable locale fallbacks for I18n (makes lookups for any locale fall back to
