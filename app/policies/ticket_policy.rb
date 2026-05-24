@@ -16,8 +16,20 @@ class TicketPolicy < ApplicationPolicy
       when "admin"
         base
       when "analyst"
-        # Analyst sees tickets assigned to them or unassigned
-        base.where("assignee_id = ? OR assignee_id IS NULL", @user.id)
+        # Analyst sees:
+        #   • Tickets atribuídos a eles, OU
+        #   • Tickets não atribuídos que: não têm fila, ou têm fila à qual o analista pertence
+        # Isso evita que analistas vejam tickets de filas onde não trabalham.
+        analyst_queue_ids = @user.queue_ids
+        if analyst_queue_ids.any?
+          base.where(
+            "assignee_id = :uid OR (assignee_id IS NULL AND (queue_id IS NULL OR queue_id IN (:qids)))",
+            uid: @user.id, qids: analyst_queue_ids
+          )
+        else
+          # Analista sem filas: vê apenas os próprios + não atribuídos sem fila
+          base.where("assignee_id = ? OR (assignee_id IS NULL AND queue_id IS NULL)", @user.id)
+        end
       else
         # Regular user sees only their own tickets
         base.where(requester_id: @user.id)

@@ -140,7 +140,7 @@ export default function LoginScreen() {
             </div>
             <div className="form-row">
               <label className="label">Nova senha</label>
-              <input className="input" type="password" value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="Mínimo 6 caracteres" autoComplete="new-password" />
+              <input className="input" type="password" value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="Mínimo 12 caracteres" autoComplete="new-password" />
             </div>
             <div className="form-row">
               <label className="label">Confirmar nova senha</label>
