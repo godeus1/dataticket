@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_22_000006) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_24_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -141,6 +141,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_22_000006) do
     t.string "name", null: false
     t.string "slug", null: false
     t.string "smtp_host"
+    t.string "smtp_pass"
     t.integer "smtp_port", default: 587
     t.string "smtp_user"
     t.string "timezone", default: "America/Sao_Paulo"
