@@ -1,0 +1,15 @@
+⚠️ Ticket escalado — SLA excedido
+
+Olá, <%= @recipient.first_name %>.
+
+O ticket abaixo ultrapassou o prazo de SLA em mais de 20% e foi escalado automaticamente.
+
+ID:          #<%= @ticket.id %>
+Título:      <%= @ticket.title %>
+Status:      <%= @ticket.status %>
+<% if @ticket.deadline %>Prazo original: <%= @ticket.deadline.strftime("%d/%m/%Y às %H:%M") %>
+<% end %><% if @ticket.assignee %>Responsável: <%= @ticket.assignee.first_name %> <%= @ticket.assignee.last_name %>
+<% end %>
+Ação necessária: revise e resolva o ticket o quanto antes.
+
+Acesse: <%= @url %>

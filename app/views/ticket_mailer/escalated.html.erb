@@ -1,0 +1,16 @@
+<h2 style="color:#dc2626;">⚠️ Ticket escalado — SLA excedido</h2>
+<p>Olá, <strong><%= @recipient.first_name %></strong>.</p>
+<p>O ticket abaixo ultrapassou o prazo de SLA em mais de 20% e foi escalado automaticamente.</p>
+<table>
+  <tr><th>ID</th><td>#<%= @ticket.id %></td></tr>
+  <tr><th>Título</th><td><%= @ticket.title %></td></tr>
+  <tr><th>Status</th><td><%= @ticket.status %></td></tr>
+  <% if @ticket.deadline %>
+  <tr><th>Prazo original</th><td><%= @ticket.deadline.strftime("%d/%m/%Y às %H:%M") %></td></tr>
+  <% end %>
+  <% if @ticket.assignee %>
+  <tr><th>Responsável</th><td><%= @ticket.assignee.first_name %> <%= @ticket.assignee.last_name %></td></tr>
+  <% end %>
+</table>
+<p style="color:#dc2626;font-size:13px;">Ação necessária: revise e resolva o ticket o quanto antes.</p>
+<a href="<%= @url %>" class="btn">Abrir ticket</a>

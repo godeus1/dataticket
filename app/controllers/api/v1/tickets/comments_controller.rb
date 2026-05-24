@@ -20,6 +20,7 @@ module Api
           comment = @ticket.comments.new(comment_params.merge(user: current_user))
           comment.save!
           NotificationService.new(@ticket).notify_new_comment(current_user)
+          send_comment_emails(comment) if @ticket.organization.emails_enabled? && comment.kind != "internal"
           render json: comment.as_json(
             only: %i[id body kind created_at],
             include: { user: { only: %i[id first_name last_name email avatar_initials avatar_color] } }
@@ -33,6 +34,19 @@ module Api
         end
 
         private
+
+        def send_comment_emails(comment)
+          recipients = []
+          # Requester recebe se quem comentou não é o próprio requester
+          recipients << @ticket.requester if @ticket.requester && @ticket.requester != current_user
+          # Assignee recebe se quem comentou não é o próprio assignee
+          recipients << @ticket.assignee  if @ticket.assignee  && @ticket.assignee  != current_user
+          recipients.uniq.each do |user|
+            TicketMailer.new_comment(@ticket, comment, user).deliver_now
+          rescue => e
+            Rails.logger.error("[comment_email] falha ao notificar #{user.email}: #{e.message}")
+          end
+        end
 
         def set_ticket
           @ticket = policy_scope(Ticket).find(params[:ticket_id])

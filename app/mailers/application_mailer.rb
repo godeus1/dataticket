@@ -2,7 +2,14 @@ class ApplicationMailer < ActionMailer::Base
   default from: ENV.fetch("SMTP_USER", "noreply@dataticket.app")
   layout "mailer"
 
+  after_action :log_delivery
+
   private
+
+  def log_delivery
+    to = message.to&.join(", ") || "(sem destinatário)"
+    Rails.logger.info("[mailer] #{mailer_name}##{action_name} → #{to}")
+  end
 
   # Sobrescreve as configurações SMTP globais com os valores salvos na organização.
   # Permite que o admin configure tudo pela tela de Configurações sem acesso ao Railway.

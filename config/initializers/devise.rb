@@ -16,7 +16,10 @@ Devise.setup do |config|
   config.navigational_formats = []
 
   config.jwt do |jwt|
-    jwt.secret            = ENV.fetch("DEVISE_JWT_SECRET_KEY", "fallback-insecure-key-for-dev-only")
+    jwt.secret            = ENV.fetch("DEVISE_JWT_SECRET_KEY") do
+                              raise "DEVISE_JWT_SECRET_KEY must be set in production" if Rails.env.production?
+                              "dev-only-jwt-secret-not-for-production"
+                            end
     jwt.dispatch_requests = [ [ "POST", %r{^/api/v1/login$} ] ]
     jwt.revocation_requests = [ [ "DELETE", %r{^/api/v1/logout$} ] ]
     jwt.expiration_time   = 24.hours.to_i

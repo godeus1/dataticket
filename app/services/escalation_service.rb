@@ -49,6 +49,10 @@ class EscalationService
         title:   "Ticket escalado — #{@ticket.id}",
         body:    "SLA excedido em #{sla_exceeded_percent}%. Ticket: #{@ticket.title}"
       )
+      next unless @org.emails_enabled?
+      TicketMailer.escalated(@ticket, user).deliver_now
+    rescue => e
+      Rails.logger.error("[escalation_email] falha ao notificar #{user.email}: #{e.message}")
     end
   end
 end

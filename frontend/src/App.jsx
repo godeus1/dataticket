@@ -3,6 +3,7 @@ import { PERM } from './data.js'
 import { Toast } from './components.jsx'
 import { Sidebar, Topbar } from './layout.jsx'
 import LoginScreen from './screens/Login.jsx'
+import CsatPage from './screens/Csat.jsx'
 import * as Sentry from '@sentry/react'
 import Dashboard from './screens/Dashboard.jsx'
 import { TicketList, NewTicket, TicketDetail } from './screens/Tickets.jsx'
@@ -83,6 +84,8 @@ function ErrorFallback({ error, resetError }) {
 }
 
 export default function App() {
+  if (window.location.pathname.startsWith('/csat/')) return <CsatPage />
+
   return (
     <Sentry.ErrorBoundary fallback={({ error, resetError }) => <ErrorFallback error={error} resetError={resetError} />}>
       <AppProvider>

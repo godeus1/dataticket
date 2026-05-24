@@ -16,6 +16,8 @@ class Organization < ApplicationRecord
   has_many :custom_fields,     dependent: :destroy
   has_one  :sso_configuration, dependent: :destroy
 
+  encrypts :smtp_pass
+
   validates :name, :slug, presence: true
   validates :slug, uniqueness: true, format: { with: /\A[a-z0-9\-]+\z/, message: "apenas letras minúsculas, números e hífens" }
 

@@ -36,6 +36,29 @@ class TicketMailer < ApplicationMailer
     )
   end
 
+  def escalated(ticket, recipient)
+    @ticket    = ticket
+    @recipient = recipient
+    @url       = "#{ENV.fetch('FRONTEND_URL', 'http://localhost:5173')}/tickets/#{ticket.id}"
+
+    mail(
+      to:      recipient.email,
+      subject: "[DataTicket] ⚠️ Ticket escalado — SLA excedido: #{ticket.id}"
+    )
+  end
+
+  def new_comment(ticket, comment, recipient)
+    @ticket    = ticket
+    @comment   = comment
+    @recipient = recipient
+    @url       = "#{ENV.fetch('FRONTEND_URL', 'http://localhost:5173')}/tickets/#{ticket.id}"
+
+    mail(
+      to:      recipient.email,
+      subject: "[DataTicket] Novo comentário no ticket #{ticket.id}"
+    )
+  end
+
   def welcome(user, temp_password)
     @user          = user
     @login_url     = "#{ENV.fetch('FRONTEND_URL', 'http://localhost:5173')}/login"
