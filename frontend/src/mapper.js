@@ -166,6 +166,7 @@ export function mapOrganization(o) {
     dateFormat:         o.date_format      ?? o.dateFormat      ?? 'DD/MM/YYYY',
     smtpHost:           o.smtp_host        ?? o.smtpHost        ?? '',
     smtpPort:           o.smtp_port        ?? o.smtpPort        ?? 587,
+    smtpPassSet:        o.smtp_pass_set    ?? false,
     slug:               o.slug             ?? '',
     attachmentsEnabled: o.attachments_enabled ?? false,
   }
