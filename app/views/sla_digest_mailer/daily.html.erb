@@ -1,5 +1,5 @@
 ﻿<h2>Resumo SLA — <%= Date.current.strftime("%d/%m/%Y") %></h2>
-<p>Ola, <strong><%= @user.first_name %></strong>.</p>
+<p>Olá, <strong><%= @user.first_name %></strong>.</p>
 
 <% if @expired.any? %>
 <h3 style="color:#dc2626;">Tickets com SLA vencido (<%= @expired.size %>)</h3>
@@ -32,7 +32,7 @@
 <% end %>
 
 <% if @expired.empty? && @expiring_today.empty? %>
-<p style="color:#16a34a;">Nenhum ticket com SLA critico no momento.</p>
+<p style="color:#16a34a;">Nenhum ticket com SLA crítico no momento.</p>
 <% end %>
 
 <a href="<%= @url %>" class="btn">Ver todos os tickets</a>

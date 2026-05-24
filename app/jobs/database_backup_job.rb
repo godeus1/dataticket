@@ -68,7 +68,7 @@ class DatabaseBackupJob < ApplicationJob
     admin = org&.users&.where(role: "admin")&.order(:created_at)&.first
     return unless admin
 
-    AdminMailer.backup_alert(admin, message).deliver_later
+    AdminMailer.backup_alert(admin, message).deliver_now
   rescue StandardError => e
     Rails.logger.error("[DatabaseBackupJob] Erro ao notificar admin: #{e.message}")
   end

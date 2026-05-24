@@ -1,7 +1,7 @@
 ﻿<h2>Como foi nosso atendimento?</h2>
-<p>Ola, <strong><%= @user.first_name %></strong>.</p>
+<p>Olá, <strong><%= @user.first_name %></strong>.</p>
 <p>O ticket <strong><%= @ticket.id %></strong> — <em><%= @ticket.title %></em> foi encerrado.</p>
-<p>Sua opiniao e muito importante para nos. Avalie o atendimento clicando em uma das opcoes abaixo:</p>
+<p>Sua opinião é muito importante para nós. Avalie o atendimento clicando em uma das opções abaixo:</p>
 <table style="margin: 24px auto; border-collapse: collapse;">
   <tr>
     <% (1..5).each do |score| %>
@@ -21,4 +21,4 @@
     </td>
   </tr>
 </table>
-<p style="font-size:13px;color:#6b7280;">Voce tambem pode deixar um comentario acessando o link acima.</p>
+<p style="font-size:13px;color:#6b7280;">Você também pode deixar um comentário acessando o link acima.</p>

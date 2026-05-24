@@ -1,13 +1,13 @@
-﻿Ticket atribuido a voce
+﻿Ticket atribuído a você
 
-Ola, <%= @user.first_name %>.
+Olá, <%= @user.first_name %>.
 
-O ticket <%= @ticket.id %> foi atribuido a voce.
+O ticket <%= @ticket.id %> foi atribuído a você.
 
 ID: <%= @ticket.id %>
-Titulo: <%= @ticket.title %>
+Título: <%= @ticket.title %>
 Status: <%= @ticket.status %>
 <% if @ticket.priority %>Prioridade: <%= @ticket.priority.name %><% end %>
-<% if @ticket.deadline %>Prazo: <%= @ticket.deadline.strftime("%d/%m/%Y as %H:%M") %><% end %>
+<% if @ticket.deadline %>Prazo: <%= @ticket.deadline.strftime("%d/%m/%Y às %H:%M") %><% end %>
 
 Acesse: <%= @url %>

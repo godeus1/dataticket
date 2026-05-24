@@ -2,6 +2,8 @@
 #
 # E-mails operacionais enviados ao administrador da organização.
 class AdminMailer < ApplicationMailer
+  layout false
+
   # Alerta de falha/ausência de backup do banco de dados.
   # Chamado pelo DatabaseBackupJob quando o backup não pode ser realizado.
   #

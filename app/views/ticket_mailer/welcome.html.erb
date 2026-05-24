@@ -1,9 +1,9 @@
 ﻿<h2>Bem-vindo ao DataTicket!</h2>
-<p>Ola, <strong><%= @user.first_name %></strong>.</p>
+<p>Olá, <strong><%= @user.first_name %></strong>.</p>
 <p>Sua conta foi criada com sucesso. Utilize as credenciais abaixo para acessar o sistema:</p>
 <table>
   <tr><th>E-mail</th><td><%= @user.email %></td></tr>
-  <tr><th>Senha temporaria</th><td><code><%= @temp_password %></code></td></tr>
+  <tr><th>Senha temporária</th><td><code><%= @temp_password %></code></td></tr>
 </table>
-<p>Por seguranca, altere sua senha apos o primeiro acesso.</p>
+<p>Por segurança, altere sua senha após o primeiro acesso.</p>
 <a href="<%= @login_url %>" class="btn">Acessar o sistema</a>

@@ -1,6 +1,6 @@
 ﻿Resumo SLA — <%= Date.current.strftime("%d/%m/%Y") %>
 
-Ola, <%= @user.first_name %>.
+Olá, <%= @user.first_name %>.
 
 <% if @expired.any? %>
 === TICKETS COM SLA VENCIDO (<%= @expired.size %>) ===
@@ -17,7 +17,7 @@ Ola, <%= @user.first_name %>.
 <% end %>
 
 <% if @expired.empty? && @expiring_today.empty? %>
-Nenhum ticket com SLA critico no momento.
+Nenhum ticket com SLA crítico no momento.
 <% end %>
 
 Ver todos os tickets: <%= @url %>

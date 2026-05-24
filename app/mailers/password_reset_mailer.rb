@@ -1,4 +1,6 @@
 class PasswordResetMailer < ApplicationMailer
+  layout false
+
   def reset_code(user, code)
     @user = user
     @code = code
