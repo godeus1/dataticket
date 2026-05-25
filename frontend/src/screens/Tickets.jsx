@@ -5,6 +5,38 @@ import { useApp } from '../AppContext.jsx'
 import { PT, EN, PERM, STATUS_LIST, ALLOWED_TRANSITIONS, isExpired, formatDate, formatDateTime } from '../data.js'
 import { Avatar, Badge, PriBadge, CatChip, ModalOverlay, EmptyState } from '../components.jsx'
 
+// ── Timer utils (fora do componente — sobrevivem a desmontagem) ───────────
+function timerActiveKey(userId)   { return `dt_active_timer_${userId}` }
+function timerSessionsKey(userId, ticketId) { return `dt_sessions_${userId}_${ticketId}` }
+
+function getActiveTimer(userId) {
+  try { return JSON.parse(localStorage.getItem(timerActiveKey(userId)) || 'null') }
+  catch { return null }
+}
+function setActiveTimer(userId, val) {
+  const key = timerActiveKey(userId)
+  if (val) localStorage.setItem(key, JSON.stringify(val))
+  else     localStorage.removeItem(key)
+}
+function loadSessions(userId, ticketId) {
+  try {
+    return JSON.parse(localStorage.getItem(timerSessionsKey(userId, ticketId)) || '[]')
+      .map(s => ({ start: new Date(s.start), end: new Date(s.end), mins: s.mins }))
+  } catch { return [] }
+}
+function saveSessions(userId, ticketId, sessions) {
+  try {
+    localStorage.setItem(
+      timerSessionsKey(userId, ticketId),
+      JSON.stringify(sessions.map(s => ({
+        start: s.start.toISOString(),
+        end:   s.end.toISOString(),
+        mins:  s.mins,
+      })))
+    )
+  } catch { /* quota */ }
+}
+
 // ── Ticket List ───────────────────────────────────────────────────────────
 export function TicketList() {
   const { currentUser, lang, tickets, priorities, categories, users, queues, setScreen, setSelectedTicket, triageAction, showToast } = useApp()
@@ -451,32 +483,23 @@ export function TicketDetail() {
   const [timerStart, setTimerStart] = useState(null)
   const [sessions, setSessions] = useState([])
 
-  // ── Chaves de localStorage ────────────────────────────────────────────────
-  const SESSIONS_KEY = tk ? `dt_sessions_${currentUser.id}_${tk.id}` : null
-  const ACTIVE_KEY   = `dt_active_timer_${currentUser.id}`
-
-  // Carrega sessões persistidas e retoma timer ativo ao abrir o ticket
+  // Carrega sessões salvas e retoma timer ativo ao abrir o ticket
   useEffect(() => {
     if (!tk) return
-    // Sessões salvas
-    try {
-      const saved = JSON.parse(localStorage.getItem(SESSIONS_KEY) || '[]')
-      setSessions(saved.map(s => ({ start: new Date(s.start), end: new Date(s.end), mins: s.mins })))
-    } catch { setSessions([]) }
-    // Timer que ficou ativo (ex.: usuário navegou e voltou)
-    try {
-      const active = JSON.parse(localStorage.getItem(ACTIVE_KEY) || 'null')
-      if (active && active.ticketId === tk.id) {
-        setTimerStart(new Date(active.startTime))
-        setTimerRunning(true)
-      }
-    } catch { /* ignora */ }
-  }, [tk?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+    setSessions(loadSessions(currentUser.id, tk.id))
+    const active = getActiveTimer(currentUser.id)
+    if (active && active.ticketId === tk.id) {
+      setTimerStart(new Date(active.startTime))
+      setTimerRunning(true)
+    } else {
+      setTimerRunning(false)
+      setTimerStart(null)
+    }
+  }, [tk?.id, currentUser.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Notificação a cada 15 min enquanto o cronômetro está ativo
+  // Notificação a cada 15 min enquanto cronômetro ativo
   useEffect(() => {
-    if (!timerRunning || !timerStart) return
-    // Pede permissão na primeira vez
+    if (!timerRunning || !timerStart || !tk) return
     if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
       Notification.requestPermission()
     }
@@ -486,13 +509,13 @@ export function TicketDetail() {
         new Notification('⏱ Cronômetro ativo — DataTicket', {
           body: `Ticket #${tk.id}: ${tk.title}\nTempo decorrido: ${elapsed} min. Lembre-se de pausar quando terminar.`,
           icon: '/favicon.ico',
-          tag: 'dt-timer-reminder',   // substitui a anterior, sem empilhar
+          tag: 'dt-timer-reminder',
           requireInteraction: false,
         })
       }
-    }, 15 * 60 * 1000) // 15 minutos
+    }, 15 * 60 * 1000)
     return () => clearInterval(interval)
-  }, [timerRunning, timerStart]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [timerRunning]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const [showMoreComments, setShowMoreComments] = useState(false)
   const [showMoreHistory, setShowMoreHistory] = useState(false)
@@ -667,56 +690,41 @@ export function TicketDetail() {
 
   function toggleTimer() {
     if (!timerRunning) {
-      // Bloqueia segundo cronômetro simultâneo
-      try {
-        const active = JSON.parse(localStorage.getItem(ACTIVE_KEY) || 'null')
-        if (active && active.ticketId !== tk.id) {
-          alert(`⚠️ Você já tem um cronômetro ativo no ticket #${active.ticketId}.\n\nPause-o antes de iniciar este.`)
-          return
-        }
-      } catch { /* ignora leitura corrompida */ }
+      // ── Bloqueia timer duplo — leitura direta do localStorage ──────────
+      const active = getActiveTimer(currentUser.id)
+      if (active && active.ticketId !== tk.id) {
+        alert(`⚠️ Cronômetro já ativo no ticket #${active.ticketId}.\n\nPause-o antes de iniciar este.`)
+        return
+      }
 
       const start = new Date()
       setTimerStart(start)
       setTimerRunning(true)
-      localStorage.setItem(ACTIVE_KEY, JSON.stringify({
-        ticketId:   tk.id,
-        ticketTitle: tk.title,
-        startTime:  start.toISOString(),
-      }))
+      setActiveTimer(currentUser.id, { ticketId: tk.id, ticketTitle: tk.title, startTime: start.toISOString() })
 
-      // Pede permissão de notificação logo ao iniciar
       if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
         Notification.requestPermission()
       }
-
       if (tk.status !== 'Em Andamento') {
         changeStatusAction(tk.id, 'Em Andamento').catch(() => {})
       }
     } else {
-      const end  = new Date()
-      const mins = (end - timerStart) / 60000
-      const newSession = { start: timerStart, end, mins }
+      // ── Pausa — salva sessão e persiste esforço no backend ─────────────
+      const end        = new Date()
+      const mins       = (end - timerStart) / 60000
+      const updated    = [...sessions, { start: timerStart, end, mins }]
+      const newEffort  = +(tk.effortUsed + mins / 60).toFixed(2)
 
-      setSessions(prev => {
-        const updated = [...prev, newSession]
-        // Persiste no localStorage para sobreviver à navegação
-        try {
-          localStorage.setItem(SESSIONS_KEY, JSON.stringify(
-            updated.map(s => ({ start: s.start.toISOString(), end: s.end.toISOString(), mins: s.mins }))
-          ))
-        } catch { /* ignora quota errors */ }
-        return updated
-      })
-
-      const hoursUsed = mins / 60
-      setTickets(prev => prev.map(x => x.id === tk.id
-        ? { ...x, effortUsed: +(x.effortUsed + hoursUsed).toFixed(2) }
-        : x
-      ))
+      setSessions(updated)
+      saveSessions(currentUser.id, tk.id, updated)
+      setActiveTimer(currentUser.id, null)
       setTimerRunning(false)
       setTimerStart(null)
-      localStorage.removeItem(ACTIVE_KEY)
+
+      // Atualiza estado local imediatamente
+      setTickets(prev => prev.map(x => x.id === tk.id ? { ...x, effortUsed: newEffort } : x))
+      // Persiste no backend para sobreviver a refresh
+      api.updateTicket(tk.id, { effort_used: newEffort }).catch(() => {})
     }
   }
 
