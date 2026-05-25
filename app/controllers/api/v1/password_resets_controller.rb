@@ -20,6 +20,12 @@ module Api
           return
         end
 
+        unless user.active?
+          render json: { error: "Conta inativa. Entre em contato com o administrador." },
+                 status: :forbidden
+          return
+        end
+
         code = generate_code
         user.update_columns(
           reset_password_token:   Digest::SHA256.hexdigest(code),

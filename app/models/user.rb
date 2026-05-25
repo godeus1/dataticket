@@ -42,6 +42,16 @@ class User < ApplicationRecord
   def msp_admin? = role == "msp_admin"
   def manager?   = role == "manager"
 
+  # Devise hook — impede login de usuários inativos.
+  # Chamado automaticamente pelo Warden antes de emitir o token JWT.
+  def active_for_authentication?
+    super && active?
+  end
+
+  def inactive_message
+    active? ? super : :account_inactive
+  end
+
   def full_name
     "#{first_name} #{last_name}"
   end

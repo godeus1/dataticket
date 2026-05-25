@@ -13,6 +13,12 @@ module Api
           return
         end
 
+        # Bloqueia usuários inativos mesmo que a senha esteja correta.
+        unless resource.active?
+          render json: { error: "Conta inativa. Entre em contato com o administrador." }, status: :unauthorized
+          return
+        end
+
         render json: {
           user: {
             id:         resource.id,
