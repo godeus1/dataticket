@@ -114,22 +114,43 @@ export function AppProvider({ children }) {
   }, [])
 
   // ── Restore session on app boot ───────────────────────────────────────
+  // Tenta restaurar até 4x com backoff para suportar cold-start do Railway.
+  // Só apaga o token em 401 genuíno — nunca em erros de rede ou 5xx.
   useEffect(() => {
     const token = getToken()
     if (!token) { setDbReady(true); return }
 
-    api.me()
-      .then(async (userData) => {
+    let cancelled = false
+
+    async function restore(attempt) {
+      try {
+        const userData = await api.me()
+        if (cancelled) return
         const user = mapUser(userData)
         setCurrentUserState(user)
         Sentry.setUser({ id: String(user.id), email: user.email, username: `${user.firstName} ${user.lastName}`, role: user.role })
         await loadData()
-        setDbReady(true)
-      })
-      .catch(() => {
-        setToken(null)
-        setDbReady(true)
-      })
+        if (!cancelled) setDbReady(true)
+      } catch (err) {
+        if (cancelled) return
+        if (err?.status === 401) {
+          // Token genuinamente expirado ou inválido — faz logout imediatamente
+          setToken(null)
+          setDbReady(true)
+        } else if (attempt < 4) {
+          // Erro transitório (servidor acordando, rede instável) — aguarda e tenta novamente
+          setTimeout(() => restore(attempt + 1), 1500 * attempt)
+        } else {
+          // Esgotou tentativas — mantém o token (pode ser só o servidor dormindo)
+          // e exibe tela normal; próxima ação do usuário vai reautenticar
+          setApiError('Servidor indisponível. Verifique sua conexão e recarregue.')
+          setDbReady(true)
+        }
+      }
+    }
+
+    restore(1)
+    return () => { cancelled = true }
   }, [loadData])
 
   // ── Sync currentUser when users list changes ──────────────────────────
