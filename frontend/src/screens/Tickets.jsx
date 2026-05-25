@@ -451,6 +451,49 @@ export function TicketDetail() {
   const [timerStart, setTimerStart] = useState(null)
   const [sessions, setSessions] = useState([])
 
+  // ── Chaves de localStorage ────────────────────────────────────────────────
+  const SESSIONS_KEY = tk ? `dt_sessions_${currentUser.id}_${tk.id}` : null
+  const ACTIVE_KEY   = `dt_active_timer_${currentUser.id}`
+
+  // Carrega sessões persistidas e retoma timer ativo ao abrir o ticket
+  useEffect(() => {
+    if (!tk) return
+    // Sessões salvas
+    try {
+      const saved = JSON.parse(localStorage.getItem(SESSIONS_KEY) || '[]')
+      setSessions(saved.map(s => ({ start: new Date(s.start), end: new Date(s.end), mins: s.mins })))
+    } catch { setSessions([]) }
+    // Timer que ficou ativo (ex.: usuário navegou e voltou)
+    try {
+      const active = JSON.parse(localStorage.getItem(ACTIVE_KEY) || 'null')
+      if (active && active.ticketId === tk.id) {
+        setTimerStart(new Date(active.startTime))
+        setTimerRunning(true)
+      }
+    } catch { /* ignora */ }
+  }, [tk?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Notificação a cada 15 min enquanto o cronômetro está ativo
+  useEffect(() => {
+    if (!timerRunning || !timerStart) return
+    // Pede permissão na primeira vez
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      Notification.requestPermission()
+    }
+    const interval = setInterval(() => {
+      const elapsed = Math.round((Date.now() - timerStart.getTime()) / 60000)
+      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        new Notification('⏱ Cronômetro ativo — DataTicket', {
+          body: `Ticket #${tk.id}: ${tk.title}\nTempo decorrido: ${elapsed} min. Lembre-se de pausar quando terminar.`,
+          icon: '/favicon.ico',
+          tag: 'dt-timer-reminder',   // substitui a anterior, sem empilhar
+          requireInteraction: false,
+        })
+      }
+    }, 15 * 60 * 1000) // 15 minutos
+    return () => clearInterval(interval)
+  }, [timerRunning, timerStart]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const [showMoreComments, setShowMoreComments] = useState(false)
   const [showMoreHistory, setShowMoreHistory] = useState(false)
   const [showMoreSessions, setShowMoreSessions] = useState(false)
@@ -624,17 +667,56 @@ export function TicketDetail() {
 
   function toggleTimer() {
     if (!timerRunning) {
-      setTimerStart(new Date()); setTimerRunning(true)
+      // Bloqueia segundo cronômetro simultâneo
+      try {
+        const active = JSON.parse(localStorage.getItem(ACTIVE_KEY) || 'null')
+        if (active && active.ticketId !== tk.id) {
+          alert(`⚠️ Você já tem um cronômetro ativo no ticket #${active.ticketId}.\n\nPause-o antes de iniciar este.`)
+          return
+        }
+      } catch { /* ignora leitura corrompida */ }
+
+      const start = new Date()
+      setTimerStart(start)
+      setTimerRunning(true)
+      localStorage.setItem(ACTIVE_KEY, JSON.stringify({
+        ticketId:   tk.id,
+        ticketTitle: tk.title,
+        startTime:  start.toISOString(),
+      }))
+
+      // Pede permissão de notificação logo ao iniciar
+      if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+        Notification.requestPermission()
+      }
+
       if (tk.status !== 'Em Andamento') {
         changeStatusAction(tk.id, 'Em Andamento').catch(() => {})
       }
     } else {
-      const end = new Date()
+      const end  = new Date()
       const mins = (end - timerStart) / 60000
-      setSessions(s => [...s, { start: timerStart, end, mins }])
+      const newSession = { start: timerStart, end, mins }
+
+      setSessions(prev => {
+        const updated = [...prev, newSession]
+        // Persiste no localStorage para sobreviver à navegação
+        try {
+          localStorage.setItem(SESSIONS_KEY, JSON.stringify(
+            updated.map(s => ({ start: s.start.toISOString(), end: s.end.toISOString(), mins: s.mins }))
+          ))
+        } catch { /* ignora quota errors */ }
+        return updated
+      })
+
       const hoursUsed = mins / 60
-      setTickets(prev => prev.map(x => x.id === tk.id ? { ...x, effortUsed: +(x.effortUsed + hoursUsed).toFixed(2) } : x))
-      setTimerRunning(false); setTimerStart(null)
+      setTickets(prev => prev.map(x => x.id === tk.id
+        ? { ...x, effortUsed: +(x.effortUsed + hoursUsed).toFixed(2) }
+        : x
+      ))
+      setTimerRunning(false)
+      setTimerStart(null)
+      localStorage.removeItem(ACTIVE_KEY)
     }
   }
 
@@ -670,7 +752,7 @@ export function TicketDetail() {
           </div>
 
           {/* Timer */}
-          {p.triage && (
+          {p.logEffort && (
             <div className="card" style={{ marginBottom: 14 }}>
               <div style={{ fontWeight: 600, marginBottom: 10 }}>⏱ {t.timer}</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10, flexWrap: 'wrap' }}>
