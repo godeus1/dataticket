@@ -39,6 +39,19 @@ class TicketBlueprint < Blueprinter::Base
     field :queue_name do |ticket|
       ticket.queue&.name
     end
+
+    field :timer_sessions do |ticket|
+      ticket.timer_sessions.includes(:user).chronological.map do |s|
+        {
+          id:            s.id,
+          started_at:    s.started_at,
+          stopped_at:    s.stopped_at,
+          duration_mins: s.duration_mins,
+          user_id:       s.user_id,
+          user_name:     s.user&.full_name,
+        }
+      end
+    end
   end
 
   # Trash view — for admin trash listing

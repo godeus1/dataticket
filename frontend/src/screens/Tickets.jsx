@@ -1,6 +1,6 @@
 ﻿import { useState, useMemo, useEffect } from 'react'
 import { api } from '../api.js'
-import { mapAttachment, mapTicket } from '../mapper.js'
+import { mapAttachment, mapTicket, mapTimerSession } from '../mapper.js'
 import { useApp } from '../AppContext.jsx'
 import { PT, EN, PERM, STATUS_LIST, ALLOWED_TRANSITIONS, isExpired, formatDate, formatDateTime } from '../data.js'
 import { Avatar, Badge, PriBadge, CatChip, ModalOverlay, EmptyState } from '../components.jsx'
@@ -537,10 +537,12 @@ export function TicketDetail() {
   const [timerStart, setTimerStart] = useState(null)
   const [sessions, setSessions] = useState([])
 
-  // Carrega sessões salvas e retoma timer ativo ao abrir o ticket
+  // Carrega sessões do banco (via tk.timerSessions) e retoma timer ativo (localStorage)
   useEffect(() => {
     if (!tk) return
-    setSessions(loadSessions(currentUser.id, tk.id))
+    // Sessões do banco — incluem quem iniciou/parou, sobrevivem à troca de analista
+    setSessions(tk.timerSessions ?? [])
+    // Timer ativo: ainda usa localStorage para rastrear início antes de parar
     const active = getActiveTimer(currentUser.id)
     if (active && active.ticketId === tk.id) {
       setTimerStart(new Date(active.startTime))
@@ -617,7 +619,13 @@ export function TicketDetail() {
       .then(data => {
         const full = mapTicket(data)
         setTickets(prev => prev.map(t => t.id === full.id
-          ? { ...t, description: full.description, comments: full.comments, attachments: full.attachments, coAssignees: full.coAssignees }
+          ? { ...t,
+              description:  full.description,
+              comments:     full.comments,
+              attachments:  full.attachments,
+              coAssignees:  full.coAssignees,
+              timerSessions: full.timerSessions,
+            }
           : t
         ))
       })
@@ -818,21 +826,50 @@ export function TicketDetail() {
         changeStatusAction(tk.id, 'Em Andamento').catch(() => {})
       }
     } else {
-      // ── Pausa — salva sessão e persiste esforço no backend ─────────────
+      // ── Pausa — salva sessão no banco e persiste esforço ───────────────
       const end        = new Date()
       const mins       = (end - timerStart) / 60000
-      const updated    = [...sessions, { start: timerStart, end, mins }]
       const newEffort  = +(tk.effortUsed + mins / 60).toFixed(2)
 
-      setSessions(updated)
-      saveSessions(currentUser.id, tk.id, updated)
+      // Limpa o timer ativo do localStorage
       setActiveTimer(currentUser.id, null)
       setTimerRunning(false)
       setTimerStart(null)
 
-      // Atualiza estado local imediatamente
+      // Atualiza estado local imediatamente (otimista)
+      const newSession = {
+        id:       null, // preenchido após resposta do backend
+        start:    timerStart,
+        end,
+        mins,
+        userId:   currentUser.id,
+        userName: `${currentUser.firstName} ${currentUser.lastName}`.trim(),
+      }
+      setSessions(prev => [...prev, newSession])
       setTickets(prev => prev.map(x => x.id === tk.id ? { ...x, effortUsed: newEffort } : x))
-      // Persiste no backend para sobreviver a refresh
+
+      // Persiste no backend: sessão com usuário e esforço acumulado
+      api.createTimerSession(tk.id, {
+        started_at:    timerStart.toISOString(),
+        stopped_at:    end.toISOString(),
+        duration_mins: mins,
+      })
+        .then(data => {
+          const saved = mapTimerSession(data)
+          // Substitui a sessão otimista pelo registro real (com ID)
+          setTickets(prev => prev.map(x => {
+            if (x.id !== tk.id) return x
+            const newSessions = [...(x.timerSessions ?? []), saved]
+            return { ...x, timerSessions: newSessions }
+          }))
+          setSessions(prev => {
+            const next = [...prev]
+            next[next.length - 1] = saved
+            return next
+          })
+        })
+        .catch(() => {})
+
       api.updateTicket(tk.id, { effort_used: newEffort }).catch(() => {})
     }
   }
@@ -898,15 +935,22 @@ export function TicketDetail() {
                 <div style={{ marginTop: 10 }}>
                   <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6, fontWeight: 500 }}>{t.sessions}:</div>
                   {sessions.slice(0, 5).map((s, i) => (
-                    <div key={i} style={{ fontSize: 12, padding: '6px 0', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                      <div>
-                        <span style={{ color: 'var(--text)', fontWeight: 500 }}>▶ {formatDateTime(s.start.toISOString())}</span>
-                        <span style={{ color: 'var(--text2)', margin: '0 6px' }}>→</span>
-                        <span style={{ color: 'var(--text)', fontWeight: 500 }}>⏸ {formatDateTime(s.end.toISOString())}</span>
+                    <div key={s.id ?? i} style={{ fontSize: 12, padding: '7px 0', borderBottom: '1px solid var(--border)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                        <div>
+                          <span style={{ color: 'var(--text)', fontWeight: 500 }}>▶ {formatDateTime(s.start instanceof Date ? s.start.toISOString() : s.start)}</span>
+                          <span style={{ color: 'var(--text2)', margin: '0 6px' }}>→</span>
+                          <span style={{ color: 'var(--text)', fontWeight: 500 }}>⏸ {formatDateTime(s.end instanceof Date ? s.end.toISOString() : s.end)}</span>
+                        </div>
+                        <span style={{ fontSize: 11, background: 'var(--bg2)', padding: '2px 8px', borderRadius: 10, color: 'var(--text2)', flexShrink: 0 }}>
+                          {(s.mins ?? 0).toFixed(1)} min
+                        </span>
                       </div>
-                      <span style={{ fontSize: 11, background: 'var(--bg2)', padding: '2px 8px', borderRadius: 10, color: 'var(--text2)', flexShrink: 0 }}>
-                        {s.mins.toFixed(1)} min
-                      </span>
+                      {s.userName && (
+                        <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 2 }}>
+                          👤 {s.userName}
+                        </div>
+                      )}
                     </div>
                   ))}
                   {sessions.length > 5 && (
@@ -1153,20 +1197,25 @@ export function TicketDetail() {
               <button className="btn btn-secondary btn-sm" onClick={() => setShowMoreSessions(false)}>✕</button>
             </div>
             {sessions.slice(moreSessionsPage * MORE_PER, (moreSessionsPage + 1) * MORE_PER).map((s, i) => (
-              <div key={i} style={{ fontSize: 12, padding: '8px 0', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                <div>
-                  <div style={{ marginBottom: 2 }}>
-                    <span style={{ color: '#16a34a', fontWeight: 500 }}>▶ Iniciado: </span>
-                    <span style={{ color: 'var(--text)' }}>{formatDateTime(s.start.toISOString())}</span>
-                  </div>
+              <div key={s.id ?? i} style={{ fontSize: 12, padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
                   <div>
-                    <span style={{ color: '#dc2626', fontWeight: 500 }}>⏸ Pausado: </span>
-                    <span style={{ color: 'var(--text)' }}>{formatDateTime(s.end.toISOString())}</span>
+                    {s.userName && (
+                      <div style={{ fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>👤 {s.userName}</div>
+                    )}
+                    <div style={{ marginBottom: 2 }}>
+                      <span style={{ color: '#16a34a', fontWeight: 500 }}>▶ Iniciado: </span>
+                      <span style={{ color: 'var(--text)' }}>{formatDateTime(s.start instanceof Date ? s.start.toISOString() : s.start)}</span>
+                    </div>
+                    <div>
+                      <span style={{ color: '#dc2626', fontWeight: 500 }}>⏸ Pausado: </span>
+                      <span style={{ color: 'var(--text)' }}>{formatDateTime(s.end instanceof Date ? s.end.toISOString() : s.end)}</span>
+                    </div>
                   </div>
+                  <span style={{ fontSize: 12, background: 'var(--bg2)', padding: '3px 10px', borderRadius: 10, color: 'var(--text2)', flexShrink: 0 }}>
+                    {(s.mins ?? 0).toFixed(1)} min
+                  </span>
                 </div>
-                <span style={{ fontSize: 12, background: 'var(--bg2)', padding: '3px 10px', borderRadius: 10, color: 'var(--text2)', flexShrink: 0 }}>
-                  {s.mins.toFixed(1)} min
-                </span>
               </div>
             ))}
             {Math.ceil(sessions.length / MORE_PER) > 1 && (

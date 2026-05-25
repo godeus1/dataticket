@@ -36,6 +36,18 @@ export function mapComment(c) {
   }
 }
 
+export function mapTimerSession(s) {
+  if (!s) return null
+  return {
+    id:       s.id,
+    start:    new Date(s.started_at ?? s.start),
+    end:      new Date(s.stopped_at ?? s.end),
+    mins:     parseFloat(s.duration_mins ?? s.mins ?? 0),
+    userId:   s.user_id  ?? s.userId  ?? null,
+    userName: s.user_name ?? s.userName ?? null,
+  }
+}
+
 export function mapAttachment(a) {
   if (!a) return null
   return {
@@ -75,6 +87,7 @@ export function mapTicket(t) {
     attachments:     (t.attachments  ?? []).map(mapAttachment),
     coAssignees:     (t.co_assignees ?? t.coAssignees ?? []).map(u => mapUser(u)),
     history:         (t.history      ?? []),
+    timerSessions:   (t.timer_sessions ?? t.timerSessions ?? []).map(mapTimerSession),
     deletedAt:       t.deleted_at    ?? t.deletedAt    ?? null,
     deletedById:     t.deleted_by_id ?? t.deletedById  ?? null,
     deletedByName:   t.deleted_by_name ?? t.deletedByName ?? null,

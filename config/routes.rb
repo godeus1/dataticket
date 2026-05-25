@@ -40,8 +40,9 @@ Rails.application.routes.draw do
 
       # Tickets
       resources :tickets do
-        resources :comments,    only: %i[index create destroy], module: :tickets
-        resources :attachments, only: %i[index create destroy], module: :tickets do
+        resources :comments,       only: %i[index create destroy], module: :tickets
+        resources :timer_sessions, only: %i[index create],         module: :tickets
+        resources :attachments,    only: %i[index create destroy], module: :tickets do
           member { get :download }
         end
         collection do

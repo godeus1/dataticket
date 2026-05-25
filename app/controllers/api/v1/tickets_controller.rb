@@ -53,6 +53,11 @@ module Api
       def update
         authorize @ticket
         @ticket.update!(ticket_params)
+        # Somente admin pode ajustar manualmente a data de abertura.
+        # Usamos update_column para ignorar validações e callbacks (apenas timestamp).
+        if current_user.admin? && params.dig(:ticket, :created_at).present?
+          @ticket.update_column(:created_at, params[:ticket][:created_at])
+        end
         apply_tags(@ticket)
         apply_co_assignees(@ticket)
         apply_custom_field_values(@ticket)
@@ -162,7 +167,7 @@ module Api
         scope = %w[restore purge].include?(action_name) ? @organization.tickets : policy_scope(Ticket)
         @ticket = scope.includes(:requester, :assignee, :category, :priority, :queue,
                                  :co_assignees, :comments, :ticket_attachments, :histories,
-                                 :tags, field_values: :custom_field)
+                                 :tags, :timer_sessions, field_values: :custom_field)
                        .find(params[:id])
       end
 
