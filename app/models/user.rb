@@ -39,8 +39,10 @@ class User < ApplicationRecord
   scope :analysts,   -> { where(role: "analyst") }
   scope :msp_admins, -> { where(role: "msp_admin") }
 
-  def msp_admin? = role == "msp_admin"
+  def admin?     = role == "admin"
   def manager?   = role == "manager"
+  def analyst?   = role == "analyst"
+  def msp_admin? = role == "msp_admin"
 
   # Devise hook — impede login de usuários inativos.
   # Chamado automaticamente pelo Warden antes de emitir o token JWT.
