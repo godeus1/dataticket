@@ -34,9 +34,24 @@ module Api
         begin
           PasswordResetMailer.reset_code(user, code).deliver_now
           Rails.logger.info "[password_reset] e-mail enviado com sucesso para #{user.email}"
+        rescue ArgumentError => e
+          # Credenciais não configuradas no Railway
+          Rails.logger.error "[password_reset] credencial ausente: #{e.message}"
+          render json: {
+            error: "Credenciais de e-mail não configuradas no servidor. " \
+                   "Configure MAILERSEND_API_KEY ou SMTP_USER + SMTP_PASS nas variáveis de ambiente do Railway."
+          }, status: :service_unavailable
+          return
         rescue => e
           Rails.logger.error "[password_reset] #{e.class}: #{e.message}"
-          render json: { error: "Não foi possível enviar o e-mail. Verifique as configurações SMTP." },
+          hint = case e.message
+                 when /401/, /unauthorized/i then "API key inválida ou sem permissão."
+                 when /422/, /unprocessable/i then "Domínio remetente não verificado no MailerSend."
+                 when /535/, /authentication/i then "Usuário ou senha SMTP incorretos."
+                 when /getaddrinfo/, /connection/i then "Servidor SMTP inacessível. Verifique SMTP_HOST e SMTP_PORT."
+                 else e.message.truncate(120)
+                 end
+          render json: { error: "Falha ao enviar e-mail: #{hint}" },
                  status: :service_unavailable
           return
         end

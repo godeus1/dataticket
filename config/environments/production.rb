@@ -53,12 +53,42 @@ Rails.application.configure do
   config.active_job.queue_adapter = :solid_queue
   config.solid_queue.connects_to = { database: { writing: :queue } }
 
-  # E-mail via MailerSend HTTP API (evita bloqueio de porta SMTP no Railway)
+  # ── E-mail ────────────────────────────────────────────────────────────────
+  # Configure no Railway UMA das opções abaixo:
+  #
+  #   MailerSend (recomendado — sem bloqueio de porta):
+  #     MAILERSEND_API_KEY=<sua chave>
+  #     MAIL_FROM=noreply@seu-dominio-verificado.com
+  #
+  #   Gmail SMTP (alternativa):
+  #     SMTP_HOST=smtp.gmail.com  SMTP_PORT=587
+  #     SMTP_USER=seuemail@gmail.com
+  #     SMTP_PASS=<Senha de app do Google — 16 caracteres>
+  #     MAIL_FROM=seuemail@gmail.com
+  #
   config.action_mailer.raise_delivery_errors = true
-  config.action_mailer.delivery_method       = :mailersend
   config.action_mailer.default_url_options   = {
     host: ENV.fetch("APP_HOST", "api.dataticket.app")
   }
+
+  if ENV["MAILERSEND_API_KEY"].present?
+    config.action_mailer.delivery_method = :mailersend
+  elsif ENV["SMTP_USER"].present? && ENV["SMTP_PASS"].present?
+    config.action_mailer.delivery_method = :smtp
+    config.action_mailer.smtp_settings   = {
+      address:              ENV.fetch("SMTP_HOST",   "smtp.gmail.com"),
+      port:                 ENV.fetch("SMTP_PORT",   "587").to_i,
+      user_name:            ENV["SMTP_USER"],
+      password:             ENV["SMTP_PASS"],
+      authentication:       :plain,
+      enable_starttls_auto: true,
+    }
+  else
+    # Nenhuma credencial configurada — loga mas não quebra o boot
+    config.action_mailer.delivery_method       = :smtp
+    config.action_mailer.raise_delivery_errors = false
+    Rails.logger.warn("[mailer] ATENÇÃO: MAILERSEND_API_KEY e SMTP_USER/SMTP_PASS não configurados. E-mails não serão enviados.")
+  end
 
   # Enable locale fallbacks for I18n (makes lookups for any locale fall back to
   # the I18n.default_locale when a translation cannot be found).
