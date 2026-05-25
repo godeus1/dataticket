@@ -14,6 +14,20 @@ export function SettingsUsers() {
   const [editUser, setEditUser] = useState(null)
   const [form, setForm] = useState({ firstName: '', lastName: '', email: '', role: 'user', active: true, availableHours: 8, maxHoursPerTicket: 4, password: '', newPassword: '' })
   const [savingPw, setSavingPw] = useState(false)
+  const [resetingId, setResetingId] = useState(null)
+
+  async function sendPasswordReset(u) {
+    if (!window.confirm(`Enviar e-mail de redefinição de senha para ${u.firstName} ${u.lastName} (${u.email})?`)) return
+    setResetingId(u.id)
+    try {
+      await api.requestPasswordReset(u.email)
+      showToast(`E-mail de redefinição enviado para ${u.email}.`)
+    } catch (e) {
+      alert(`Erro ao enviar reset: ${e.message}`)
+    } finally {
+      setResetingId(null)
+    }
+  }
 
   const ROLE_COLORS  = { admin: '#2383e2', manager: '#0891b2', analyst: '#7c3aed', user: '#6b7280' }
   const ROLE_LABELS  = { admin: 'Admin', manager: 'Gestor', analyst: 'Analista', user: 'Usuário' }
@@ -108,8 +122,14 @@ export function SettingsUsers() {
                 <td>
                   <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
                     <button className="btn btn-secondary btn-sm" onClick={() => openEdit(u)}>{t.edit}</button>
-                    <button className="btn btn-secondary btn-sm" onClick={() => showToast(`Credenciais enviadas para ${u.email}`)}>📧 Cred.</button>
-                    <button className="btn btn-secondary btn-sm" onClick={() => showToast(`Reset enviado para ${u.email}`)}>🔑 Reset</button>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      disabled={resetingId === u.id}
+                      onClick={() => sendPasswordReset(u)}
+                      title="Envia e-mail com código de redefinição de senha para o usuário"
+                    >
+                      {resetingId === u.id ? '⏳' : '🔑'} Reset senha
+                    </button>
                     <button className="btn btn-secondary btn-sm" onClick={() => toggleUserAction(u.id).catch(e => alert(e.message))}>{u.active ? 'Inativar' : 'Ativar'}</button>
                   </div>
                 </td>

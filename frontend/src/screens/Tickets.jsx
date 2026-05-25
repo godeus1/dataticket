@@ -54,7 +54,7 @@ export function TicketList() {
 
   const [showInlineTriage, setShowInlineTriage] = useState(false)
   const [triageTarget, setTriageTarget] = useState(null)
-  const [inlineTriageForm, setInlineTriageForm] = useState({ priorityId: '', categoryId: '', effortEstimated: '', queueId: '', assigneeId: '' })
+  const [inlineTriageForm, setInlineTriageForm] = useState({ priorityId: '', categoryId: '', effortEstimated: '', queueId: '', assigneeId: '', coAssigneeIds: [] })
 
   const filtered = useMemo(() => {
     let tks = [...tickets]
@@ -89,14 +89,14 @@ export function TicketList() {
     if (!inlineTriageForm.priorityId || !inlineTriageForm.queueId) { alert('Preencha prioridade e fila.'); return }
     const tk = tickets.find(x => x.id === triageTarget)
     if (!tk) return
-    const q = queues.find(x => x.id === Number(inlineTriageForm.queueId))
-    const assigneeId = inlineTriageForm.assigneeId ? Number(inlineTriageForm.assigneeId) : (q?.members[0] ?? null)
+    const assigneeId = inlineTriageForm.assigneeId ? Number(inlineTriageForm.assigneeId) : null
     try {
       await triageAction(triageTarget, {
-        priority_id: Number(inlineTriageForm.priorityId) || null,
-        category_id: inlineTriageForm.categoryId ? Number(inlineTriageForm.categoryId) : (tk.categoryId || null),
-        queue_id:    Number(inlineTriageForm.queueId) || null,
-        assignee_id: assigneeId,
+        priority_id:     Number(inlineTriageForm.priorityId) || null,
+        category_id:     inlineTriageForm.categoryId ? Number(inlineTriageForm.categoryId) : (tk.categoryId || null),
+        queue_id:        Number(inlineTriageForm.queueId) || null,
+        assignee_id:     assigneeId,
+        co_assignee_ids: (inlineTriageForm.coAssigneeIds ?? []).map(Number),
       })
       showToast('Triagem realizada com sucesso!')
     } catch (e) {
@@ -104,7 +104,7 @@ export function TicketList() {
     }
     setShowInlineTriage(false)
     setTriageTarget(null)
-    setInlineTriageForm({ priorityId: '', categoryId: '', effortEstimated: '', queueId: '', assigneeId: '' })
+    setInlineTriageForm({ priorityId: '', categoryId: '', effortEstimated: '', queueId: '', assigneeId: '', coAssigneeIds: [] })
   }
 
   function MultiFilter({ label, options, selected, setSelected, filterKey }) {
@@ -301,14 +301,44 @@ export function TicketList() {
               <div>
                 <label className="label">Responsável</label>
                 <select className="select" style={{ width: '100%' }} value={inlineTriageForm.assigneeId}
-                  onChange={e => setInlineTriageForm(f => ({ ...f, assigneeId: e.target.value }))}>
-                  <option value="">— Selecione o responsável —</option>
+                  onChange={e => setInlineTriageForm(f => ({ ...f, assigneeId: e.target.value, coAssigneeIds: [] }))}>
+                  <option value="">— Deixar sem responsável —</option>
                   {(() => {
                     const q = queues.find(x => x.id === Number(inlineTriageForm.queueId))
                     return users.filter(u => (q?.members ?? []).includes(u.id))
                       .map(u => <option key={u.id} value={u.id}>{u.firstName} {u.lastName}</option>)
                   })()}
                 </select>
+              </div>
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label className="label">Co-responsáveis <span style={{ fontWeight: 400, color: 'var(--text2)' }}>(opcional — membros da fila)</span></label>
+                {!inlineTriageForm.queueId ? (
+                  <div style={{ fontSize: 12, color: 'var(--text2)', padding: '4px 0' }}>Selecione uma fila primeiro.</div>
+                ) : (() => {
+                  const q = queues.find(x => x.id === Number(inlineTriageForm.queueId))
+                  const qMembers = users.filter(u => (q?.members ?? []).includes(u.id) && String(u.id) !== String(inlineTriageForm.assigneeId))
+                  if (qMembers.length === 0) return <div style={{ fontSize: 12, color: 'var(--text2)', padding: '4px 0' }}>Nenhum outro membro disponível na fila.</div>
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '8px 10px', background: 'var(--bg2)', borderRadius: 8, border: '1px solid var(--border)' }}>
+                      {qMembers.map(u => {
+                        const checked = (inlineTriageForm.coAssigneeIds ?? []).includes(u.id)
+                        return (
+                          <label key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13 }}>
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => setInlineTriageForm(f => {
+                                const cur = f.coAssigneeIds ?? []
+                                return { ...f, coAssigneeIds: checked ? cur.filter(id => id !== u.id) : [...cur, u.id] }
+                              })}
+                            />
+                            {u.firstName} {u.lastName}
+                          </label>
+                        )
+                      })}
+                    </div>
+                  )
+                })()}
               </div>
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 18 }}>
@@ -1165,8 +1195,8 @@ export function TicketDetail() {
               <div>
                 <label className="label">Responsável</label>
                 <select className="select" style={{ width: '100%' }} value={triageForm.assigneeId || ''}
-                  onChange={e => setTriageForm(f => ({ ...f, assigneeId: e.target.value }))}>
-                  <option value="">— Selecione o responsável —</option>
+                  onChange={e => setTriageForm(f => ({ ...f, assigneeId: e.target.value, coAssigneeIds: [] }))}>
+                  <option value="">— Deixar sem responsável —</option>
                   {(() => {
                     const q = queues.find(x => x.id === Number(triageForm.queueId))
                     return users.filter(u => (q?.members ?? []).includes(u.id))
@@ -1175,36 +1205,34 @@ export function TicketDetail() {
                 </select>
               </div>
               <div style={{ gridColumn: '1 / -1' }}>
-                <label className="label">Co-responsáveis (opcional)</label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '8px', background: 'var(--bg2)', borderRadius: 8, border: '1px solid var(--border)', minHeight: 40 }}>
-                  {(() => {
-                    const q = queues.find(x => x.id === Number(triageForm.queueId))
-                    const qMembers = users.filter(u => (q?.members ?? []).includes(u.id) && String(u.id) !== String(triageForm.assigneeId))
-                    if (!triageForm.queueId || qMembers.length === 0) return <span style={{ fontSize: 12, color: 'var(--text2)' }}>Selecione uma fila e um responsável primeiro.</span>
-                    return qMembers.map(u => {
-                      const selected = (triageForm.coAssigneeIds ?? []).includes(u.id)
-                      return (
-                        <button
-                          key={u.id}
-                          type="button"
-                          onClick={() => setTriageForm(f => {
-                            const cur = f.coAssigneeIds ?? []
-                            return { ...f, coAssigneeIds: selected ? cur.filter(id => id !== u.id) : [...cur, u.id] }
-                          })}
-                          style={{
-                            padding: '3px 10px', borderRadius: 20, fontSize: 12, cursor: 'pointer',
-                            background: selected ? 'var(--accent)' : 'var(--bg)',
-                            color: selected ? '#fff' : 'var(--text)',
-                            border: `1px solid ${selected ? 'var(--accent)' : 'var(--border)'}`,
-                            fontWeight: selected ? 600 : 400,
-                          }}
-                        >
-                          {selected ? '✓ ' : ''}{u.firstName} {u.lastName}
-                        </button>
-                      )
-                    })
-                  })()}
-                </div>
+                <label className="label">Co-responsáveis <span style={{ fontWeight: 400, color: 'var(--text2)' }}>(opcional — membros da fila)</span></label>
+                {!triageForm.queueId ? (
+                  <div style={{ fontSize: 12, color: 'var(--text2)', padding: '8px 0' }}>Selecione uma fila primeiro.</div>
+                ) : (() => {
+                  const q = queues.find(x => x.id === Number(triageForm.queueId))
+                  const qMembers = users.filter(u => (q?.members ?? []).includes(u.id) && String(u.id) !== String(triageForm.assigneeId))
+                  if (qMembers.length === 0) return <div style={{ fontSize: 12, color: 'var(--text2)', padding: '8px 0' }}>Nenhum outro membro disponível na fila.</div>
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '8px 10px', background: 'var(--bg2)', borderRadius: 8, border: '1px solid var(--border)' }}>
+                      {qMembers.map(u => {
+                        const checked = (triageForm.coAssigneeIds ?? []).includes(u.id)
+                        return (
+                          <label key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13 }}>
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => setTriageForm(f => {
+                                const cur = f.coAssigneeIds ?? []
+                                return { ...f, coAssigneeIds: checked ? cur.filter(id => id !== u.id) : [...cur, u.id] }
+                              })}
+                            />
+                            {u.firstName} {u.lastName}
+                          </label>
+                        )
+                      })}
+                    </div>
+                  )
+                })()}
               </div>
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 18 }}>
