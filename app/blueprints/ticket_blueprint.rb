@@ -41,6 +41,8 @@ class TicketBlueprint < Blueprinter::Base
     end
 
     field :timer_sessions do |ticket|
+      next [] unless ActiveRecord::Base.connection.table_exists?(:ticket_timer_sessions)
+
       ticket.timer_sessions.includes(:user).chronological.map do |s|
         {
           id:            s.id,

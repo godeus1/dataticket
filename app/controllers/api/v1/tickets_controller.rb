@@ -165,10 +165,12 @@ module Api
       def set_ticket
         # restore e purge precisam encontrar tickets na lixeira também
         scope = %w[restore purge].include?(action_name) ? @organization.tickets : policy_scope(Ticket)
-        @ticket = scope.includes(:requester, :assignee, :category, :priority, :queue,
-                                 :co_assignees, :comments, :ticket_attachments, :histories,
-                                 :tags, :timer_sessions, field_values: :custom_field)
-                       .find(params[:id])
+        includes_list = [:requester, :assignee, :category, :priority, :queue,
+                         :co_assignees, :comments, :ticket_attachments, :histories,
+                         :tags, { field_values: :custom_field }]
+        # timer_sessions só existe após a migration — inclui apenas se a tabela existir
+        includes_list << :timer_sessions if ActiveRecord::Base.connection.table_exists?(:ticket_timer_sessions)
+        @ticket = scope.includes(*includes_list).find(params[:id])
       end
 
       def ticket_params
