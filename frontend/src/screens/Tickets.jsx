@@ -673,7 +673,7 @@ export function TicketDetail() {
           {p.triage && (
             <div className="card" style={{ marginBottom: 14 }}>
               <div style={{ fontWeight: 600, marginBottom: 10 }}>⏱ {t.timer}</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10, flexWrap: 'wrap' }}>
                 <button className={`btn btn-sm ${timerRunning ? 'btn-danger' : 'btn-primary'}`} onClick={toggleTimer}>
                   {timerRunning ? `⏸ ${t.pause}` : `▶ ${t.start}`}
                 </button>
@@ -685,15 +685,28 @@ export function TicketDetail() {
                   <span style={{ color: 'var(--danger)', fontSize: 12, fontWeight: 600 }}>⚠ Limite atingido</span>
                 )}
               </div>
+              {timerRunning && timerStart && (
+                <div style={{ fontSize: 12, color: '#16a34a', fontWeight: 500, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#16a34a', display: 'inline-block', animation: 'pulse 1.5s infinite' }} />
+                  Iniciado em {formatDateTime(timerStart.toISOString())}
+                </div>
+              )}
               <div className="progress">
                 <div className="progress-bar" style={{ width: `${Math.min(100, (tk.effortUsed / Math.max(tk.effortEstimated, 1)) * 100)}%` }} />
               </div>
               {sessions.length > 0 && (
                 <div style={{ marginTop: 10 }}>
-                  <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 4 }}>{t.sessions}:</div>
+                  <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6, fontWeight: 500 }}>{t.sessions}:</div>
                   {sessions.slice(0, 5).map((s, i) => (
-                    <div key={i} style={{ fontSize: 11, color: 'var(--text2)', padding: '3px 0', borderBottom: '1px solid var(--border)' }}>
-                      {s.start.toLocaleTimeString()} → {s.end.toLocaleTimeString()} · {s.mins.toFixed(1)} min
+                    <div key={i} style={{ fontSize: 12, padding: '6px 0', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                      <div>
+                        <span style={{ color: 'var(--text)', fontWeight: 500 }}>▶ {formatDateTime(s.start.toISOString())}</span>
+                        <span style={{ color: 'var(--text2)', margin: '0 6px' }}>→</span>
+                        <span style={{ color: 'var(--text)', fontWeight: 500 }}>⏸ {formatDateTime(s.end.toISOString())}</span>
+                      </div>
+                      <span style={{ fontSize: 11, background: 'var(--bg2)', padding: '2px 8px', borderRadius: 10, color: 'var(--text2)', flexShrink: 0 }}>
+                        {s.mins.toFixed(1)} min
+                      </span>
                     </div>
                   ))}
                   {sessions.length > 5 && (
@@ -895,8 +908,20 @@ export function TicketDetail() {
               <button className="btn btn-secondary btn-sm" onClick={() => setShowMoreSessions(false)}>✕</button>
             </div>
             {sessions.slice(moreSessionsPage * MORE_PER, (moreSessionsPage + 1) * MORE_PER).map((s, i) => (
-              <div key={i} style={{ fontSize: 12, color: 'var(--text2)', padding: '5px 0', borderBottom: '1px solid var(--border)' }}>
-                {s.start.toLocaleTimeString()} → {s.end.toLocaleTimeString()} · {s.mins.toFixed(1)} min
+              <div key={i} style={{ fontSize: 12, padding: '8px 0', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                <div>
+                  <div style={{ marginBottom: 2 }}>
+                    <span style={{ color: '#16a34a', fontWeight: 500 }}>▶ Iniciado: </span>
+                    <span style={{ color: 'var(--text)' }}>{formatDateTime(s.start.toISOString())}</span>
+                  </div>
+                  <div>
+                    <span style={{ color: '#dc2626', fontWeight: 500 }}>⏸ Pausado: </span>
+                    <span style={{ color: 'var(--text)' }}>{formatDateTime(s.end.toISOString())}</span>
+                  </div>
+                </div>
+                <span style={{ fontSize: 12, background: 'var(--bg2)', padding: '3px 10px', borderRadius: 10, color: 'var(--text2)', flexShrink: 0 }}>
+                  {s.mins.toFixed(1)} min
+                </span>
               </div>
             ))}
             {Math.ceil(sessions.length / MORE_PER) > 1 && (
