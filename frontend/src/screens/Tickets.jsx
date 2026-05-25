@@ -5,6 +5,17 @@ import { useApp } from '../AppContext.jsx'
 import { PT, EN, PERM, STATUS_LIST, ALLOWED_TRANSITIONS, isExpired, formatDate, formatDateTime } from '../data.js'
 import { Avatar, Badge, PriBadge, CatChip, ModalOverlay, EmptyState } from '../components.jsx'
 
+// ── Formatação de esforço em H:MM ─────────────────────────────────────────
+function fmtHM(hours) {
+  const totalMins = Math.round((hours ?? 0) * 60)
+  const h = Math.floor(totalMins / 60)
+  const m = totalMins % 60
+  return `${h}:${String(m).padStart(2, '0')}`
+}
+function fmtMinsHM(mins) {
+  return fmtHM((mins ?? 0) / 60)
+}
+
 // ── Timer utils (fora do componente — sobrevivem a desmontagem) ───────────
 function timerActiveKey(userId)   { return `dt_active_timer_${userId}` }
 function timerSessionsKey(userId, ticketId) { return `dt_sessions_${userId}_${ticketId}` }
@@ -239,7 +250,7 @@ export function TicketList() {
                     {tk.effortEstimated > 0 ? (
                       <span style={{ color: tk.effortUsed > tk.effortEstimated ? 'var(--danger)' : 'var(--text2)' }}>
                         {tk.effortUsed > tk.effortEstimated && '⏱ '}
-                        {tk.effortUsed.toFixed(1)}/{tk.effortEstimated}h
+                        {fmtHM(tk.effortUsed)}/{fmtHM(tk.effortEstimated)}
                       </span>
                     ) : <span style={{ color: 'var(--text2)' }}>—</span>}
                   </td>
@@ -915,8 +926,8 @@ export function TicketDetail() {
                   {timerRunning ? `⏸ ${t.pause}` : `▶ ${t.start}`}
                 </button>
                 <span style={{ fontSize: 13, color: 'var(--text2)' }}>
-                  Utilizado: <strong style={{ color: 'var(--text)' }}>{tk.effortUsed.toFixed(1)}h</strong>
-                  {' '}/ Estimado: <strong>{tk.effortEstimated}h</strong>
+                  Utilizado: <strong style={{ color: 'var(--text)' }}>{fmtHM(tk.effortUsed)}</strong>
+                  {' '}/ Estimado: <strong>{fmtHM(tk.effortEstimated)}</strong>
                 </span>
                 {tk.effortUsed >= tk.effortEstimated && tk.effortEstimated > 0 && (
                   <span style={{ color: 'var(--danger)', fontSize: 12, fontWeight: 600 }}>⚠ Limite atingido</span>
@@ -943,7 +954,7 @@ export function TicketDetail() {
                           <span style={{ color: 'var(--text)', fontWeight: 500 }}>⏸ {formatDateTime(s.end instanceof Date ? s.end.toISOString() : s.end)}</span>
                         </div>
                         <span style={{ fontSize: 11, background: 'var(--bg2)', padding: '2px 8px', borderRadius: 10, color: 'var(--text2)', flexShrink: 0 }}>
-                          {(s.mins ?? 0).toFixed(1)} min
+                          {fmtMinsHM(s.mins)}
                         </span>
                       </div>
                       {s.userName && (
@@ -988,9 +999,6 @@ export function TicketDetail() {
                               <span style={{ fontSize: 11, color: 'var(--text2)' }}>{c.authorEmail}</span>
                             )}
                             <span style={{ fontSize: 11, color: 'var(--text2)', marginLeft: 'auto' }}>{formatDate(c.date)}</span>
-                            {c.type === 'internal' && (
-                              <span style={{ background: '#fffbeb', color: '#92400e', padding: '1px 6px', borderRadius: 4, fontSize: 10, fontWeight: 600 }}>🔒 Interno</span>
-                            )}
                           </div>
                           <div style={{ fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{c.text}</div>
                         </div>
@@ -1007,10 +1015,6 @@ export function TicketDetail() {
             })()}
             {p.comment && (
               <div style={{ marginTop: 14 }}>
-                <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-                  <button className={`btn btn-sm ${commentType === 'public' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setCommentType('public')}>{t.public}</button>
-                  {p.internalComment && <button className={`btn btn-sm ${commentType === 'internal' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setCommentType('internal')}>{t.internal}</button>}
-                </div>
                 <textarea className="input" rows={3} value={commentText} onChange={e => setCommentText(e.target.value)} placeholder="Escreva um comentário…" />
                 <button className="btn btn-primary btn-sm" style={{ marginTop: 8 }} onClick={addComment}>{t.send}</button>
               </div>
@@ -1053,8 +1057,8 @@ export function TicketDetail() {
               { label: 'Categoria', val: <CatChip category={cat} /> },
               { label: 'Prioridade', val: <PriBadge priority={pri} /> },
               { label: 'Prazo', val: <span style={{ color: expired ? 'var(--danger)' : 'var(--text)', fontWeight: expired ? 600 : 400 }}>{formatDate(tk.deadline)}</span> },
-              { label: 'Esforço est.', val: `${tk.effortEstimated}h` },
-              { label: 'Esforço usado', val: `${tk.effortUsed.toFixed(1)}h` },
+              { label: 'Esforço est.', val: fmtHM(tk.effortEstimated) },
+              { label: 'Esforço usado', val: fmtHM(tk.effortUsed) },
             ].map(r => (
               <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid var(--border)', fontSize: 13 }}>
                 <span style={{ color: 'var(--text2)' }}>{r.label}</span>
@@ -1213,7 +1217,7 @@ export function TicketDetail() {
                     </div>
                   </div>
                   <span style={{ fontSize: 12, background: 'var(--bg2)', padding: '3px 10px', borderRadius: 10, color: 'var(--text2)', flexShrink: 0 }}>
-                    {(s.mins ?? 0).toFixed(1)} min
+                    {fmtMinsHM(s.mins)}
                   </span>
                 </div>
               </div>
@@ -1253,7 +1257,6 @@ export function TicketDetail() {
                           <span style={{ fontSize: 11, color: 'var(--text2)' }}>{c.authorEmail}</span>
                         )}
                         <span style={{ fontSize: 11, color: 'var(--text2)', marginLeft: 'auto' }}>{formatDate(c.date)}</span>
-                        {c.type === 'internal' && <span style={{ background: '#fffbeb', color: '#92400e', padding: '1px 6px', borderRadius: 4, fontSize: 10, fontWeight: 600 }}>🔒 Interno</span>}
                       </div>
                       <div style={{ fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{c.text}</div>
                     </div>

@@ -6,11 +6,18 @@
 # que ocorria quando o Docker ENTRYPOINT detectava "rails server" no $* e
 # rodava db:prepare, e em seguida o sh -c "... && rails server" também
 # rodava db:prepare, causando conflito de advisory lock em deploys rolling.
+#
+# SKIP_MIGRATIONS=true — pula o db:prepare (útil para emergências onde a
+# migration está travando o boot; remova a variável após resolver o problema).
 
 set -e
 
-echo "==> [$(date -u '+%Y-%m-%dT%H:%M:%SZ')] Applying pending migrations (db:prepare)..."
-bundle exec rails db:prepare
+if [ "${SKIP_MIGRATIONS}" = "true" ]; then
+  echo "==> [$(date -u '+%Y-%m-%dT%H:%M:%SZ')] SKIP_MIGRATIONS=true — pulando db:prepare."
+else
+  echo "==> [$(date -u '+%Y-%m-%dT%H:%M:%SZ')] Applying pending migrations (db:prepare)..."
+  bundle exec rails db:prepare
+fi
 
 echo "==> [$(date -u '+%Y-%m-%dT%H:%M:%SZ')] Starting Puma..."
 exec bundle exec rails server -b 0.0.0.0
