@@ -4,7 +4,6 @@ import { PT, EN, PERM } from '../data.js'
 import { Avatar, CatChip, PriBadge, ModalOverlay } from '../components.jsx'
 import { formatDateTime } from '../data.js'
 import { api } from '../api.js'
-import { api } from '../api.js'
 
 
 // ── Users ──────────────────────────────────────────────────────────────────
@@ -350,14 +349,36 @@ export function SettingsQueues() {
   const [showForm, setShowForm] = useState(false)
   const [editItem, setEditItem] = useState(null)
   const [form, setForm] = useState({ name: '', categoryId: '', members: [], active: true })
+  const [saving, setSaving] = useState(false)
 
   async function save() {
-    const data = { name: form.name, active: form.active }
+    const data = {
+      name:        form.name,
+      active:      form.active,
+      category_id: Number(form.categoryId) || null,
+    }
+    setSaving(true)
     try {
-      if (editItem) await updateQueueAction(editItem.id, data)
-      else await createQueueAction(data)
+      const newMembers = form.members.map(String)
+
+      if (editItem) {
+        await updateQueueAction(editItem.id, data)
+        // Diff members: add new ones, remove dropped ones
+        const oldMembers = (editItem.members || []).map(String)
+        const toAdd    = newMembers.filter(id => !oldMembers.includes(id))
+        const toRemove = oldMembers.filter(id => !newMembers.includes(id))
+        await Promise.all([
+          ...toAdd.map(uid    => api.addMember(editItem.id, uid)),
+          ...toRemove.map(uid => api.removeMember(editItem.id, uid)),
+        ])
+      } else {
+        const created = await createQueueAction(data)
+        // Add all selected members to the freshly created queue
+        await Promise.all(newMembers.map(uid => api.addMember(created.id, uid)))
+      }
       setShowForm(false)
     } catch (e) { alert(`Erro: ${e.message}`) }
+    finally { setSaving(false) }
   }
 
   return (
