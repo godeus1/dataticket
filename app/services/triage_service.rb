@@ -42,7 +42,7 @@ class TriageService
   private
 
   def triage_params
-    @params.permit(:priority_id, :category_id, :queue_id, :assignee_id, :deadline)
+    @params.permit(:priority_id, :category_id, :queue_id, :assignee_id, :deadline, :effort_estimated)
   end
 
   def schedule_if_needed

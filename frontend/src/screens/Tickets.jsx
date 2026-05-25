@@ -92,11 +92,12 @@ export function TicketList() {
     const assigneeId = inlineTriageForm.assigneeId ? Number(inlineTriageForm.assigneeId) : null
     try {
       await triageAction(triageTarget, {
-        priority_id:     Number(inlineTriageForm.priorityId) || null,
-        category_id:     inlineTriageForm.categoryId ? Number(inlineTriageForm.categoryId) : (tk.categoryId || null),
-        queue_id:        Number(inlineTriageForm.queueId) || null,
-        assignee_id:     assigneeId,
-        co_assignee_ids: (inlineTriageForm.coAssigneeIds ?? []).map(Number),
+        priority_id:      Number(inlineTriageForm.priorityId) || null,
+        category_id:      inlineTriageForm.categoryId ? Number(inlineTriageForm.categoryId) : (tk.categoryId || null),
+        queue_id:         Number(inlineTriageForm.queueId) || null,
+        assignee_id:      assigneeId,
+        co_assignee_ids:  (inlineTriageForm.coAssigneeIds ?? []).map(Number),
+        effort_estimated: inlineTriageForm.effortEstimated ? parseFloat(inlineTriageForm.effortEstimated) : 0,
       })
       showToast('Triagem realizada com sucesso!')
     } catch (e) {
@@ -704,6 +705,7 @@ export function TicketDetail() {
         queue_id:         Number(triageForm.queueId) || null,
         assignee_id:      assigneeId,
         co_assignee_ids:  (triageForm.coAssigneeIds ?? []).map(Number),
+        effort_estimated: triageForm.effortEstimated ? parseFloat(triageForm.effortEstimated) : 0,
       })
     } catch (e) {
       alert(`Erro ao triar: ${e.message}`)
