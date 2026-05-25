@@ -44,12 +44,17 @@ Rails.application.routes.draw do
         resources :attachments, only: %i[index create destroy], module: :tickets do
           member { get :download }
         end
-        collection { post :bulk_triage }
+        collection do
+          post :bulk_triage
+          get  :trash
+        end
         member do
           patch :triage
           patch :change_status
           patch :assign
           get   :histories
+          patch :restore
+          delete :purge
         end
       end
 

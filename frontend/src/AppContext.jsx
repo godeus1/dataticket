@@ -412,6 +412,23 @@ export function AppProvider({ children }) {
     setArticles(prev => prev.filter(a => a.id !== id))
   }, [])
 
+  // Trash
+  const deleteTicketAction = useCallback(async (id) => {
+    await api.deleteTicket(id)
+    setTickets(prev => prev.filter(t => t.id !== id))
+  }, [])
+
+  const restoreTicketAction = useCallback(async (id) => {
+    const res = await api.restoreTicket(id)
+    const tk  = mapTicket(res)
+    setTickets(prev => prev.some(t => t.id === id) ? prev.map(t => t.id === id ? tk : t) : [tk, ...prev])
+    return tk
+  }, [])
+
+  const purgeTicketAction = useCallback(async (id) => {
+    await api.purgeTicket(id)
+  }, [])
+
   // Notifications
   const markReadAction = useCallback(async (id) => {
     try { await api.markRead(id) } catch {}
@@ -450,6 +467,7 @@ export function AppProvider({ children }) {
     // API action functions
     createTicketAction, updateTicketAction, changeStatusAction,
     triageAction, assignAction, addCommentAction, deleteCommentAction,
+    deleteTicketAction, restoreTicketAction, purgeTicketAction,
     createUserAction, updateUserAction, deleteUserAction, toggleUserAction,
     createCategoryAction, updateCategoryAction, deleteCategoryAction,
     createPriorityAction, updatePriorityAction, deletePriorityAction,

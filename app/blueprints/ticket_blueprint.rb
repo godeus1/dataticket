@@ -28,14 +28,28 @@ class TicketBlueprint < Blueprinter::Base
   view :full do
     include_view :summary
 
-    fields :description, :updated_at, :csat_score, :csat_comment, :escalated_at
+    fields :description, :updated_at, :csat_score, :csat_comment, :escalated_at,
+           :deleted_at, :deleted_by_id
 
     association :comments,      blueprint: TicketCommentBlueprint
     association :attachments,   blueprint: TicketAttachmentBlueprint
     association :field_values,  blueprint: TicketFieldValueBlueprint
+    association :co_assignees,  blueprint: UserBlueprint, view: :summary
 
     field :queue_name do |ticket|
       ticket.queue&.name
+    end
+  end
+
+  # Trash view — for admin trash listing
+  view :trash do
+    include_view :summary
+    fields :deleted_at, :deleted_by_id
+    field :deleted_by_name do |ticket|
+      ticket.deleted_by_id ? User.find_by(id: ticket.deleted_by_id)&.full_name : nil
+    end
+    field :days_until_purge do |ticket|
+      ticket.deleted_at ? [30 - (Time.current - ticket.deleted_at).to_i / 86400, 0].max : nil
     end
   end
 end

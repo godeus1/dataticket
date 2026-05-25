@@ -66,15 +66,18 @@ export const api = {
   confirmPasswordReset:  (email, code, password) => req('/password_reset_confirm', { method: 'POST', body: j({ email, code, password }) }),
 
   // ── Tickets ───────────────────────────────────────────────────────────
-  tickets:      (params = {}) => req(`/tickets?${new URLSearchParams({ per_page: 500, ...params })}`),
-  ticket:       (id)          => req(`/tickets/${id}`),
-  createTicket: (d)           => req('/tickets',        { method: 'POST',  body: j({ ticket: d }) }),
-  updateTicket: (id, d)       => req(`/tickets/${id}`,  { method: 'PATCH', body: j({ ticket: d }) }),
-  deleteTicket: (id)          => req(`/tickets/${id}`,  { method: 'DELETE' }),
-  triage:       (id, d)       => req(`/tickets/${id}/triage`,        { method: 'PATCH', body: j(d) }),
-  changeStatus: (id, status)  => req(`/tickets/${id}/change_status`, { method: 'PATCH', body: j({ status }) }),
-  assign:       (id, uid)     => req(`/tickets/${id}/assign`,        { method: 'PATCH', body: j({ assignee_id: uid }) }),
-  histories:    (id)          => req(`/tickets/${id}/histories`),
+  tickets:       (params = {}) => req(`/tickets?${new URLSearchParams({ per_page: 500, ...params })}`),
+  ticket:        (id)          => req(`/tickets/${id}`),
+  createTicket:  (d)           => req('/tickets',        { method: 'POST',   body: j({ ticket: d }) }),
+  updateTicket:  (id, d)       => req(`/tickets/${id}`,  { method: 'PATCH',  body: j({ ticket: d }) }),
+  deleteTicket:  (id)          => req(`/tickets/${id}`,  { method: 'DELETE' }),          // soft delete → lixeira
+  restoreTicket: (id)          => req(`/tickets/${id}/restore`, { method: 'PATCH' }),
+  purgeTicket:   (id)          => req(`/tickets/${id}/purge`,   { method: 'DELETE' }),   // exclusão permanente
+  trash:         ()            => req('/tickets/trash'),
+  triage:        (id, d)       => req(`/tickets/${id}/triage`,        { method: 'PATCH', body: j(d) }),
+  changeStatus:  (id, status)  => req(`/tickets/${id}/change_status`, { method: 'PATCH', body: j({ status }) }),
+  assign:        (id, uid)     => req(`/tickets/${id}/assign`,        { method: 'PATCH', body: j({ assignee_id: uid }) }),
+  histories:     (id)          => req(`/tickets/${id}/histories`),
 
   // ── Comments ──────────────────────────────────────────────────────────
   comments:      (tid)      => req(`/tickets/${tid}/comments`),

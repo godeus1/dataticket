@@ -42,6 +42,7 @@ export function Sidebar({ screen, setScreen }) {
     { key: 'settings-holidays',   label: t.holidays,    icon: '🎉' },
     { key: 'settings-audit',      label: t.auditLog,    icon: '📝' },
     { key: 'settings-system',     label: t.systemConfig,icon: '⚙️' },
+    { key: 'settings-trash',      label: 'Lixeira',     icon: '🗑️' },
   ] : []
 
   return (

@@ -4,6 +4,9 @@ class Ticket < ApplicationRecord
   belongs_to :organization
   belongs_to :requester, class_name: "User", foreign_key: :requester_id
   belongs_to :assignee,  class_name: "User", foreign_key: :assignee_id, optional: true
+
+  has_many :ticket_assignees, dependent: :destroy
+  has_many :co_assignees, through: :ticket_assignees, class_name: "User", source: :user
   belongs_to :category,  optional: true
   belongs_to :priority,  optional: true
   belongs_to :queue,     class_name: "TicketQueue", optional: true
@@ -80,9 +83,41 @@ class Ticket < ApplicationRecord
     DataticketMetrics.ticket_escalated(self) if saved_change_to_escalated? && escalated?
   }
 
-  scope :open,      -> { where.not(status: %w[Resolvido Fechado]) }
+  scope :active,    -> { where(deleted_at: nil) }
+  scope :trashed,   -> { where.not(deleted_at: nil) }
+  scope :open,      -> { active.where.not(status: %w[Resolvido Fechado]) }
   scope :overdue,   -> { open.where("deadline < ?", Time.current) }
-  scope :by_period, ->(days) { where("created_at >= ?", days.days.ago) }
+  scope :by_period, ->(days) { active.where("created_at >= ?", days.days.ago) }
+
+  def soft_delete!(actor)
+    update!(deleted_at: Time.current, deleted_by_id: actor.id)
+    histories.create!(
+      user:       actor,
+      field:      "deleted",
+      from_value: nil,
+      to_value:   "Movido para lixeira por #{actor.full_name}"
+    )
+  end
+
+  def restore!(actor)
+    update!(deleted_at: nil, deleted_by_id: nil)
+    histories.create!(
+      user:       actor,
+      field:      "deleted",
+      from_value: "Lixeira",
+      to_value:   "Restaurado por #{actor.full_name}"
+    )
+  end
+
+  # Sincroniza co_assignees a partir de um array de IDs
+  def sync_co_assignees(user_ids)
+    ids = Array(user_ids).map(&:to_i).uniq.reject(&:zero?)
+    current = ticket_assignees.pluck(:user_id)
+    to_add    = ids - current
+    to_remove = current - ids
+    ticket_assignees.where(user_id: to_remove).destroy_all
+    to_add.each { |uid| ticket_assignees.create!(user_id: uid) }
+  end
 
   def sla_expired?
     deadline.present? && deadline < Time.current && !%w[Resolvido Fechado].include?(status)

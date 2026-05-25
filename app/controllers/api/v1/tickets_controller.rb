@@ -3,21 +3,29 @@ module Api
     class TicketsController < ApplicationController
       include Pagy::Backend
 
-      before_action :set_ticket, only: %i[show update destroy triage change_status assign histories]
+      before_action :set_ticket, only: %i[show update destroy triage change_status assign histories restore purge]
 
       def index
         authorize Ticket
-        tickets = policy_scope(Ticket).includes(:requester, :assignee, :category, :priority, :queue, :tags)
+        tickets = policy_scope(Ticket).includes(:requester, :assignee, :category, :priority, :queue, :tags, :co_assignees)
         tickets = apply_filters(tickets)
         tickets = apply_search(tickets)
         tickets = tickets.order(created_at: :desc)
 
-        @pagy, tickets = pagy(tickets, limit: params.fetch(:per_page, 25).to_i)
+        @pagy, tickets = pagy(tickets, limit: params.fetch(:per_page, 500).to_i)
 
         render json: {
           tickets:    TicketBlueprint.render_as_hash(tickets, view: :summary),
           pagination: pagy_metadata(@pagy)
         }
+      end
+
+      def trash
+        authorize Ticket, :trash_index?
+        tickets = @organization.tickets.trashed
+                               .includes(:requester, :assignee, :category, :priority)
+                               .order(deleted_at: :desc)
+        render json: TicketBlueprint.render_as_hash(tickets, view: :trash)
       end
 
       def show
@@ -30,6 +38,7 @@ module Api
         ticket = @organization.tickets.new(ticket_params.merge(requester: current_user))
         ticket.save!
         apply_tags(ticket)
+        apply_co_assignees(ticket)
         apply_custom_field_values(ticket)
         TicketMailer.created(ticket).deliver_later if ticket.organization.emails_enabled?
         render json: TicketBlueprint.render_as_hash(ticket, view: :full), status: :created
@@ -39,12 +48,28 @@ module Api
         authorize @ticket
         @ticket.update!(ticket_params)
         apply_tags(@ticket)
+        apply_co_assignees(@ticket)
         apply_custom_field_values(@ticket)
         render json: TicketBlueprint.render_as_hash(@ticket, view: :full)
       end
 
+      # Soft delete — move para lixeira (admin only)
       def destroy
         authorize @ticket
+        @ticket.soft_delete!(current_user)
+        head :no_content
+      end
+
+      # Restaura da lixeira (admin only)
+      def restore
+        authorize @ticket, :restore?
+        @ticket.restore!(current_user)
+        render json: TicketBlueprint.render_as_hash(@ticket, view: :full)
+      end
+
+      # Exclusão permanente (admin only)
+      def purge
+        authorize @ticket, :purge?
         @ticket.destroy!
         head :no_content
       end
@@ -106,26 +131,29 @@ module Api
       private
 
       def set_ticket
-        @ticket = policy_scope(Ticket)
-                    .includes(:requester, :assignee, :category, :priority, :queue,
-                              :comments, :ticket_attachments, :histories,
-                              :tags, field_values: :custom_field)
-                    .find(params[:id])
+        # restore e purge precisam encontrar tickets na lixeira também
+        scope = %w[restore purge].include?(action_name) ? @organization.tickets : policy_scope(Ticket)
+        @ticket = scope.includes(:requester, :assignee, :category, :priority, :queue,
+                                 :co_assignees, :comments, :ticket_attachments, :histories,
+                                 :tags, field_values: :custom_field)
+                       .find(params[:id])
       end
 
       def ticket_params
         if current_user.analyst?
-          # Analista: só pode registrar esforço no ticket atribuído a ele.
-          # Não pode mudar título, status, prioridade, atribuição, etc.
           params.require(:ticket).permit(:effort_used, :effort_estimated)
         else
-          # Admin e Manager: acesso completo aos campos do ticket
           params.require(:ticket).permit(
             :title, :description, :status, :ticket_type,
             :priority_id, :category_id, :queue_id, :assignee_id, :deadline,
             :effort_used, :effort_estimated
           )
         end
+      end
+
+      def apply_co_assignees(ticket)
+        return unless params[:ticket]&.key?(:co_assignee_ids)
+        ticket.sync_co_assignees(params[:ticket][:co_assignee_ids])
       end
 
       def bulk_triage_params

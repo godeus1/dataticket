@@ -471,14 +471,14 @@ export function NewTicket() {
 
 // ── Ticket Detail ─────────────────────────────────────────────────────────
 export function TicketDetail() {
-  const { currentUser, lang, tickets, setTickets, priorities, categories, users, queues, setScreen, addNotification, addAudit, showToast, selectedTicket, notifyEmail, changeStatusAction, addCommentAction, triageAction, assignAction, systemConfig } = useApp()
+  const { currentUser, lang, tickets, setTickets, priorities, categories, users, queues, setScreen, addNotification, addAudit, showToast, selectedTicket, notifyEmail, changeStatusAction, addCommentAction, triageAction, assignAction, deleteTicketAction, updateTicketAction, systemConfig } = useApp()
   const t = lang === 'pt' ? PT : EN
   const tk = tickets.find(x => x.id === selectedTicket)
 
   const [commentText, setCommentText] = useState('')
   const [commentType, setCommentType] = useState('public')
   const [showTriage, setShowTriage] = useState(false)
-  const [triageForm, setTriageForm] = useState({ priorityId: '', categoryId: '', effortEstimated: '', queueId: '', assigneeId: '' })
+  const [triageForm, setTriageForm] = useState({ priorityId: '', categoryId: '', effortEstimated: '', queueId: '', assigneeId: '', coAssigneeIds: [] })
   const [timerRunning, setTimerRunning] = useState(false)
   const [timerStart, setTimerStart] = useState(null)
   const [sessions, setSessions] = useState([])
@@ -536,7 +536,7 @@ export function TicketDetail() {
     api.ticket(tk.id)
       .then(data => {
         const full = mapTicket(data)
-        setTickets(prev => prev.map(t => t.id === full.id ? { ...t, comments: full.comments, attachments: full.attachments } : t))
+        setTickets(prev => prev.map(t => t.id === full.id ? { ...t, comments: full.comments, attachments: full.attachments, coAssignees: full.coAssignees } : t))
       })
       .catch(() => {})
   }, [tk?.id])
@@ -628,10 +628,11 @@ export function TicketDetail() {
     const assigneeId = triageForm.assigneeId ? Number(triageForm.assigneeId) : (q?.members[0] ?? null)
     try {
       await triageAction(tk.id, {
-        priority_id: Number(triageForm.priorityId) || null,
-        category_id: triageForm.categoryId ? Number(triageForm.categoryId) : (tk.categoryId || null),
-        queue_id:    Number(triageForm.queueId) || null,
-        assignee_id: assigneeId,
+        priority_id:      Number(triageForm.priorityId) || null,
+        category_id:      triageForm.categoryId ? Number(triageForm.categoryId) : (tk.categoryId || null),
+        queue_id:         Number(triageForm.queueId) || null,
+        assignee_id:      assigneeId,
+        co_assignee_ids:  (triageForm.coAssigneeIds ?? []).map(Number),
       })
     } catch (e) {
       alert(`Erro ao triar: ${e.message}`)
@@ -686,6 +687,17 @@ export function TicketDetail() {
     }
     showToast('Triagem concluída. E-mails enviados ao solicitante e responsável.')
     setShowTriage(false)
+  }
+
+  async function handleDelete() {
+    if (!window.confirm(`Mover o ticket "${tk.title}" para a lixeira? Ele poderá ser restaurado em até 30 dias.`)) return
+    try {
+      await deleteTicketAction(tk.id)
+      showToast(`Ticket ${tk.id} movido para a lixeira.`)
+      setScreen('tickets')
+    } catch (e) {
+      alert(`Erro ao excluir: ${e.message}`)
+    }
   }
 
   function toggleTimer() {
@@ -747,6 +759,7 @@ export function TicketDetail() {
           {transitions.map(s => <button key={s} className="btn btn-secondary btn-sm" onClick={() => changeStatus(s)}>→ {s}</button>)}
           {p.closeTicket && tk.status !== 'Fechado' && <button className="btn btn-danger btn-sm" onClick={() => changeStatus('Fechado')}>{t.closeTicket}</button>}
           {p.reopenTicket && ['Fechado', 'Resolvido'].includes(tk.status) && <button className="btn btn-secondary btn-sm" onClick={() => changeStatus('Reaberto')}>{t.reopenTicket}</button>}
+          {p.deleteTicket && <button className="btn btn-danger btn-sm" onClick={handleDelete} style={{ marginLeft: 4 }}>🗑 Excluir</button>}
         </div>
       </div>
 
@@ -968,6 +981,21 @@ export function TicketDetail() {
             </div>
           )}
 
+          {/* Co-responsáveis */}
+          {(tk.coAssignees ?? []).length > 0 && (
+            <div className="card" style={{ marginBottom: 12 }}>
+              <div style={{ fontWeight: 600, marginBottom: 10 }}>👥 Co-responsáveis</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {tk.coAssignees.map(u => (
+                  <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--bg2)', padding: '4px 10px', borderRadius: 20, fontSize: 12 }}>
+                    <Avatar user={u} size={20} />
+                    <span>{u.firstName} {u.lastName}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {p.reassign && (
             <div className="card">
               <div style={{ fontWeight: 600, marginBottom: 8 }}>Reatribuir</div>
@@ -1146,6 +1174,38 @@ export function TicketDetail() {
                       .map(u => <option key={u.id} value={u.id}>{u.firstName} {u.lastName}</option>)
                   })()}
                 </select>
+              </div>
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label className="label">Co-responsáveis (opcional)</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '8px', background: 'var(--bg2)', borderRadius: 8, border: '1px solid var(--border)', minHeight: 40 }}>
+                  {(() => {
+                    const q = queues.find(x => x.id === Number(triageForm.queueId))
+                    const qMembers = users.filter(u => (q?.members ?? []).includes(u.id) && String(u.id) !== String(triageForm.assigneeId))
+                    if (!triageForm.queueId || qMembers.length === 0) return <span style={{ fontSize: 12, color: 'var(--text2)' }}>Selecione uma fila e um responsável primeiro.</span>
+                    return qMembers.map(u => {
+                      const selected = (triageForm.coAssigneeIds ?? []).includes(u.id)
+                      return (
+                        <button
+                          key={u.id}
+                          type="button"
+                          onClick={() => setTriageForm(f => {
+                            const cur = f.coAssigneeIds ?? []
+                            return { ...f, coAssigneeIds: selected ? cur.filter(id => id !== u.id) : [...cur, u.id] }
+                          })}
+                          style={{
+                            padding: '3px 10px', borderRadius: 20, fontSize: 12, cursor: 'pointer',
+                            background: selected ? 'var(--accent)' : 'var(--bg)',
+                            color: selected ? '#fff' : 'var(--text)',
+                            border: `1px solid ${selected ? 'var(--accent)' : 'var(--border)'}`,
+                            fontWeight: selected ? 600 : 400,
+                          }}
+                        >
+                          {selected ? '✓ ' : ''}{u.firstName} {u.lastName}
+                        </button>
+                      )
+                    })
+                  })()}
+                </div>
               </div>
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 18 }}>

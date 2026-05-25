@@ -13,6 +13,7 @@ import {
   SettingsPriorities, SettingsQueues, SettingsHolidays,
   SettingsAudit, SettingsSystem, MyProfile,
 } from './screens/Settings.jsx'
+import { SettingsTrash } from './screens/Trash.jsx'
 
 function AppInner() {
   const { currentUser, screen, setScreen, toast, setToast, showToast, sidebar, setSidebar } = useApp()
@@ -41,6 +42,7 @@ function AppInner() {
       case 'settings-holidays': return p.settings ? <SettingsHolidays /> : <TicketList />
       case 'settings-audit':    return p.settings ? <SettingsAudit /> : <TicketList />
       case 'settings-system':   return p.settings ? <SettingsSystem /> : <TicketList />
+      case 'settings-trash':    return p.trash    ? <SettingsTrash /> : <TicketList />
       case 'profile':           return <MyProfile />
       default:                  return <Dashboard />
     }

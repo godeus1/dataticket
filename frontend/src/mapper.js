@@ -73,7 +73,12 @@ export function mapTicket(t) {
     tags:            (t.tags         ?? []).map(tag  => ({ id: tag.id, name: tag.name, color: tag.color })),
     comments:        (t.comments     ?? []).map(mapComment),
     attachments:     (t.attachments  ?? []).map(mapAttachment),
+    coAssignees:     (t.co_assignees ?? t.coAssignees ?? []).map(u => mapUser(u)),
     history:         (t.history      ?? []),
+    deletedAt:       t.deleted_at    ?? t.deletedAt    ?? null,
+    deletedById:     t.deleted_by_id ?? t.deletedById  ?? null,
+    deletedByName:   t.deleted_by_name ?? t.deletedByName ?? null,
+    daysUntilPurge:  t.days_until_purge ?? t.daysUntilPurge ?? null,
     scheduledDays:   [],
   }
 }

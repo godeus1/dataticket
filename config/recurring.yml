@@ -23,6 +23,10 @@ production:
     class: JwtCleanupJob
     schedule: "0 4 * * 0"        # toda domingo às 04:00 UTC — remove tokens JWT expirados
 
+  trash_cleanup:
+    class: TrashCleanupJob
+    schedule: "0 3 * * *"        # diariamente às 03:00 UTC — remove tickets na lixeira > 30 dias
+
 development:
   escalation_check:
     class: EscalationJob

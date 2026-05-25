@@ -14,6 +14,7 @@ class TriageService
       @ticket.deadline = SlaCalculator.new(@ticket).calculate_deadline
       schedule_if_needed
       @ticket.save!
+      @ticket.sync_co_assignees(@params[:co_assignee_ids]) if @params.key?(:co_assignee_ids)
       notify_assignee if @ticket.assignee_id.present?
     end
 
