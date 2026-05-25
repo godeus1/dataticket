@@ -355,9 +355,10 @@ export function TicketList() {
 
 // ── New Ticket ────────────────────────────────────────────────────────────
 export function NewTicket() {
-  const { currentUser, lang, categories, articles, setScreen, addNotification, showToast, notifyEmail, createTicketAction, systemConfig } = useApp()
+  const { currentUser, lang, categories, articles, setScreen, addNotification, showToast, notifyEmail, createTicketAction, updateTicketAction, systemConfig } = useApp()
   const t = lang === 'pt' ? PT : EN
-  const [form, setForm] = useState({ title: '', description: '', categoryId: '', attachments: [] })
+  const todayISO = new Date().toISOString().slice(0, 10)
+  const [form, setForm] = useState({ title: '', description: '', categoryId: '', openingDate: todayISO, attachments: [] })
   const [errors, setErrors] = useState({})
   const [files, setFiles] = useState([])
   const [uploading, setUploading] = useState(false)
@@ -385,6 +386,10 @@ export function NewTicket() {
         description: form.description,
         category_id: Number(form.categoryId) || null,
       })
+      // Admin: sobrescreve created_at se diferente de hoje
+      if (currentUser.role === 'admin' && form.openingDate && form.openingDate !== todayISO) {
+        await updateTicketAction(ticket.id, { created_at: form.openingDate })
+      }
       addNotification({ title: `Ticket ${ticket.id} criado`, desc: form.title, type: 'create', ticketId: ticket.id })
       notifyEmail(
         currentUser.email,
@@ -469,6 +474,25 @@ export function NewTicket() {
             </div>
           )}
         </div>
+        {currentUser.role === 'admin' && (
+          <div className="form-row">
+            <label className="label">
+              📅 Data de Abertura
+              <span style={{ fontSize: 10, color: 'var(--accent)', marginLeft: 6, fontWeight: 400 }}>admin</span>
+            </label>
+            <input
+              type="date"
+              className="input"
+              style={{ maxWidth: 200 }}
+              value={form.openingDate}
+              max={todayISO}
+              onChange={e => setForm(f => ({ ...f, openingDate: e.target.value }))}
+            />
+            <p style={{ fontSize: 11, color: 'var(--text2)', marginTop: 4 }}>
+              Padrão: hoje. Altere apenas para registrar tickets de datas anteriores.
+            </p>
+          </div>
+        )}
         <div className="form-row">
           <label className="label">📎 Anexos (PDF, PNG, JPG, DOCX — máx. 20 MB cada)</label>
           <>
