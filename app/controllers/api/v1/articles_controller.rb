@@ -19,17 +19,40 @@ module Api
         authorize Article
         article = @organization.articles.new(article_params.merge(author: current_user))
         article.save!
+        audit!(
+          action:    "Artigo KB criado",
+          entity:    "Base de Conhecimento",
+          entity_id: article.id,
+          changes:   { titulo: article.title, publicado: article.published ? "Sim" : "Não" }
+        )
         render json: ArticleBlueprint.render_as_hash(article), status: :created
       end
 
       def update
         authorize @article
+        old_title     = @article.title
+        old_published = @article.published
         @article.update!(article_params)
+        changes = { titulo: @article.title }
+        changes[:titulo_anterior] = old_title if old_title != @article.title
+        changes[:publicado] = @article.published ? "Sim" : "Não" if old_published != @article.published
+        audit!(
+          action:    "Artigo KB atualizado",
+          entity:    "Base de Conhecimento",
+          entity_id: @article.id,
+          changes:   changes
+        )
         render json: ArticleBlueprint.render_as_hash(@article)
       end
 
       def destroy
         authorize @article
+        audit!(
+          action:    "Artigo KB excluído",
+          entity:    "Base de Conhecimento",
+          entity_id: @article.id,
+          changes:   { titulo: @article.title }
+        )
         @article.destroy!
         head :no_content
       end

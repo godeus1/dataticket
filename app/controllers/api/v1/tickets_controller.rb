@@ -40,6 +40,12 @@ module Api
         apply_tags(ticket)
         apply_co_assignees(ticket)
         apply_custom_field_values(ticket)
+        audit!(
+          action:    "Ticket criado",
+          entity:    "Ticket",
+          entity_id: ticket.id,
+          changes:   { titulo: ticket.title, categoria: ticket.category&.name, solicitante: current_user.full_name }
+        )
         TicketMailer.created(ticket).deliver_later if ticket.organization.emails_enabled?
         render json: TicketBlueprint.render_as_hash(ticket, view: :full), status: :created
       end
@@ -56,7 +62,14 @@ module Api
       # Soft delete — move para lixeira (admin only)
       def destroy
         authorize @ticket
+        saved_title = @ticket.title
         @ticket.soft_delete!(current_user)
+        audit!(
+          action:    "Ticket excluído (lixeira)",
+          entity:    "Ticket",
+          entity_id: @ticket.id,
+          changes:   { titulo: saved_title }
+        )
         head :no_content
       end
 
@@ -64,12 +77,26 @@ module Api
       def restore
         authorize @ticket, :restore?
         @ticket.restore!(current_user)
+        audit!(
+          action:    "Ticket restaurado",
+          entity:    "Ticket",
+          entity_id: @ticket.id,
+          changes:   { titulo: @ticket.title }
+        )
         render json: TicketBlueprint.render_as_hash(@ticket, view: :full)
       end
 
       # Exclusão permanente (admin only)
       def purge
         authorize @ticket, :purge?
+        saved_title = @ticket.title
+        saved_id    = @ticket.id
+        audit!(
+          action:    "Ticket excluído permanentemente",
+          entity:    "Ticket",
+          entity_id: saved_id,
+          changes:   { titulo: saved_title }
+        )
         @ticket.destroy!
         head :no_content
       end

@@ -160,13 +160,15 @@ export function mapNotification(n) {
 export function mapAuditLog(l) {
   if (!l) return null
   return {
-    id:       l.id,
-    action:   l.action,
-    entity:   l.entity,
-    entityId: l.entity_id ?? l.entityId,
-    userId:   l.user_id   ?? l.userId,
-    date:     l.created_at ?? l.date ?? new Date().toISOString(),
-    changes:  l.changes_data ?? l.changes ?? {},
+    id:        l.id,
+    action:    l.action,
+    entity:    l.entity    ?? l.entity,
+    entityId:  l.entity_id ?? l.entityId,
+    userId:    l.user?.id  ?? l.user_id ?? l.userId,
+    userName:  l.user ? `${l.user.first_name ?? ''} ${l.user.last_name ?? ''}`.trim() : (l.userName ?? null),
+    userEmail: l.user?.email ?? l.userEmail ?? null,
+    date:      l.created_at ?? l.date ?? new Date().toISOString(),
+    changes:   l.changes_data ?? l.changes ?? {},
   }
 }
 

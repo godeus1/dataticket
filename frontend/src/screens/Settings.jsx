@@ -526,29 +526,76 @@ export function SettingsHolidays() {
 }
 
 // ── Audit Log ─────────────────────────────────────────────────────────────
+// ── Helpers para log de auditoria ─────────────────────────────────────────
+const ACTION_ICONS = {
+  'Ticket criado':                  { icon: '➕', color: '#16a34a' },
+  'Status alterado':                { icon: '🔄', color: '#2383e2' },
+  'Ticket triado':                  { icon: '🎯', color: '#7c3aed' },
+  'Ticket excluído (lixeira)':      { icon: '🗑️', color: '#dc2626' },
+  'Ticket restaurado':              { icon: '↩',  color: '#16a34a' },
+  'Ticket excluído permanentemente':{ icon: '💀', color: '#7f1d1d' },
+  'Artigo KB criado':               { icon: '📗', color: '#16a34a' },
+  'Artigo KB atualizado':           { icon: '📝', color: '#d97706' },
+  'Artigo KB excluído':             { icon: '📕', color: '#dc2626' },
+}
+
+function formatAuditDetails(changes = {}) {
+  if (!changes || Object.keys(changes).length === 0) return '—'
+  return Object.entries(changes)
+    .filter(([, v]) => v != null && v !== '')
+    .map(([k, v]) => {
+      const label = {
+        titulo: 'Título', categoria: 'Categoria', solicitante: 'Solicitante',
+        de: 'De', para: 'Para', responsavel: 'Responsável', fila: 'Fila',
+        prioridade: 'Prioridade', publicado: 'Publicado',
+        titulo_anterior: 'Título anterior',
+      }[k] || k
+      return `${label}: ${v}`
+    })
+    .join(' · ')
+}
+
 export function SettingsAudit() {
   const { lang, auditLog, users } = useApp()
   const t = lang === 'pt' ? PT : EN
+  const [filterAction, setFilterAction] = useState('')
+  const [filterEntity, setFilterEntity] = useState('')
+  const [page, setPage]   = useState(0)
+  const PER = 30
+
+  const actionOptions = [...new Set(auditLog.map(a => a.action).filter(Boolean))].sort()
+  const entityOptions = [...new Set(auditLog.map(a => a.entity).filter(Boolean))].sort()
+
+  const filtered = auditLog
+    .filter(a => !filterAction || a.action === filterAction)
+    .filter(a => !filterEntity || a.entity === filterEntity)
+
+  const paged      = filtered.slice(page * PER, (page + 1) * PER)
+  const totalPages = Math.ceil(filtered.length / PER)
 
   function exportAuditCSV() {
-    const headers = ['Data/Hora','Usuário','Ação','Entidade','Valor']
-    const rows = auditLog.map(a => {
+    const headers = ['Data/Hora', 'Usuário', 'E-mail', 'Ação', 'Entidade', 'ID', 'Detalhes']
+    const rows = filtered.map(a => {
       const u = users.find(x => x.id === a.userId)
+      const name  = u ? `${u.firstName} ${u.lastName}` : (a.userName || '—')
+      const email = u?.email || a.userEmail || ''
       return [
         formatDateTime(a.date),
-        u ? `${u.firstName} ${u.lastName}` : '—',
+        name,
+        email,
         a.action || '',
         a.entity || '',
-        `"${(a.newVal || '').replace(/"/g, '""')}"`,
+        a.entityId || '',
+        `"${formatAuditDetails(a.changes).replace(/"/g, '""')}"`,
       ].join(';')
     })
-    const csv = [headers.join(';'), ...rows].join('\n')
+    const csv  = [headers.join(';'), ...rows].join('\n')
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a'); a.href = url
-    a.download = `dataticket-auditlog-${new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')}.csv`
-    document.body.appendChild(a); a.click()
-    document.body.removeChild(a); URL.revokeObjectURL(url)
+    const url  = URL.createObjectURL(blob)
+    const el   = document.createElement('a'); el.href = url
+    el.download = `dataticket-auditlog-${new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')}.csv`
+    document.body.appendChild(el); el.click()
+    document.body.removeChild(el); URL.revokeObjectURL(url)
   }
 
   return (
@@ -557,27 +604,95 @@ export function SettingsAudit() {
         <h2 className="page-title">{t.auditLog}</h2>
         <button className="btn btn-secondary btn-sm" onClick={exportAuditCSV}>📥 {t.export} CSV</button>
       </div>
-      <div className="card" style={{ overflowX: 'auto' }}>
+
+      {/* Filtros */}
+      <div className="card" style={{ marginBottom: 12 }}>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 180 }}>
+            <label style={{ fontSize: 11, color: 'var(--text2)', fontWeight: 500 }}>Filtrar por ação</label>
+            <select className="select" style={{ width: '100%' }} value={filterAction}
+              onChange={e => { setFilterAction(e.target.value); setPage(0) }}>
+              <option value="">Todas as ações</option>
+              {actionOptions.map(a => <option key={a} value={a}>{a}</option>)}
+            </select>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 160 }}>
+            <label style={{ fontSize: 11, color: 'var(--text2)', fontWeight: 500 }}>Filtrar por entidade</label>
+            <select className="select" style={{ width: '100%' }} value={filterEntity}
+              onChange={e => { setFilterEntity(e.target.value); setPage(0) }}>
+              <option value="">Todas as entidades</option>
+              {entityOptions.map(e => <option key={e} value={e}>{e}</option>)}
+            </select>
+          </div>
+          {(filterAction || filterEntity) && (
+            <button className="btn btn-secondary btn-sm" style={{ alignSelf: 'flex-end' }}
+              onClick={() => { setFilterAction(''); setFilterEntity(''); setPage(0) }}>
+              ✕ Limpar filtros
+            </button>
+          )}
+          <span style={{ fontSize: 12, color: 'var(--text2)', alignSelf: 'flex-end', marginLeft: 'auto' }}>
+            {filtered.length} registro(s)
+          </span>
+        </div>
+      </div>
+
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <table className="table">
-          <thead><tr><th>Data/Hora</th><th>Usuário</th><th>Ação</th><th>Entidade</th><th>Novo Valor</th></tr></thead>
+          <thead>
+            <tr>
+              <th style={{ width: 140 }}>Data/Hora</th>
+              <th>Usuário</th>
+              <th>Ação</th>
+              <th>Entidade</th>
+              <th>Detalhes</th>
+            </tr>
+          </thead>
           <tbody>
-            {auditLog.length === 0 && (
+            {paged.length === 0 && (
               <tr><td colSpan={5} style={{ textAlign: 'center', color: 'var(--text2)', padding: 32 }}>{t.noData}</td></tr>
             )}
-            {auditLog.map((a, i) => {
-              const u = users.find(x => x.id === a.userId)
+            {paged.map((a, i) => {
+              const u       = users.find(x => x.id === a.userId)
+              const name    = u ? `${u.firstName} ${u.lastName}` : (a.userName || '—')
+              const email   = u?.email || a.userEmail || null
+              const style   = ACTION_ICONS[a.action] ?? { icon: '📋', color: 'var(--text2)' }
+              const details = formatAuditDetails(a.changes)
               return (
-                <tr key={i}>
-                  <td style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{formatDateTime(a.date)}</td>
-                  <td style={{ fontSize: 13 }}>{u ? `${u.firstName} ${u.lastName}` : '—'}</td>
-                  <td>{a.action}</td>
-                  <td style={{ color: 'var(--accent)', fontWeight: 500 }}>{a.entity}</td>
-                  <td style={{ color: 'var(--text2)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.newVal}</td>
+                <tr key={a.id ?? i}>
+                  <td style={{ fontSize: 11, color: 'var(--text2)', whiteSpace: 'nowrap' }}>{formatDateTime(a.date)}</td>
+                  <td>
+                    <div style={{ fontSize: 13, fontWeight: 500 }}>{name}</div>
+                    {email && <div style={{ fontSize: 11, color: 'var(--text2)' }}>{email}</div>}
+                  </td>
+                  <td>
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 5,
+                      padding: '2px 8px', borderRadius: 12, fontSize: 12, fontWeight: 600,
+                      background: style.color + '18', color: style.color,
+                    }}>
+                      {style.icon} {a.action}
+                    </span>
+                  </td>
+                  <td>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent)' }}>{a.entity}</div>
+                    {a.entityId && <div style={{ fontSize: 11, color: 'var(--text2)' }}>#{a.entityId}</div>}
+                  </td>
+                  <td style={{ fontSize: 12, color: 'var(--text2)', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={details}>
+                    {details}
+                  </td>
                 </tr>
               )
             })}
           </tbody>
         </table>
+
+        {totalPages > 1 && (
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, padding: '12px 0', borderTop: '1px solid var(--border)' }}>
+            <button className="btn btn-secondary btn-sm" disabled={page === 0} onClick={() => setPage(p => p - 1)}>◀</button>
+            <span style={{ fontSize: 13, color: 'var(--text2)' }}>{page + 1} / {totalPages}</span>
+            <button className="btn btn-secondary btn-sm" disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)}>▶</button>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -58,7 +58,7 @@ export function AppProvider({ children }) {
 
     const [
       usersRes, ticketsRes, catsRes, prisRes,
-      queuesRes, holidaysRes, articlesRes, notifRes, orgRes,
+      queuesRes, holidaysRes, articlesRes, notifRes, orgRes, auditRes,
     ] = await Promise.all([
       settle(api.users()),
       settle(api.tickets()),
@@ -69,6 +69,7 @@ export function AppProvider({ children }) {
       settle(api.articles()),
       settle(api.notifications()),
       settle(api.organization()),
+      settle(api.auditLogs()),
     ])
 
     // Se qualquer endpoint retornar 401 a sessão expirou
@@ -92,6 +93,7 @@ export function AppProvider({ children }) {
     const articlesData = val(articlesRes)
     const notifData    = val(notifRes)
     const orgData      = val(orgRes, null)
+    const auditData    = val(auditRes)
 
     setUsers(         (usersData  ?? []).map(mapUser))
     setTickets(       (ticketsData?.tickets ?? ticketsData ?? []).map(mapTicket))
@@ -101,6 +103,7 @@ export function AppProvider({ children }) {
     setHolidays(      (holidaysData ?? []).map(mapHoliday))
     setArticles(      (articlesData ?? []).map(mapArticle))
     setNotifications( (notifData  ?? []).map(mapNotification))
+    setAuditLog(      (auditData  ?? []).map(mapAuditLog))
     if (orgData) setSystemConfig(mapOrganization(orgData))
   }, [])
 

@@ -324,7 +324,7 @@ export function TicketList() {
 
 // ── New Ticket ────────────────────────────────────────────────────────────
 export function NewTicket() {
-  const { currentUser, lang, categories, articles, setScreen, addNotification, addAudit, showToast, notifyEmail, createTicketAction, systemConfig } = useApp()
+  const { currentUser, lang, categories, articles, setScreen, addNotification, showToast, notifyEmail, createTicketAction, systemConfig } = useApp()
   const t = lang === 'pt' ? PT : EN
   const [form, setForm] = useState({ title: '', description: '', categoryId: '', attachments: [] })
   const [errors, setErrors] = useState({})
@@ -355,7 +355,6 @@ export function NewTicket() {
         category_id: Number(form.categoryId) || null,
       })
       addNotification({ title: `Ticket ${ticket.id} criado`, desc: form.title, type: 'create', ticketId: ticket.id })
-      addAudit({ action: 'Ticket criado', entity: ticket.id, userId: currentUser.id, newVal: form.title })
       notifyEmail(
         currentUser.email,
         `[DataTicket #${ticket.id}] Ticket aberto: ${form.title}`,
@@ -471,7 +470,7 @@ export function NewTicket() {
 
 // ── Ticket Detail ─────────────────────────────────────────────────────────
 export function TicketDetail() {
-  const { currentUser, lang, tickets, setTickets, priorities, categories, users, queues, setScreen, addNotification, addAudit, showToast, selectedTicket, notifyEmail, changeStatusAction, addCommentAction, triageAction, assignAction, deleteTicketAction, updateTicketAction, systemConfig } = useApp()
+  const { currentUser, lang, tickets, setTickets, priorities, categories, users, queues, setScreen, addNotification, showToast, selectedTicket, notifyEmail, changeStatusAction, addCommentAction, triageAction, assignAction, deleteTicketAction, systemConfig } = useApp()
   const t = lang === 'pt' ? PT : EN
   const tk = tickets.find(x => x.id === selectedTicket)
 
