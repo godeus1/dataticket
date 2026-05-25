@@ -1,6 +1,6 @@
 ﻿import { useState, useMemo, useEffect } from 'react'
 import { api } from '../api.js'
-import { mapAttachment } from '../mapper.js'
+import { mapAttachment, mapTicket } from '../mapper.js'
 import { useApp } from '../AppContext.jsx'
 import { PT, EN, PERM, STATUS_LIST, ALLOWED_TRANSITIONS, isExpired, formatDate, formatDateTime } from '../data.js'
 import { Avatar, Badge, PriBadge, CatChip, ModalOverlay, EmptyState } from '../components.jsx'
@@ -461,6 +461,19 @@ export function TicketDetail() {
   const [newAttFile, setNewAttFile] = useState(null)
   const [addingAtt, setAddingAtt] = useState(false)
   const [localAttachments, setLocalAttachments] = useState(null) // null = not loaded yet
+
+  // Carrega o ticket completo (view :full) ao abrir o detalhe.
+  // O index retorna apenas :summary (sem comments nem attachments),
+  // por isso precisamos buscar o ticket individual via GET /tickets/:id.
+  useEffect(() => {
+    if (!tk) return
+    api.ticket(tk.id)
+      .then(data => {
+        const full = mapTicket(data)
+        setTickets(prev => prev.map(t => t.id === full.id ? { ...t, comments: full.comments, attachments: full.attachments } : t))
+      })
+      .catch(() => {})
+  }, [tk?.id])
 
   useEffect(() => {
     if (!tk) return
