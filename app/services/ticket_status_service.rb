@@ -21,14 +21,16 @@ class TicketStatusService
     ActiveRecord::Base.transaction do
       @ticket.update!(status: @new_status)
       NotificationService.new(@ticket).notify_status_change(@actor, old_status, @new_status)
-      @ticket.organization.audit_logs.create!(
-        action:       "Status alterado",
-        entity:       "Ticket",
-        entity_id:    @ticket.id.to_s,
-        changes_data: { de: old_status, para: @new_status, titulo: @ticket.title },
-        user:         @actor
-      )
     end
+
+    # Auditoria fora da transação — falha silenciosa não desfaz a mudança de status
+    @ticket.organization.audit_logs.create(
+      action:       "Status alterado",
+      entity:       "Ticket",
+      entity_id:    @ticket.id.to_s,
+      changes_data: { de: old_status, para: @new_status, titulo: @ticket.title },
+      user:         @actor
+    )
 
     if @ticket.organization.emails_enabled?
       TicketMailer.status_changed(@ticket, old_status).deliver_later

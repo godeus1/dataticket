@@ -15,20 +15,22 @@ class TriageService
       schedule_if_needed
       @ticket.save!
       @ticket.sync_co_assignees(@params[:co_assignee_ids]) if @params.key?(:co_assignee_ids)
-      @ticket.organization.audit_logs.create!(
-        action:       "Ticket triado",
-        entity:       "Ticket",
-        entity_id:    @ticket.id.to_s,
-        changes_data: {
-          titulo:       @ticket.title,
-          responsavel:  @ticket.assignee&.full_name,
-          fila:         @ticket.queue&.name,
-          prioridade:   @ticket.priority&.name
-        }.compact,
-        user:         @actor
-      ) rescue nil
       notify_assignee if @ticket.assignee_id.present?
     end
+
+    # Auditoria fora da transação — falha silenciosa não desfaz a triagem
+    @ticket.organization.audit_logs.create(
+      action:       "Ticket triado",
+      entity:       "Ticket",
+      entity_id:    @ticket.id.to_s,
+      changes_data: {
+        titulo:      @ticket.title,
+        responsavel: @ticket.assignee&.full_name,
+        fila:        @ticket.queue&.name,
+        prioridade:  @ticket.priority&.name
+      }.compact,
+      user:         @actor
+    )
 
     Result.new(success?: true, ticket: @ticket, errors: [])
   rescue ActiveRecord::RecordInvalid => e

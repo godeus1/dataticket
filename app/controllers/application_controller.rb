@@ -1,6 +1,5 @@
 class ApplicationController < ActionController::API
   include Pundit::Authorization
-  include Auditable
 
   before_action :authenticate_user!
 

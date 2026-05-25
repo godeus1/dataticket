@@ -2,6 +2,7 @@ module Api
   module V1
     class ApplicationController < ActionController::API
       include Pundit::Authorization
+      include Auditable
 
       before_action :authenticate_user!
       before_action :set_organization
