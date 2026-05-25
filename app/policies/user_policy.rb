@@ -1,7 +1,7 @@
 class UserPolicy < ApplicationPolicy
-  # Manager precisa ver a lista de usuários para atribuir tickets
-  def index?         = admin_or_manager?
-  def show?          = admin_or_manager?
+  # Analyst precisa ver usuários para exibir nomes de solicitante/responsável em tickets
+  def index?         = staff?
+  def show?          = staff?
 
   # Criação, edição e exclusão de usuários: somente admin
   def create?        = admin?

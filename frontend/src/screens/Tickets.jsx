@@ -500,7 +500,7 @@ export function NewTicket() {
 
 // ── Ticket Detail ─────────────────────────────────────────────────────────
 export function TicketDetail() {
-  const { currentUser, lang, tickets, setTickets, priorities, categories, users, queues, setScreen, addNotification, showToast, selectedTicket, notifyEmail, changeStatusAction, addCommentAction, triageAction, assignAction, deleteTicketAction, systemConfig } = useApp()
+  const { currentUser, lang, tickets, setTickets, priorities, categories, users, queues, setScreen, addNotification, showToast, selectedTicket, notifyEmail, changeStatusAction, addCommentAction, updateTicketAction, triageAction, assignAction, deleteTicketAction, systemConfig } = useApp()
   const t = lang === 'pt' ? PT : EN
   const tk = tickets.find(x => x.id === selectedTicket)
 
@@ -556,6 +556,32 @@ export function TicketDetail() {
   const [newAttFile, setNewAttFile] = useState(null)
   const [addingAtt, setAddingAtt] = useState(false)
   const [localAttachments, setLocalAttachments] = useState(null) // null = not loaded yet
+  const [openingDateEdit, setOpeningDateEdit] = useState(null)   // admin: data de abertura editada
+
+  // Converte ISO para YYYY-MM-DD respeitando o fuso horário local
+  function toLocalDateInput(iso) {
+    const d = iso ? new Date(iso) : new Date()
+    return [
+      d.getFullYear(),
+      String(d.getMonth() + 1).padStart(2, '0'),
+      String(d.getDate()).padStart(2, '0'),
+    ].join('-')
+  }
+
+  // Reseta o campo quando muda de ticket
+  useEffect(() => { setOpeningDateEdit(null) }, [tk?.id])
+
+  async function saveOpeningDate() {
+    const newVal = openingDateEdit
+    setOpeningDateEdit(null)
+    if (!newVal || newVal === toLocalDateInput(tk.createdAt)) return
+    try {
+      await updateTicketAction(tk.id, { created_at: newVal })
+      showToast('Data de abertura atualizada.')
+    } catch (e) {
+      alert(`Erro ao atualizar data de abertura: ${e.message}`)
+    }
+  }
 
   // Carrega o ticket completo (view :full) ao abrir o detalhe.
   // O index retorna apenas :summary (sem comments nem attachments),
@@ -565,10 +591,26 @@ export function TicketDetail() {
     api.ticket(tk.id)
       .then(data => {
         const full = mapTicket(data)
-        setTickets(prev => prev.map(t => t.id === full.id ? { ...t, comments: full.comments, attachments: full.attachments, coAssignees: full.coAssignees } : t))
+        setTickets(prev => prev.map(t => t.id === full.id
+          ? { ...t, description: full.description, comments: full.comments, attachments: full.attachments, coAssignees: full.coAssignees }
+          : t
+        ))
       })
-      .catch(() => {})
-  }, [tk?.id])
+      .catch(console.error)
+
+    api.histories(tk.id)
+      .then(histories => {
+        const history = (histories ?? []).map(h => ({
+          field:  h.field,
+          from:   h.from_value,
+          to:     h.to_value,
+          date:   h.created_at,
+          userId: h.user?.id ?? null,
+        }))
+        setTickets(prev => prev.map(t => t.id === tk.id ? { ...t, history } : t))
+      })
+      .catch(console.error)
+  }, [tk?.id]) // eslint-disable-line
 
   useEffect(() => {
     if (!tk) return
@@ -746,7 +788,7 @@ export function TicketDetail() {
       if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
         Notification.requestPermission()
       }
-      if (tk.status !== 'Em Andamento') {
+      if (p.triage && tk.status !== 'Em Andamento') {
         changeStatusAction(tk.id, 'Em Andamento').catch(() => {})
       }
     } else {
@@ -941,7 +983,6 @@ export function TicketDetail() {
               { label: 'Categoria', val: <CatChip category={cat} /> },
               { label: 'Prioridade', val: <PriBadge priority={pri} /> },
               { label: 'Prazo', val: <span style={{ color: expired ? 'var(--danger)' : 'var(--text)', fontWeight: expired ? 600 : 400 }}>{formatDate(tk.deadline)}</span> },
-              { label: 'Abertura', val: formatDate(tk.createdAt) },
               { label: 'Esforço est.', val: `${tk.effortEstimated}h` },
               { label: 'Esforço usado', val: `${tk.effortUsed.toFixed(1)}h` },
             ].map(r => (
@@ -950,6 +991,37 @@ export function TicketDetail() {
                 <span style={{ fontWeight: 500 }}>{r.val}</span>
               </div>
             ))}
+            {/* Data de abertura — admin pode editar manualmente */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid var(--border)', fontSize: 13 }}>
+              <span style={{ color: 'var(--text2)' }}>
+                Abertura
+                {currentUser.role === 'admin' && (
+                  <span style={{ fontSize: 10, color: 'var(--accent)', marginLeft: 5, fontWeight: 500 }}>✏️ editável</span>
+                )}
+              </span>
+              {currentUser.role === 'admin' ? (
+                <input
+                  type="date"
+                  value={openingDateEdit ?? toLocalDateInput(tk.createdAt)}
+                  max={new Date().toISOString().slice(0, 10)}
+                  onChange={e => setOpeningDateEdit(e.target.value)}
+                  onBlur={saveOpeningDate}
+                  title="Clique para alterar a data de abertura do ticket"
+                  style={{
+                    border: '1px solid var(--accent)',
+                    borderRadius: 6,
+                    padding: '3px 8px',
+                    fontSize: 12,
+                    color: 'var(--text)',
+                    background: 'var(--bg)',
+                    cursor: 'pointer',
+                    fontWeight: 500,
+                  }}
+                />
+              ) : (
+                <span style={{ fontWeight: 500 }}>{formatDate(tk.createdAt)}</span>
+              )}
+            </div>
           </div>
 
           {/* Anexos */}
