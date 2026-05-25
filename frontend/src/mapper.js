@@ -20,11 +20,19 @@ export function mapUser(u) {
 export function mapComment(c) {
   if (!c) return null
   return {
-    id:     c.id,
-    text:   c.body ?? c.text ?? '',
-    type:   c.kind ?? c.type ?? 'public',
-    userId: c.user?.id ?? c.user_id ?? c.userId ?? null,
-    date:   c.created_at ?? c.date ?? new Date().toISOString(),
+    id:             c.id,
+    text:           c.body ?? c.text ?? '',
+    type:           c.kind ?? c.type ?? 'public',
+    userId:         c.user?.id         ?? c.user_id        ?? c.userId        ?? null,
+    // Guardamos os dados do autor embutidos para não depender do array users
+    // (que só é carregado para admin/manager).
+    authorName:     c.user
+                      ? `${c.user.first_name ?? ''} ${c.user.last_name ?? ''}`.trim()
+                      : (c.authorName ?? ''),
+    authorInitials: c.user?.avatar_initials ?? c.authorInitials ?? '',
+    authorColor:    c.user?.avatar_color    ?? c.authorColor    ?? '#6b7280',
+    authorEmail:    c.user?.email           ?? c.authorEmail    ?? '',
+    date:           c.created_at ?? c.date ?? new Date().toISOString(),
   }
 }
 

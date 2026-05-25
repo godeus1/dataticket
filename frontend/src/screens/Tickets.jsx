@@ -717,19 +717,25 @@ export function TicketDetail() {
               return (
                 <>
                   {visibleComments.slice(0, 5).map(c => {
+                    // Usa dados embutidos no comment (independe do array users)
                     const cu = users.find(u => u.id === c.userId)
+                    const authorUser = cu ?? { avatar: c.authorInitials, color: c.authorColor }
+                    const authorName = cu ? `${cu.firstName} ${cu.lastName}` : (c.authorName || 'Usuário')
                     return (
                       <div key={c.id} className="timeline-item">
-                        <Avatar user={cu} size={30} />
+                        <Avatar user={authorUser} size={30} />
                         <div style={{ flex: 1 }}>
-                          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 3 }}>
-                            <strong style={{ fontSize: 13 }}>{cu?.firstName} {cu?.lastName}</strong>
-                            <span style={{ fontSize: 11, color: 'var(--text2)' }}>{formatDate(c.date)}</span>
+                          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 4 }}>
+                            <strong style={{ fontSize: 13 }}>{authorName}</strong>
+                            {c.authorEmail && (
+                              <span style={{ fontSize: 11, color: 'var(--text2)' }}>{c.authorEmail}</span>
+                            )}
+                            <span style={{ fontSize: 11, color: 'var(--text2)', marginLeft: 'auto' }}>{formatDate(c.date)}</span>
                             {c.type === 'internal' && (
-                              <span style={{ background: '#fffbeb', color: '#92400e', padding: '1px 6px', borderRadius: 4, fontSize: 10, fontWeight: 600 }}>Interno</span>
+                              <span style={{ background: '#fffbeb', color: '#92400e', padding: '1px 6px', borderRadius: 4, fontSize: 10, fontWeight: 600 }}>🔒 Interno</span>
                             )}
                           </div>
-                          <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.6 }}>{c.text}</div>
+                          <div style={{ fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{c.text}</div>
                         </div>
                       </div>
                     )
@@ -916,16 +922,21 @@ export function TicketDetail() {
               const all = tk.comments.filter(c => c.type === 'public' || p.internalComment)
               return all.slice(moreCommentsPage * MORE_PER, (moreCommentsPage + 1) * MORE_PER).map(c => {
                 const cu = users.find(u => u.id === c.userId)
+                const authorUser = cu ?? { avatar: c.authorInitials, color: c.authorColor }
+                const authorName = cu ? `${cu.firstName} ${cu.lastName}` : (c.authorName || 'Usuário')
                 return (
                   <div key={c.id} className="timeline-item">
-                    <Avatar user={cu} size={28} />
+                    <Avatar user={authorUser} size={28} />
                     <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 2 }}>
-                        <strong style={{ fontSize: 13 }}>{cu?.firstName} {cu?.lastName}</strong>
-                        <span style={{ fontSize: 11, color: 'var(--text2)' }}>{formatDate(c.date)}</span>
-                        {c.type === 'internal' && <span style={{ background: '#fffbeb', color: '#92400e', padding: '1px 6px', borderRadius: 4, fontSize: 10, fontWeight: 600 }}>Interno</span>}
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 4 }}>
+                        <strong style={{ fontSize: 13 }}>{authorName}</strong>
+                        {c.authorEmail && (
+                          <span style={{ fontSize: 11, color: 'var(--text2)' }}>{c.authorEmail}</span>
+                        )}
+                        <span style={{ fontSize: 11, color: 'var(--text2)', marginLeft: 'auto' }}>{formatDate(c.date)}</span>
+                        {c.type === 'internal' && <span style={{ background: '#fffbeb', color: '#92400e', padding: '1px 6px', borderRadius: 4, fontSize: 10, fontWeight: 600 }}>🔒 Interno</span>}
                       </div>
-                      <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.6 }}>{c.text}</div>
+                      <div style={{ fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{c.text}</div>
                     </div>
                   </div>
                 )
