@@ -16,7 +16,11 @@ if [ "${SKIP_MIGRATIONS}" = "true" ]; then
   echo "==> [$(date -u '+%Y-%m-%dT%H:%M:%SZ')] SKIP_MIGRATIONS=true — pulando db:prepare."
 else
   echo "==> [$(date -u '+%Y-%m-%dT%H:%M:%SZ')] Applying pending migrations (db:prepare)..."
-  bundle exec rails db:prepare
+  # Timeout de 60s: se o banco estiver com advisory lock travado, não derruba o processo —
+  # apenas avisa e continua o boot. A aplicação sobe e o healthcheck passa.
+  if ! timeout 60 bundle exec rails db:prepare; then
+    echo "==> [$(date -u '+%Y-%m-%dT%H:%M:%SZ')] AVISO: db:prepare falhou ou travou (timeout 60s). Continuando o boot sem migrations."
+  fi
 fi
 
 echo "==> [$(date -u '+%Y-%m-%dT%H:%M:%SZ')] Starting Puma..."
