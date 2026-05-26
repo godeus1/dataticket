@@ -57,7 +57,8 @@ export function TicketList() {
   const [filterStatus, setFilterStatus] = useState([])
   const [filterPri, setFilterPri] = useState([])
   const [filterCat, setFilterCat] = useState([])
-  const [openFilter, setOpenFilter] = useState(null) // 'status'|'pri'|'cat'|null
+  const [filterAssignee, setFilterAssignee] = useState([])
+  const [openFilter, setOpenFilter] = useState(null) // 'status'|'pri'|'cat'|'assignee'|null
   const [sortBy, setSortBy] = useState('createdAt')
   const [sortDir, setSortDir] = useState('desc')
   const [page, setPage] = useState(0)
@@ -77,13 +78,14 @@ export function TicketList() {
     if (filterStatus.length) tks = tks.filter(tk => filterStatus.includes(tk.status))
     if (filterPri.length) tks = tks.filter(tk => filterPri.includes(tk.priorityId))
     if (filterCat.length) tks = tks.filter(tk => filterCat.includes(tk.categoryId))
+    if (filterAssignee.length) tks = tks.filter(tk => filterAssignee.includes(tk.assigneeId))
     tks.sort((a, b) => {
       let av = a[sortBy], bv = b[sortBy]
       if (typeof av === 'string') av = av.toLowerCase(); bv = bv?.toLowerCase?.() ?? ''
       return sortDir === 'asc' ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1)
     })
     return tks
-  }, [tickets, currentUser, search, filterStatus, filterPri, filterCat, sortBy, sortDir])
+  }, [tickets, currentUser, search, filterStatus, filterPri, filterCat, filterAssignee, sortBy, sortDir])
 
   const paged = filtered.slice(page * PER, (page + 1) * PER)
   const totalPages = Math.ceil(filtered.length / PER)
@@ -195,6 +197,10 @@ export function TicketList() {
             label="Categoria" filterKey="cat" selected={filterCat} setSelected={v => { setFilterCat(v); setPage(0) }}
             options={categories.map(c => ({ value: c.id, label: c.name }))}
           />
+          <MultiFilter
+            label="Responsável" filterKey="assignee" selected={filterAssignee} setSelected={v => { setFilterAssignee(v); setPage(0) }}
+            options={users.filter(u => u.role !== 'user').map(u => ({ value: u.id, label: `${u.firstName} ${u.lastName}` }))}
+          />
         </div>
       </div>
 
@@ -205,6 +211,7 @@ export function TicketList() {
               <th style={{ cursor: 'pointer' }} onClick={() => sort('id')}>ID{sortIcon('id')}</th>
               <th style={{ cursor: 'pointer' }} onClick={() => sort('title')}>Título{sortIcon('title')}</th>
               <th>Solicitante</th>
+              <th>Responsável</th>
               <th>Prioridade</th>
               <th>Status</th>
               <th>Categoria</th>
@@ -216,7 +223,7 @@ export function TicketList() {
           </thead>
           <tbody>
             {paged.length === 0 && (
-              <tr><td colSpan={10} style={{ textAlign: 'center', color: 'var(--text2)', padding: 32 }}>Nenhum ticket encontrado</td></tr>
+              <tr><td colSpan={11} style={{ textAlign: 'center', color: 'var(--text2)', padding: 32 }}>Nenhum ticket encontrado</td></tr>
             )}
             {paged.map(tk => {
               const pri = priorities.find(p => p.id === tk.priorityId)
@@ -239,6 +246,17 @@ export function TicketList() {
                     {tk.title}
                   </td>
                   <td style={{ color: 'var(--text2)', fontSize: 12 }}>{req ? req.firstName + ' ' + req.lastName : '—'}</td>
+                  <td style={{ fontSize: 12 }}>
+                    {(() => {
+                      const asgn = users.find(u => u.id === tk.assigneeId)
+                      return asgn ? (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                          <Avatar user={asgn} size={20} />
+                          <span style={{ color: 'var(--text)' }}>{asgn.firstName} {asgn.lastName}</span>
+                        </span>
+                      ) : <span style={{ color: 'var(--text2)' }}>—</span>
+                    })()}
+                  </td>
                   <td><PriBadge priority={pri} /></td>
                   <td><Badge status={tk.status} /></td>
                   <td><CatChip category={cat} /></td>
