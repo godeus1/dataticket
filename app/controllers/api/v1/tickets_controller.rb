@@ -7,7 +7,7 @@ module Api
 
       def index
         authorize Ticket
-        tickets = policy_scope(Ticket).includes(:requester, :assignee, :category, :priority, :queue, :tags, :co_assignees)
+        tickets = policy_scope(Ticket).includes(:requester, :assignee, :category, :priority, :queue, :tags, :co_assignees, :scheduled_days)
         tickets = apply_filters(tickets)
         tickets = apply_search(tickets)
         tickets = tickets.order(created_at: :desc)

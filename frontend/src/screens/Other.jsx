@@ -99,15 +99,22 @@ export function CalendarView() {
                 {tksDay.slice(0, 3).map(tk => {
                   const pri = priorities.find(p => p.id === tk.priorityId)
                   const hrs = day ? getScheduledHours(tk, day) : null
+                  const asgn = users.find(u => u.id === tk.assigneeId)
+                  const asgnName = asgn ? `${asgn.firstName} ${asgn.lastName}` : ''
                   return (
                     <div
                       key={tk.id}
                       className="cal-event"
                       style={{ background: (pri?.color || 'var(--accent)') }}
                       onClick={() => setCalTicketId(tk.id)}
-                      title={`${tk.id}: ${tk.title}${hrs ? ` (${hrs}h)` : ''}`}
+                      title={`${tk.id}: ${tk.title}${hrs ? ` · ${hrs}h` : ''}${asgnName ? ` · ${asgnName}` : ''}`}
                     >
-                      {tk.id}: {tk.title.slice(0, 14)}{hrs ? ` · ${hrs}h` : '…'}
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {tk.id}: {tk.title.slice(0, 12)}
+                      </span>
+                      {hrs != null && (
+                        <span style={{ fontSize: 10, opacity: 0.9, marginLeft: 2, flexShrink: 0 }}>{hrs}h</span>
+                      )}
                     </div>
                   )
                 })}

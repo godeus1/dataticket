@@ -92,7 +92,11 @@ export function mapTicket(t) {
     deletedById:     t.deleted_by_id ?? t.deletedById  ?? null,
     deletedByName:   t.deleted_by_name ?? t.deletedByName ?? null,
     daysUntilPurge:  t.days_until_purge ?? t.daysUntilPurge ?? null,
-    scheduledDays:   [],
+    scheduledDays:   (t.scheduled_days ?? t.scheduledDays ?? []).map(sd => ({
+      date:   sd.date,
+      hours:  parseFloat(sd.hours ?? 0),
+      userId: sd.user_id ?? sd.userId ?? null,
+    })),
   }
 }
 

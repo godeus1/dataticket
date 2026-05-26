@@ -22,6 +22,10 @@ class TicketBlueprint < Blueprinter::Base
     end
 
     association :tags, blueprint: TagBlueprint
+
+    field :scheduled_days do |ticket|
+      ticket.scheduled_days.map { |sd| { date: sd.date.to_s, hours: sd.hours, user_id: sd.user_id } }
+    end
   end
 
   # Full view — used in show/create/update

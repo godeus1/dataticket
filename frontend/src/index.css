@@ -269,7 +269,8 @@ textarea.input { resize: vertical; }
 .cal-event {
   border-radius: 4px; padding: 2px 6px;
   font-size: 10.5px; margin-top: 2px; cursor: pointer;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  display: flex; align-items: center; justify-content: space-between; gap: 3px;
+  overflow: hidden;
   color: #fff; transition: opacity .12s;
 }
 .cal-event:hover { opacity: .85; }
