@@ -130,6 +130,17 @@ module Api
         authorize @ticket, :assign?
         assignee = @organization.users.find(params[:assignee_id])
         @ticket.update!(assignee: assignee)
+
+        # Recalcula prazo com base na agenda do novo responsável
+        if @ticket.effort_estimated.to_f > 0
+          result   = AgendaSchedulerService.new(assignee, @organization).call(focus_ticket: @ticket)
+          deadline = result.deadline_for(AgendaSchedulerService::FOCUS_KEY)
+          if deadline
+            @ticket.update_columns(deadline: deadline.to_time.end_of_day.in_time_zone)
+            ScheduleService.new(@ticket, result.days_for(AgendaSchedulerService::FOCUS_KEY)).schedule
+          end
+        end
+
         NotificationService.new(@ticket).notify_assignee(assignee)
         TicketMailer.assigned(@ticket).deliver_later if @ticket.organization.emails_enabled?
         render json: TicketBlueprint.render_as_hash(@ticket, view: :full)
