@@ -1,4 +1,4 @@
-﻿import { useState, useMemo, useEffect } from 'react'
+﻿import { useState, useMemo, useEffect, useRef } from 'react'
 import { api } from '../api.js'
 import { mapAttachment, mapTicket, mapTimerSession } from '../mapper.js'
 import { useApp } from '../AppContext.jsx'
@@ -582,6 +582,38 @@ export function TicketDetail() {
     }
   }, [tk?.id, currentUser.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Ref para auto-stop (evita stale closure no setTimeout) ───────────────
+  const toggleTimerRef = useRef(null)
+
+  // Helper: minutos já registrados HOJE neste ticket
+  function todaySessionMins() {
+    const today = new Date().toDateString()
+    return sessions
+      .filter(s => {
+        const d = s.start instanceof Date ? s.start : new Date(s.start)
+        return d.toDateString() === today
+      })
+      .reduce((acc, s) => acc + (s.mins ?? 0), 0)
+  }
+
+  // Auto-stop quando atinge Máx. horas/ticket/dia do usuário
+  useEffect(() => {
+    toggleTimerRef.current = toggleTimerRef._fn  // será preenchido abaixo
+  })
+
+  useEffect(() => {
+    if (!timerRunning || !timerStart) return
+    const maxMins = (currentUser.maxHoursPerTicket ?? 4) * 60
+    const usedMins = todaySessionMins()
+    const remainingMs = Math.max(0, (maxMins - usedMins) * 60 * 1000)
+    if (remainingMs <= 0) return
+    const timeout = setTimeout(() => {
+      toggleTimerRef._fn?.()
+      showToast(`⏱ Cronômetro pausado: limite de ${fmtMinsHM(maxMins)} por ticket/dia atingido.`)
+    }, remainingMs)
+    return () => clearTimeout(timeout)
+  }, [timerRunning, timerStart]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Notificação a cada 15 min enquanto cronômetro ativo
   useEffect(() => {
     if (!timerRunning || !timerStart || !tk) return
@@ -835,11 +867,22 @@ export function TicketDetail() {
   }
 
   function toggleTimer() {
+    // Registra referência para o auto-stop sem stale closure
+    toggleTimerRef._fn = toggleTimer
+
     if (!timerRunning) {
       // ── Bloqueia timer duplo — leitura direta do localStorage ──────────
       const active = getActiveTimer(currentUser.id)
       if (active && active.ticketId !== tk.id) {
         alert(`⚠️ Cronômetro já ativo no ticket #${active.ticketId}.\n\nPause-o antes de iniciar este.`)
+        return
+      }
+
+      // ── Verifica limite Máx. horas/ticket/dia ──────────────────────────
+      const maxMins  = (currentUser.maxHoursPerTicket ?? 4) * 60
+      const usedMins = todaySessionMins()
+      if (usedMins >= maxMins) {
+        alert(`⏱ Limite diário atingido!\n\nVocê já registrou ${fmtMinsHM(usedMins)} neste ticket hoje.\nMáx. permitido: ${fmtMinsHM(maxMins)}.`)
         return
       }
 
@@ -1077,6 +1120,18 @@ export function TicketDetail() {
               { label: 'Prazo', val: <span style={{ color: expired ? 'var(--danger)' : 'var(--text)', fontWeight: expired ? 600 : 400 }}>{formatDate(tk.deadline)}</span> },
               { label: 'Esforço est.', val: fmtHM(tk.effortEstimated) },
               { label: 'Esforço usado', val: fmtHM(tk.effortUsed) },
+              ...(tk.effortEstimated > 0 ? [{
+                label: 'Esforço disponível',
+                val: (() => {
+                  const avail = tk.effortEstimated - tk.effortUsed
+                  const neg   = avail < 0
+                  return (
+                    <span style={{ color: neg ? 'var(--danger)' : 'var(--text)', fontWeight: neg ? 700 : 500 }}>
+                      {neg ? '−' : ''}{fmtHM(Math.abs(avail))}{neg ? ' ⚠' : ''}
+                    </span>
+                  )
+                })()
+              }] : []),
             ].map(r => (
               <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid var(--border)', fontSize: 13 }}>
                 <span style={{ color: 'var(--text2)' }}>{r.label}</span>
