@@ -566,6 +566,8 @@ export function TicketDetail() {
   const [timerRunning, setTimerRunning] = useState(false)
   const [timerStart, setTimerStart] = useState(null)
   const [sessions, setSessions] = useState([])
+  const [showReopenModal, setShowReopenModal] = useState(false)
+  const [reopenHours, setReopenHours] = useState('')
 
   // Carrega sessões do banco (via tk.timerSessions) e retoma timer ativo
   useEffect(() => {
@@ -938,6 +940,18 @@ export function TicketDetail() {
     setShowTriage(false)
   }
 
+  async function doReopen() {
+    const hours = parseFloat(reopenHours) || 0
+    try {
+      await changeStatusAction(tk.id, 'Reaberto', hours || undefined)
+      showToast(`Ticket ${tk.id} reaberto${hours > 0 ? ` com +${hours}h de esforço estimado.` : '.'}`)
+      setShowReopenModal(false)
+      setReopenHours('')
+    } catch (e) {
+      alert(`Erro ao reabrir: ${e.message}`)
+    }
+  }
+
   async function handleDelete() {
     if (!window.confirm(`Mover o ticket "${tk.title}" para a lixeira? Ele poderá ser restaurado em até 30 dias.`)) return
     try {
@@ -1123,7 +1137,11 @@ export function TicketDetail() {
               {t.closeTicket}
             </button>
           )}
-          {p.reopenTicket && ['Fechado', 'Resolvido'].includes(tk.status) && <button className="btn btn-secondary btn-sm" onClick={() => changeStatus('Reaberto')}>{t.reopenTicket}</button>}
+          {p.reopenTicket && ['Fechado', 'Resolvido'].includes(tk.status) && (
+            <button className="btn btn-secondary btn-sm" onClick={() => { setReopenHours(''); setShowReopenModal(true) }}>
+              {t.reopenTicket}
+            </button>
+          )}
           {p.deleteTicket && <button className="btn btn-danger btn-sm" onClick={handleDelete} style={{ marginLeft: 4 }}>🗑 Excluir</button>}
         </div>
       </div>
@@ -1783,6 +1801,73 @@ export function TicketDetail() {
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 18 }}>
               <button className="btn btn-secondary" onClick={() => setShowTriage(false)}>{t.cancel}</button>
               <button className="btn btn-primary" onClick={doTriage}>Confirmar Triagem</button>
+            </div>
+          </div>
+        </ModalOverlay>
+      )}
+
+      {/* Modal de reabertura com horas adicionais */}
+      {showReopenModal && (
+        <ModalOverlay onClose={() => setShowReopenModal(false)}>
+          <div className="modal" style={{ maxWidth: 440 }}>
+            <h3 style={{ fontWeight: 700, marginBottom: 6 }}>🔄 Reabrir Ticket</h3>
+            <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 18, lineHeight: 1.6 }}>
+              Informe quantas horas adicionais serão necessárias para resolver esta reabertura.
+              O valor será somado ao esforço estimado atual.
+            </p>
+
+            {/* Resumo do esforço atual */}
+            <div style={{ background: 'var(--bg2)', borderRadius: 8, padding: '10px 14px', marginBottom: 18, fontSize: 13 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                <span style={{ color: 'var(--text2)' }}>Esforço estimado atual</span>
+                <strong>{fmtHM(tk.effortEstimated)}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                <span style={{ color: 'var(--text2)' }}>Esforço já utilizado</span>
+                <strong>{fmtHM(tk.effortUsed)}</strong>
+              </div>
+              {parseFloat(reopenHours) > 0 && (
+                <>
+                  <div style={{ borderTop: '1px solid var(--border)', margin: '8px 0' }} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <span style={{ color: 'var(--accent)' }}>+ Horas desta reabertura</span>
+                    <strong style={{ color: 'var(--accent)' }}>+{fmtHM(parseFloat(reopenHours))}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: 'var(--text2)' }}>Novo esforço estimado</span>
+                    <strong>{fmtHM(tk.effortEstimated + parseFloat(reopenHours))}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+                    <span style={{ color: 'var(--text2)' }}>Disponível após reabrir</span>
+                    <strong style={{ color: '#16a34a' }}>{fmtHM(tk.effortEstimated + parseFloat(reopenHours) - tk.effortUsed)}</strong>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <label style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 6 }}>
+              Horas adicionais necessárias
+            </label>
+            <input
+              type="number"
+              className="input"
+              min="0"
+              step="0.5"
+              placeholder="Ex: 2 (ou 0.5 para 30 min)"
+              value={reopenHours}
+              onChange={e => setReopenHours(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') doReopen() }}
+              autoFocus
+              style={{ marginBottom: 18 }}
+            />
+
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button className="btn btn-primary" onClick={doReopen} style={{ flex: 1 }}>
+                🔄 Reabrir Ticket
+              </button>
+              <button className="btn btn-secondary" onClick={() => setShowReopenModal(false)}>
+                Cancelar
+              </button>
             </div>
           </div>
         </ModalOverlay>

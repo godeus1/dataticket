@@ -313,8 +313,8 @@ export function AppProvider({ children }) {
     return tk
   }, [])
 
-  const changeStatusAction = useCallback(async (id, status) => {
-    const res = await api.changeStatus(id, status)
+  const changeStatusAction = useCallback(async (id, status, additionalHours) => {
+    const res = await api.changeStatus(id, status, additionalHours)
     const tk  = mapTicket(res)
     setTickets(prev => prev.map(t => t.id === id ? tk : t))
     return tk

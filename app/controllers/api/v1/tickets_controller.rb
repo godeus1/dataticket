@@ -133,7 +133,8 @@ module Api
         if current_user.analyst? && params[:status] != "Fechado"
           return render json: { errors: [ "Analistas só podem fechar tickets." ] }, status: :forbidden
         end
-        result = TicketStatusService.new(@ticket, params[:status], current_user).call
+        additional_hours = params[:additional_hours].present? ? params[:additional_hours].to_f : nil
+        result = TicketStatusService.new(@ticket, params[:status], current_user, additional_hours: additional_hours).call
         if result.success?
           render json: TicketBlueprint.render_as_hash(result.ticket, view: :full)
         else

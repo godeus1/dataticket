@@ -1,10 +1,11 @@
 class TicketStatusService
   Result = Struct.new(:success?, :ticket, :errors, keyword_init: true)
 
-  def initialize(ticket, new_status, actor)
-    @ticket     = ticket
-    @new_status = new_status
-    @actor      = actor
+  def initialize(ticket, new_status, actor, additional_hours: nil)
+    @ticket           = ticket
+    @new_status       = new_status
+    @actor            = actor
+    @additional_hours = additional_hours.to_f
   end
 
   def call
@@ -35,8 +36,19 @@ class TicketStatusService
         release_capacity!
       end
 
-      # Reopen → recalculate deadline and schedule for the assignee
+      # Reopen → adiciona horas extras ao esforço estimado e reagenda
       if @new_status == "Reaberto"
+        if @additional_hours > 0
+          new_estimated = (@ticket.effort_estimated.to_f + @additional_hours).round(2)
+          @ticket.update_columns(effort_estimated: new_estimated)
+          # Registra no histórico
+          @ticket.histories.create!(
+            user:       @actor,
+            field:      "esforço estimado (reabertura)",
+            from_value: "#{@ticket.effort_estimated} h",
+            to_value:   "#{new_estimated} h (+#{@additional_hours} h)"
+          ) rescue nil
+        end
         reschedule_on_reopen!
       end
     end
