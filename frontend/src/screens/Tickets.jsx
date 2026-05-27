@@ -1117,6 +1117,12 @@ export function TicketDetail() {
           {p.triage && !tk.triaged && <button className="btn btn-primary btn-sm" onClick={() => setShowTriage(true)}>{t.triageBtn}</button>}
           {transitions.map(s => <button key={s} className="btn btn-secondary btn-sm" onClick={() => changeStatus(s)}>→ {s}</button>)}
           {p.closeTicket && tk.status !== 'Fechado' && <button className="btn btn-danger btn-sm" onClick={() => changeStatus('Fechado')}>{t.closeTicket}</button>}
+          {/* Analista pode fechar quando o esforço estimado foi totalmente consumido */}
+          {!p.closeTicket && currentUser.role === 'analyst' && tk.effortEstimated > 0 && tk.effortUsed >= tk.effortEstimated && !['Fechado', 'Resolvido'].includes(tk.status) && (
+            <button className="btn btn-danger btn-sm" onClick={() => changeStatus('Fechado')} title="Esforço totalmente utilizado — ticket pronto para fechar">
+              {t.closeTicket}
+            </button>
+          )}
           {p.reopenTicket && ['Fechado', 'Resolvido'].includes(tk.status) && <button className="btn btn-secondary btn-sm" onClick={() => changeStatus('Reaberto')}>{t.reopenTicket}</button>}
           {p.deleteTicket && <button className="btn btn-danger btn-sm" onClick={handleDelete} style={{ marginLeft: 4 }}>🗑 Excluir</button>}
         </div>
@@ -1152,9 +1158,15 @@ export function TicketDetail() {
             <div className="card" style={{ marginBottom: 14 }}>
               <div style={{ fontWeight: 600, marginBottom: 10 }}>⏱ {t.timer}</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10, flexWrap: 'wrap' }}>
-                <button className={`btn btn-sm ${timerRunning ? 'btn-danger' : 'btn-primary'}`} onClick={toggleTimer}>
-                  {timerRunning ? `⏸ ${t.pause}` : `▶ ${t.start}`}
-                </button>
+                {['Fechado', 'Resolvido'].includes(tk.status) ? (
+                  <span style={{ fontSize: 12, color: 'var(--text2)', fontStyle: 'italic' }}>
+                    🔒 Ticket {tk.status.toLowerCase()} — cronômetro desativado
+                  </span>
+                ) : (
+                  <button className={`btn btn-sm ${timerRunning ? 'btn-danger' : 'btn-primary'}`} onClick={toggleTimer}>
+                    {timerRunning ? `⏸ ${t.pause}` : `▶ ${t.start}`}
+                  </button>
+                )}
                 <span style={{ fontSize: 13, color: 'var(--text2)' }}>
                   Utilizado: <strong style={{ color: 'var(--text)' }}>{fmtHM(tk.effortUsed)}</strong>
                   {' '}/ Estimado: <strong>{fmtHM(tk.effortEstimated)}</strong>

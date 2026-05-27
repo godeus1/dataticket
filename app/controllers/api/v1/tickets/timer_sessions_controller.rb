@@ -28,6 +28,12 @@ module Api
         def start
           authorize TicketTimerSession, :start?
 
+          # ── Bloqueia timer em tickets fechados ou resolvidos ───────────────
+          if %w[Fechado Resolvido].include?(@ticket.status)
+            return render json: { error: "Não é possível iniciar o cronômetro em um ticket #{@ticket.status.downcase}." },
+                          status: :unprocessable_entity
+          end
+
           # ── Cancel ALL running sessions for this user across the whole org ──
           # This enforces the "one active timer per user" rule globally.
           TicketTimerSession

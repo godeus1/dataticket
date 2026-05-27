@@ -129,6 +129,10 @@ module Api
 
       def change_status
         authorize @ticket, :change_status?
+        # Analistas só podem fechar (policy permite se esforço esgotado; aqui reforçamos o status)
+        if current_user.analyst? && params[:status] != "Fechado"
+          return render json: { errors: [ "Analistas só podem fechar tickets." ] }, status: :forbidden
+        end
         result = TicketStatusService.new(@ticket, params[:status], current_user).call
         if result.success?
           render json: TicketBlueprint.render_as_hash(result.ticket, view: :full)
