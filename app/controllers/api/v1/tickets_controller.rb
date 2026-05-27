@@ -10,15 +10,19 @@ module Api
         tickets = policy_scope(Ticket).includes(:requester, :assignee, :category, :priority, :queue, :tags, :co_assignees, :scheduled_days)
         tickets = apply_filters(tickets)
         tickets = apply_search(tickets)
-        tickets = tickets.order(created_at: :desc)
+        # Secondary sort by id ensures stable cursor position when created_at ties.
+        tickets = tickets.order(created_at: :desc, id: :desc)
 
-        per_page = [[params.fetch(:per_page, 50).to_i, 1].max, 500].min
-        @pagy, tickets = pagy(tickets, limit: per_page)
-
-        render json: {
-          tickets:    TicketBlueprint.render_as_hash(tickets, view: :summary),
-          pagination: pagy_metadata(@pagy)
-        }
+        if params[:cursor].present?
+          render json: cursor_paginate(tickets)
+        else
+          per_page = [[params.fetch(:per_page, 50).to_i, 1].max, 500].min
+          @pagy, tickets = pagy(tickets, limit: per_page)
+          render json: {
+            tickets:    TicketBlueprint.render_as_hash(tickets, view: :summary),
+            pagination: pagy_metadata(@pagy)
+          }
+        end
       end
 
       def trash
@@ -289,6 +293,45 @@ module Api
         TicketRescheduleJob.perform_later(@ticket.id, old_assignee_id&.to_s)
       rescue StandardError => e
         Rails.logger.error("[reschedule_after_update] ticket #{@ticket.id}: #{e.message}")
+      end
+
+      # Cursor-based pagination (keyset).
+      # Cursor encodes {ts: ISO8601, id_num: integer} of the last item in the previous page.
+      # Compound condition (created_at, numeric_id) avoids gaps or duplicates when tickets
+      # share the same created_at timestamp.
+      # id_num (numeric suffix of TK-NNNN) is used instead of the raw id string so
+      # ordering is correct even for IDs with more than 4 digits (TK-10000+).
+      def cursor_paginate(scope)
+        per_page = [[params.fetch(:per_page, 50).to_i, 1].max, 200].min
+
+        if params[:cursor].present?
+          decoded  = JSON.parse(Base64.strict_decode64(params[:cursor]))
+          ts       = decoded["ts"]
+          id_num   = decoded["id_num"].to_i
+          scope = scope.where(
+            "(created_at < ?) OR (created_at = ? AND CAST(SUBSTRING(id, 4) AS INTEGER) < ?)",
+            ts, ts, id_num
+          )
+        end
+
+        records  = scope.limit(per_page + 1).to_a
+        has_more = records.size > per_page
+        records  = records.first(per_page)
+
+        next_cursor = if has_more && records.any?
+          last = records.last
+          Base64.strict_encode64(
+            JSON.generate({ ts: last.created_at.iso8601(6), id_num: last.id.sub(/^TK-/, "").to_i })
+          )
+        end
+
+        {
+          tickets:     TicketBlueprint.render_as_hash(records, view: :summary),
+          next_cursor: next_cursor,
+          has_more:    has_more
+        }
+      rescue ArgumentError, JSON::ParserError
+        render json: { error: "Cursor inválido" }, status: :bad_request and return
       end
 
       def apply_filters(scope)

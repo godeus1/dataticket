@@ -149,16 +149,22 @@ class Ticket < ApplicationRecord
     CsatSurveyJob.set(wait: 1.hour).perform_later(id)
   end
 
-  # ── ID geração com lock para evitar race condition ───────────────────────────
-  # organization.with_lock faz SELECT ... FOR UPDATE na linha da organização,
-  # serializando a geração de IDs por organização.
+  # ── ID geração via contador atômico por organização ──────────────────────────
+  # ON CONFLICT DO UPDATE atomicamente incrementa e retorna o novo valor.
+  # Substitui o with_lock + MAX(CAST(REGEX)) anterior:
+  # - Sem regex scan em toda a tabela de tickets
+  # - Lock granular no row do contador, não no row da organização
+  # - Semanticamente idêntico: serializado por org, sem duplicatas
   def generate_ticket_id
-    organization.with_lock do
-      last_num = organization.tickets
-                             .where("id ~ ?", "^TK-\\d+$")
-                             .maximum("CAST(SUBSTRING(id, 4) AS INTEGER)") || 0
-      self.id = "TK-#{format('%04d', last_num + 1)}"
-    end
+    sql = Ticket.sanitize_sql_array([
+      "INSERT INTO ticket_counters (organization_id, counter) VALUES (?, 1) " \
+      "ON CONFLICT (organization_id) " \
+      "DO UPDATE SET counter = ticket_counters.counter + 1 " \
+      "RETURNING counter",
+      organization_id
+    ])
+    num = self.class.connection.select_value(sql).to_i
+    self.id = "TK-#{format('%04d', num)}"
   end
 
   # ── Registra histórico de campos de associação (assignee, priority, category, queue) ──
@@ -243,17 +249,11 @@ class Ticket < ApplicationRecord
   end
 
   def broadcast_ticket_created
-    TicketsChannel.broadcast_to(
-      organization,
-      { event: "ticket_created", ticket: TicketBlueprint.render_as_hash(self, view: :summary) }
-    )
+    TicketBroadcastJob.perform_later(id, "ticket_created")
   end
 
   def broadcast_ticket_updated
-    TicketsChannel.broadcast_to(
-      organization,
-      { event: "ticket_updated", ticket: TicketBlueprint.render_as_hash(self, view: :summary) }
-    )
+    TicketBroadcastJob.perform_later(id, "ticket_updated")
   end
 
   def publish_created_event
