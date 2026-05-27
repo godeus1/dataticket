@@ -52,15 +52,26 @@ module Api
 
       def update
         authorize @ticket
+
+        # Captura valores antes da atualização para detectar mudanças que afetam agenda
+        old_assignee_id  = @ticket.assignee_id
+        old_effort       = @ticket.effort_estimated.to_f
+        old_priority_id  = @ticket.priority_id
+
         @ticket.update!(ticket_params)
+
         # Somente admin pode ajustar manualmente a data de abertura.
-        # Usamos update_column para ignorar validações e callbacks (apenas timestamp).
         if current_user.admin? && params.dig(:ticket, :created_at).present?
           @ticket.update_column(:created_at, params[:ticket][:created_at])
         end
+
         apply_tags(@ticket)
         apply_co_assignees(@ticket)
         apply_custom_field_values(@ticket)
+
+        # Reagenda agenda quando campos que impactam o calendário mudam
+        reschedule_after_update(old_assignee_id, old_effort, old_priority_id)
+
         render json: TicketBlueprint.render_as_hash(@ticket, view: :full)
       end
 
@@ -128,17 +139,24 @@ module Api
 
       def assign
         authorize @ticket, :assign?
-        assignee = @organization.users.find(params[:assignee_id])
+        old_assignee_id = @ticket.assignee_id
+        assignee        = @organization.users.find(params[:assignee_id])
         @ticket.update!(assignee: assignee)
 
-        # Recalcula prazo com base na agenda do novo responsável
-        if @ticket.effort_estimated.to_f > 0
-          result   = AgendaSchedulerService.new(assignee, @organization).call(focus_ticket: @ticket)
-          deadline = result.deadline_for(AgendaSchedulerService::FOCUS_KEY)
-          if deadline
-            @ticket.update_columns(deadline: deadline.to_time.end_of_day.in_time_zone)
-            ScheduleService.new(@ticket, result.days_for(AgendaSchedulerService::FOCUS_KEY)).schedule
+        # Libera capacidade do responsável anterior
+        if old_assignee_id.present? && old_assignee_id.to_s != assignee.id.to_s
+          old_assignee = @organization.users.find_by(id: old_assignee_id)
+          if old_assignee
+            @ticket.scheduled_days.where(user: old_assignee).where("date >= ?", Date.current).destroy_all
+            ScheduleReallocationService.new(old_assignee, @organization).call
           end
+        end
+
+        # Recalcula prazo + agenda do novo responsável via TicketDeadlineCalculator
+        calc = TicketDeadlineCalculator.new(@ticket).call
+        if calc.deadline
+          @ticket.update_columns(deadline: calc.deadline)
+          ScheduleService.new(@ticket, calc.days).schedule
         end
 
         NotificationService.new(@ticket).notify_assignee(assignee)
@@ -185,7 +203,9 @@ module Api
       end
 
       def ticket_params
-        if current_user.analyst?
+        # Analysts creating their own tickets need title/description/category.
+        # The effort-only restriction applies only when updating an existing ticket.
+        if current_user.analyst? && action_name != "create"
           params.require(:ticket).permit(:effort_used, :effort_estimated)
         else
           params.require(:ticket).permit(
@@ -225,6 +245,50 @@ module Api
         render json: { errors: [ e.message ] }, status: :unprocessable_entity and return
       rescue ArgumentError => e
         render json: { errors: [ e.message ] }, status: :unprocessable_entity and return
+      end
+
+      # Dispara reagendamento quando campos que afetam a agenda mudam no update.
+      #
+      # Casos tratados:
+      #   assignee mudou   → realoca agenda do antigo E do novo responsável
+      #   effort_estimated → realoca agenda do responsável atual
+      #   priority_id      → reordena prioridades na agenda do responsável atual
+      #
+      def reschedule_after_update(old_assignee_id, old_effort, old_priority_id)
+        new_assignee_id = @ticket.assignee_id
+        assignee_changed  = new_assignee_id.to_s != old_assignee_id.to_s
+        effort_changed    = @ticket.effort_estimated.to_f != old_effort
+        priority_changed  = @ticket.priority_id.to_s != old_priority_id.to_s
+
+        return unless assignee_changed || effort_changed || priority_changed
+
+        org = @organization
+
+        if assignee_changed
+          # Antigo responsável perde este ticket — libera capacidade
+          if old_assignee_id.present?
+            old_assignee = org.users.find_by(id: old_assignee_id)
+            if old_assignee
+              # Remove dias futuros agendados para o antigo responsável neste ticket
+              @ticket.scheduled_days.where(user: old_assignee).where("date >= ?", Date.current).destroy_all
+              ScheduleReallocationService.new(old_assignee, org).call
+            end
+          end
+
+          # Novo responsável recebe este ticket — recalcula sua agenda
+          if new_assignee_id.present?
+            new_assignee = org.users.find_by(id: new_assignee_id)
+            ScheduleReallocationService.new(new_assignee, org).call if new_assignee
+          end
+        else
+          # Esforço ou prioridade mudou — realoca apenas o responsável atual
+          if new_assignee_id.present?
+            assignee = org.users.find_by(id: new_assignee_id)
+            ScheduleReallocationService.new(assignee, org).call if assignee
+          end
+        end
+      rescue StandardError => e
+        Rails.logger.error("[reschedule_after_update] ticket #{@ticket.id}: #{e.message}")
       end
 
       def apply_filters(scope)
