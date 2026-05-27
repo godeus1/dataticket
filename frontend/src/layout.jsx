@@ -3,20 +3,6 @@ import { useApp } from './AppContext.jsx'
 import { PT, EN, PERM, formatDate } from './data.js'
 import { Avatar } from './components.jsx'
 
-const CHANGELOG = [
-  { date: '19/05/2026', title: 'Banco de dados compartilhado (Supabase)', desc: 'Todos os usuários agora acessam os mesmos dados em tempo real, independente do navegador ou máquina.' },
-  { date: '19/05/2026', title: 'Notificações navegáveis', desc: 'Clicar em uma notificação do sino agora abre o ticket correspondente diretamente.' },
-  { date: '19/05/2026', title: 'Status renomeado', desc: '"Em triagem" passou a ser "Triado, aguardando atendimento" para mais clareza.' },
-  { date: '19/05/2026', title: 'Capacidade dinâmica no dashboard', desc: 'O card de Capacidade Total agora considera o período selecionado (dia, semana, mês, ano).' },
-  { date: '19/05/2026', title: 'Exportar CSV e PDF funcionando', desc: 'Relatórios e log de auditoria podem ser exportados para CSV. Relatórios também geram PDF para impressão.' },
-  { date: '19/05/2026', title: 'Validação de e-mail duplicado', desc: 'O sistema impede criar dois usuários com o mesmo endereço de e-mail.' },
-  { date: '18/05/2026', title: 'Sessão com expiração de 6h', desc: 'Login expira automaticamente após 6 horas, com modal de aviso.' },
-  { date: '18/05/2026', title: 'Backup diário automático', desc: 'Backup em JSON baixado automaticamente todo dia às 23h (horário de Brasília).' },
-  { date: '18/05/2026', title: 'Responsivo para mobile', desc: 'Sidebar com overlay, hamburger menu e tabelas com scroll horizontal em telas pequenas.' },
-  { date: '17/05/2026', title: 'Recuperação de senha por e-mail', desc: 'Fluxo "Esqueci minha senha" envia código de 6 dígitos por e-mail para redefinição segura.' },
-  { date: '17/05/2026', title: 'Autenticação real com hash SHA-256', desc: 'Senhas armazenadas com hash seguro — modo demo removido, pronto para uso em produção.' },
-  { date: '17/05/2026', title: 'Anexos de tickets (Supabase Storage)', desc: 'Upload e download de arquivos diretamente no ticket.' },
-]
 
 export function Sidebar({ screen, setScreen }) {
   const { currentUser, lang, notifications, sidebar, setSidebar } = useApp()
@@ -59,17 +45,21 @@ export function Sidebar({ screen, setScreen }) {
       </div>
 
       <div className="sidebar-nav">
-        {items.filter(x => x.show).map(i => (
-          <div
-            key={i.key}
-            className={`nav-item ${screen === i.key ? 'active' : ''}`}
-            onClick={() => { setScreen(i.key); if (window.innerWidth <= 768) setSidebar('collapsed') }}
-            title={collapsed ? i.label : ''}
-          >
-            <span className="nav-icon">{i.icon}</span>
-            <span className="nav-label">{i.label}</span>
-          </div>
-        ))}
+        {items.filter(x => x.show).map(i => {
+          // "tickets" fica ativo também ao visualizar detalhe de um ticket
+          const isActive = screen === i.key || (i.key === 'tickets' && screen === 'ticket-detail')
+          return (
+            <div
+              key={i.key}
+              className={`nav-item ${isActive ? 'active' : ''}`}
+              onClick={() => { setScreen(i.key); if (window.innerWidth <= 768) setSidebar('collapsed') }}
+              title={collapsed ? i.label : ''}
+            >
+              <span className="nav-icon">{i.icon}</span>
+              <span className="nav-label">{i.label}</span>
+            </div>
+          )
+        })}
 
         {settingsItems.length > 0 && (
           <>
@@ -116,7 +106,7 @@ export function Topbar() {
   const t = lang === 'pt' ? PT : EN
   const [showNotif, setShowNotif] = useState(false)
   const [showSearch, setShowSearch] = useState(false)
-  const [showChangelog, setShowChangelog] = useState(false)
+
   const unread = notifications.filter(x => !x.read).length
 
   function markAll() { markAllReadAction().catch(() => {}) }
@@ -124,7 +114,7 @@ export function Topbar() {
   function openNotif(n) {
     markOne(n.id)
     setShowNotif(false)
-    if (n.ticketId) { setSelectedTicket(n.ticketId); setScreen('ticket-detail') }
+    if (n.ticketId) { setSelectedTicket(n.ticketId) }
   }
 
   const searchResults = useMemo(() => {
@@ -193,44 +183,9 @@ export function Topbar() {
           {theme === 'light' ? '🌙' : '☀️'}
         </button>
 
-        {/* Changelog */}
-        <div style={{ position: 'relative' }}>
-          <button
-            className="btn btn-secondary btn-sm"
-            title="Novidades e atualizações"
-            onClick={() => { setShowChangelog(!showChangelog); setShowNotif(false) }}
-            style={{ position: 'relative' }}
-          >
-            🚀
-          </button>
-          {showChangelog && (
-            <>
-              <div style={{ position: 'fixed', inset: 0, zIndex: 299 }} onClick={() => setShowChangelog(false)} />
-              <div className="dropdown" style={{ top: '110%', right: 0, width: 360, maxHeight: 480, overflowY: 'auto', zIndex: 300 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, background: 'var(--bg)' }}>
-                  <strong style={{ fontSize: 13 }}>🚀 Novidades do sistema</strong>
-                  <span style={{ fontSize: 11, color: 'var(--text2)' }}>DataTicket</span>
-                </div>
-                {CHANGELOG.map((item, i) => (
-                  <div key={i} style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 3 }}>
-                      <strong style={{ fontSize: 12 }}>{item.title}</strong>
-                      <span style={{ fontSize: 10, color: 'var(--text2)', flexShrink: 0 }}>{item.date}</span>
-                    </div>
-                    <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.5 }}>{item.desc}</div>
-                  </div>
-                ))}
-                <div style={{ padding: '8px 14px', fontSize: 11, color: 'var(--text2)', textAlign: 'center', borderTop: '1px solid var(--border)' }}>
-                  Desenvolvido por <strong>DataTry Tecnologia e Negócios</strong>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-
         {/* Notifications */}
         <div style={{ position: 'relative' }}>
-          <button className="btn btn-secondary btn-sm" onClick={() => { setShowNotif(!showNotif); setShowChangelog(false) }} style={{ position: 'relative' }}>
+          <button className="btn btn-secondary btn-sm" onClick={() => setShowNotif(!showNotif)} style={{ position: 'relative' }}>
             🔔
             {unread > 0 && (
               <span style={{ position: 'absolute', top: -4, right: -4, background: 'var(--danger)', color: '#fff', borderRadius: 10, padding: '1px 5px', fontSize: 9, fontWeight: 700 }}>

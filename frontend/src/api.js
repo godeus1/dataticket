@@ -78,8 +78,10 @@ export const api = {
   changeStatus:  (id, status)  => req(`/tickets/${id}/change_status`, { method: 'PATCH', body: j({ status }) }),
   assign:        (id, uid)     => req(`/tickets/${id}/assign`,        { method: 'PATCH', body: j({ assignee_id: uid }) }),
   histories:          (id)      => req(`/tickets/${id}/histories`),
-  timerSessions:      (id)      => req(`/tickets/${id}/timer_sessions`),
-  createTimerSession: (id, d)   => req(`/tickets/${id}/timer_sessions`, { method: 'POST', body: j(d) }),
+  timerSessions:      (id)        => req(`/tickets/${id}/timer_sessions`),
+  createTimerSession: (id, d)     => req(`/tickets/${id}/timer_sessions`,            { method: 'POST',  body: j(d) }),
+  startTimerSession:  (id)        => req(`/tickets/${id}/timer_sessions/start`,      { method: 'POST' }),
+  stopTimerSession:   (id, sid)   => req(`/tickets/${id}/timer_sessions/${sid}/stop`,{ method: 'PATCH' }),
 
   // ── Comments ──────────────────────────────────────────────────────────
   comments:      (tid)      => req(`/tickets/${tid}/comments`),
@@ -87,12 +89,13 @@ export const api = {
   deleteComment: (tid, cid) => req(`/tickets/${tid}/comments/${cid}`, { method: 'DELETE' }),
 
   // ── Users ─────────────────────────────────────────────────────────────
-  users:         ()        => req('/users'),
-  createUser:    (d)       => req('/users',           { method: 'POST',   body: j({ user: d }) }),
-  updateUser:    (id, d)   => req(`/users/${id}`,     { method: 'PATCH',  body: j({ user: d }) }),
-  deleteUser:    (id)      => req(`/users/${id}`,     { method: 'DELETE' }),
-  toggleUser:    (id)      => req(`/users/${id}/toggle_active`,  { method: 'PATCH' }),
-  resetPassword: (id)      => req(`/users/${id}/reset_password`, { method: 'POST' }),
+  users:           ()           => req('/users'),
+  usersCapacity:   (from, to)  => req(`/users/capacity${from ? `?from=${from}&to=${to ?? from}` : ''}`),
+  createUser:      (d)         => req('/users',           { method: 'POST',   body: j({ user: d }) }),
+  updateUser:      (id, d)     => req(`/users/${id}`,     { method: 'PATCH',  body: j({ user: d }) }),
+  deleteUser:      (id)        => req(`/users/${id}`,     { method: 'DELETE' }),
+  toggleUser:      (id)        => req(`/users/${id}/toggle_active`,  { method: 'PATCH' }),
+  resetPassword:   (id)        => req(`/users/${id}/reset_password`, { method: 'POST' }),
 
   // ── Categories ────────────────────────────────────────────────────────
   categories:      ()       => req('/categories'),

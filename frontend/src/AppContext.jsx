@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react'
+import { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import * as Sentry from '@sentry/react'
 import { api, getToken, setToken, setOn401Handler } from './api.js'
 import {
@@ -9,6 +10,52 @@ import { INITIAL_SYSTEM_CONFIG } from './data.js'
 
 export const AppCtx = createContext(null)
 export const useApp = () => useContext(AppCtx)
+
+// ── Screen ↔ URL mapping ──────────────────────────────────────────────────
+
+const SCREEN_TO_PATH = {
+  'dashboard':              '/painel',
+  'tickets':               '/tickets',
+  'new-ticket':            '/novo-ticket',
+  'ticket-detail':         '/tickets',   // use setSelectedTicket(id) for the real path
+  'calendar':              '/calendario',
+  'kb':                    '/base-de-conhecimento',
+  'reports':               '/relatorios',
+  'settings-users':        '/usuarios',
+  'settings-profiles':     '/perfis',
+  'settings-categories':   '/categoria',
+  'settings-priorities':   '/prioridades',
+  'settings-queues':       '/filas',
+  'settings-holidays':     '/feriados',
+  'settings-audit':        '/log-de-auditoria',
+  'settings-system':       '/config-sistema',
+  'settings-trash':        '/lixeira',
+  'profile':               '/perfil',
+}
+
+function pathToScreen(pathname) {
+  if (/^\/tickets\/.+$/.test(pathname)) return 'ticket-detail'
+  const MAP = {
+    '/':                          'dashboard',
+    '/painel':                    'dashboard',
+    '/tickets':                   'tickets',
+    '/novo-ticket':               'new-ticket',
+    '/calendario':                'calendar',
+    '/base-de-conhecimento':      'kb',
+    '/relatorios':                'reports',
+    '/usuarios':                  'settings-users',
+    '/perfis':                    'settings-profiles',
+    '/categoria':                 'settings-categories',
+    '/prioridades':               'settings-priorities',
+    '/filas':                     'settings-queues',
+    '/feriados':                  'settings-holidays',
+    '/log-de-auditoria':          'settings-audit',
+    '/config-sistema':            'settings-system',
+    '/lixeira':                   'settings-trash',
+    '/perfil':                    'profile',
+  }
+  return MAP[pathname] ?? 'dashboard'
+}
 
 // ── localStorage helpers ──────────────────────────────────────────────────
 function ls(key, fallback) {
@@ -40,11 +87,29 @@ export function AppProvider({ children }) {
   const [currentUserState,   setCurrentUserState]   = useState(null)
   const [sessionExpiredMsg,  setSessionExpiredMsg]  = useState(false)
 
+  // ── Routing ───────────────────────────────────────────────────────────
+  const navigate = useNavigate()
+  const location = useLocation()
+
+  // screen e selectedTicket são derivados da URL — não há useState para eles
+  const screen = useMemo(() => pathToScreen(location.pathname), [location.pathname])
+  const selectedTicket = useMemo(() => {
+    const m = location.pathname.match(/^\/tickets\/(.+)$/)
+    return m ? m[1] : null
+  }, [location.pathname])
+
+  function setScreen(key) {
+    navigate(SCREEN_TO_PATH[key] ?? '/dashboard')
+  }
+
+  function setSelectedTicket(id) {
+    if (id) navigate(`/tickets/${id}`)
+    else navigate('/tickets')
+  }
+
   // ── UI state ──────────────────────────────────────────────────────────
   const [lang,          setLang]          = useState(() => ls('dt_lang',  'pt'))
   const [theme,         setTheme]         = useState(() => ls('dt_theme', 'light'))
-  const [screen,        setScreen]        = useState('dashboard')
-  const [selectedTicket,setSelectedTicket] = useState(null)
   const [sidebar,       setSidebar]       = useState(() => typeof window !== 'undefined' && window.innerWidth <= 768 ? 'collapsed' : 'open')
   const [globalSearch,  setGlobalSearch]  = useState('')
   const [toast,         setToast]         = useState(null)
@@ -208,9 +273,9 @@ export function AppProvider({ children }) {
       setTickets([]); setUsers([]); setCategories([]); setPriorities([])
       setQueues([]); setHolidays([]); setArticles([]); setNotifications([]); setAuditLog([])
       Sentry.setUser(null)
-      setScreen('dashboard')
+      navigate(SCREEN_TO_PATH['dashboard'])
     }
-  }, [loadData])
+  }, [loadData, navigate])
 
   // ── Backup ────────────────────────────────────────────────────────────
   const backupRef = useRef(null)

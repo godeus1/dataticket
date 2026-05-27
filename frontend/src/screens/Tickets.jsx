@@ -96,7 +96,7 @@ export function TicketList() {
   }
   const sortIcon = (col) => sortBy === col ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ''
 
-  function openTicket(tk) { setSelectedTicket(tk.id); setScreen('ticket-detail') }
+  function openTicket(tk) { setSelectedTicket(tk.id) }
 
   async function doInlineTriage() {
     if (!inlineTriageForm.priorityId || !inlineTriageForm.queueId) { alert('Preencha prioridade e fila.'); return }
@@ -562,16 +562,36 @@ export function TicketDetail() {
   const [commentType, setCommentType] = useState('public')
   const [showTriage, setShowTriage] = useState(false)
   const [triageForm, setTriageForm] = useState({ priorityId: '', categoryId: '', effortEstimated: '', queueId: '', assigneeId: '', coAssigneeIds: [] })
+  const [capacityMap, setCapacityMap] = useState({})   // userId → { load_pct, free_hours, scheduled_hours }
   const [timerRunning, setTimerRunning] = useState(false)
   const [timerStart, setTimerStart] = useState(null)
   const [sessions, setSessions] = useState([])
 
-  // Carrega sessões do banco (via tk.timerSessions) e retoma timer ativo (localStorage)
+  // Carrega sessões do banco (via tk.timerSessions) e retoma timer ativo
   useEffect(() => {
     if (!tk) return
-    // Sessões do banco — incluem quem iniciou/parou, sobrevivem à troca de analista
-    setSessions(tk.timerSessions ?? [])
-    // Timer ativo: ainda usa localStorage para rastrear início antes de parar
+    const allSessions = tk.timerSessions ?? []
+    setSessions(allSessions)
+
+    // ── Prioridade 1: sessão 'running' no banco (sobrevive a page refresh / crash) ─
+    const runningInDB = allSessions.find(
+      s => s.status === 'running' && s.userId === currentUser.id
+    )
+    if (runningInDB) {
+      const startTime = runningInDB.start instanceof Date ? runningInDB.start : new Date(runningInDB.start)
+      setTimerStart(startTime)
+      setTimerRunning(true)
+      // Sincroniza localStorage com o que veio do banco
+      setActiveTimer(currentUser.id, {
+        ticketId:    tk.id,
+        ticketTitle: tk.title,
+        startTime:   startTime.toISOString(),
+        sessionId:   runningInDB.id,
+      })
+      return
+    }
+
+    // ── Prioridade 2: localStorage (ainda ativo na sessão atual do browser) ───
     const active = getActiveTimer(currentUser.id)
     if (active && active.ticketId === tk.id) {
       setTimerStart(new Date(active.startTime))
@@ -585,11 +605,12 @@ export function TicketDetail() {
   // ── Ref para auto-stop (evita stale closure no setTimeout) ───────────────
   const toggleTimerRef = useRef(null)
 
-  // Helper: minutos já registrados HOJE neste ticket
+  // Helper: minutos já registrados HOJE neste ticket (apenas sessões concluídas)
   function todaySessionMins() {
     const today = new Date().toDateString()
     return sessions
       .filter(s => {
+        if (s.status && s.status !== 'completed') return false
         const d = s.start instanceof Date ? s.start : new Date(s.start)
         return d.toDateString() === today
       })
@@ -634,6 +655,28 @@ export function TicketDetail() {
     return () => clearInterval(interval)
   }, [timerRunning]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Carrega capacidade dos usuários ao abrir o form de triagem
+  useEffect(() => {
+    if (!showTriage) return
+    const today = new Date().toISOString().slice(0, 10)
+    const end   = new Date(Date.now() + 6 * 86400000).toISOString().slice(0, 10)
+    api.usersCapacity(today, end)
+      .then(data => {
+        const map = {}
+        data.forEach(row => { map[String(row.user_id)] = row })
+        setCapacityMap(map)
+      })
+      .catch(() => {}) // silently ignore — badge is optional
+  }, [showTriage]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Tick a cada 10s para mostrar duração ao vivo das sessões em andamento
+  const [liveNow, setLiveNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (!timerRunning) return
+    const id = setInterval(() => setLiveNow(Date.now()), 10_000)
+    return () => clearInterval(id)
+  }, [timerRunning])
+
   const [showMoreComments, setShowMoreComments] = useState(false)
   const [showMoreHistory, setShowMoreHistory] = useState(false)
   const [showMoreSessions, setShowMoreSessions] = useState(false)
@@ -645,6 +688,40 @@ export function TicketDetail() {
   const [addingAtt, setAddingAtt] = useState(false)
   const [localAttachments, setLocalAttachments] = useState(null) // null = not loaded yet
   const [openingDateEdit, setOpeningDateEdit] = useState(null)   // admin: data de abertura editada
+  const [titleEdit,       setTitleEdit]       = useState(null)   // admin/manager: título editado
+  const [descEdit,        setDescEdit]        = useState(null)   // admin/manager: descrição editada
+
+  const canEditHeader = currentUser.role === 'admin' || currentUser.role === 'manager'
+
+  useEffect(() => { setTitleEdit(null); setDescEdit(null) }, [tk?.id])
+
+  async function saveTitle() {
+    const val = (titleEdit ?? '').trim()
+    setTitleEdit(null)
+    if (!val || val === tk.title) return
+    try {
+      await updateTicketAction(tk.id, { title: val })
+      showToast('Título atualizado.')
+    } catch (e) { alert(`Erro: ${e.message}`) }
+  }
+
+  async function saveDesc() {
+    const val = descEdit ?? ''
+    setDescEdit(null)
+    if (val === (tk.description ?? '')) return
+    try {
+      await updateTicketAction(tk.id, { description: val })
+      showToast('Descrição atualizada.')
+    } catch (e) { alert(`Erro: ${e.message}`) }
+  }
+
+  async function saveRequester(requesterId) {
+    if (!requesterId || requesterId === String(tk.requesterId)) return
+    try {
+      await updateTicketAction(tk.id, { requester_id: requesterId })
+      showToast('Solicitante atualizado.')
+    } catch (e) { alert(`Erro: ${e.message}`) }
+  }
 
   // Converte ISO para YYYY-MM-DD respeitando o fuso horário local
   function toLocalDateInput(iso) {
@@ -889,7 +966,6 @@ export function TicketDetail() {
       const start = new Date()
       setTimerStart(start)
       setTimerRunning(true)
-      setActiveTimer(currentUser.id, { ticketId: tk.id, ticketTitle: tk.title, startTime: start.toISOString() })
 
       if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
         Notification.requestPermission()
@@ -897,20 +973,37 @@ export function TicketDetail() {
       if (p.triage && tk.status !== 'Em Andamento') {
         changeStatusAction(tk.id, 'Em Andamento').catch(() => {})
       }
-    } else {
-      // ── Pausa — salva sessão no banco e persiste esforço ───────────────
-      const end        = new Date()
-      const mins       = (end - timerStart) / 60000
-      const newEffort  = +(tk.effortUsed + mins / 60).toFixed(2)
 
-      // Limpa o timer ativo do localStorage
+      // ── Cria sessão 'running' no backend ───────────────────────────────
+      api.startTimerSession(tk.id)
+        .then(data => {
+          // Persiste o ID da sessão running para poder chamar /stop depois
+          setActiveTimer(currentUser.id, {
+            ticketId:    tk.id,
+            ticketTitle: tk.title,
+            startTime:   start.toISOString(),
+            sessionId:   data.id,
+          })
+        })
+        .catch(() => {
+          // Fallback: armazena sem sessionId — stop usará legado
+          setActiveTimer(currentUser.id, { ticketId: tk.id, ticketTitle: tk.title, startTime: start.toISOString() })
+        })
+    } else {
+      // ── Pausa — para sessão no backend (backend calcula duração e esforço) ─
+      const end    = new Date()
+      const mins   = (end - timerStart) / 60000
+
+      // Limpa o timer ativo do localStorage imediatamente
+      const active = getActiveTimer(currentUser.id)
       setActiveTimer(currentUser.id, null)
       setTimerRunning(false)
       setTimerStart(null)
 
       // Atualiza estado local imediatamente (otimista)
+      const newEffort  = +(tk.effortUsed + mins / 60).toFixed(2)
       const newSession = {
-        id:       null, // preenchido após resposta do backend
+        id:       null,
         start:    timerStart,
         end,
         mins,
@@ -920,29 +1013,50 @@ export function TicketDetail() {
       setSessions(prev => [...prev, newSession])
       setTickets(prev => prev.map(x => x.id === tk.id ? { ...x, effortUsed: newEffort } : x))
 
-      // Persiste no backend: sessão com usuário e esforço acumulado
-      api.createTimerSession(tk.id, {
-        started_at:    timerStart.toISOString(),
-        stopped_at:    end.toISOString(),
-        duration_mins: mins,
-      })
-        .then(data => {
-          const saved = mapTimerSession(data)
-          // Substitui a sessão otimista pelo registro real (com ID)
-          setTickets(prev => prev.map(x => {
-            if (x.id !== tk.id) return x
-            const newSessions = [...(x.timerSessions ?? []), saved]
-            return { ...x, timerSessions: newSessions }
-          }))
-          setSessions(prev => {
-            const next = [...prev]
-            next[next.length - 1] = saved
-            return next
-          })
-        })
-        .catch(() => {})
+      const sessionId = active?.sessionId
 
-      api.updateTicket(tk.id, { effort_used: newEffort }).catch(() => {})
+      if (sessionId) {
+        // ── Endpoint novo: PATCH /stop (backend calcula duração + agenda) ─
+        api.stopTimerSession(tk.id, sessionId)
+          .then(data => {
+            const saved = mapTimerSession(data)
+            setTickets(prev => prev.map(x => {
+              if (x.id !== tk.id) return x
+              const newSessions = [...(x.timerSessions ?? []), saved]
+              // Backend também atualizou effort_used — reflete o valor real
+              return { ...x, timerSessions: newSessions, effortUsed: saved.mins / 60 + tk.effortUsed }
+            }))
+            setSessions(prev => {
+              const next = [...prev]
+              next[next.length - 1] = saved
+              return next
+            })
+          })
+          .catch(() => {})
+      } else {
+        // ── Fallback legado: POST sessão completa + PATCH effort ───────────
+        api.createTimerSession(tk.id, {
+          started_at:    timerStart.toISOString(),
+          stopped_at:    end.toISOString(),
+          duration_mins: mins,
+        })
+          .then(data => {
+            const saved = mapTimerSession(data)
+            setTickets(prev => prev.map(x => {
+              if (x.id !== tk.id) return x
+              const newSessions = [...(x.timerSessions ?? []), saved]
+              return { ...x, timerSessions: newSessions }
+            }))
+            setSessions(prev => {
+              const next = [...prev]
+              next[next.length - 1] = saved
+              return next
+            })
+          })
+          .catch(() => {})
+
+        api.updateTicket(tk.id, { effort_used: newEffort }).catch(() => {})
+      }
     }
   }
 
@@ -958,7 +1072,20 @@ export function TicketDetail() {
             {pri && <PriBadge priority={pri} />}
             {expired && <span style={{ background: '#fef2f2', color: 'var(--danger)', padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600 }}>⚠ {t.slaExpired}</span>}
           </div>
-          <div style={{ fontSize: 17, fontWeight: 700, marginTop: 4 }}>{tk.title}</div>
+          {canEditHeader ? (
+            <input
+              className="input"
+              style={{ fontSize: 17, fontWeight: 700, marginTop: 4, width: '100%', border: '1px solid transparent', background: 'transparent', padding: '2px 6px', borderRadius: 6, cursor: 'text' }}
+              value={titleEdit ?? tk.title}
+              onChange={e => setTitleEdit(e.target.value)}
+              onFocus={e => { if (titleEdit === null) setTitleEdit(tk.title); e.target.style.border = '1px solid var(--accent)'; e.target.style.background = 'var(--bg)' }}
+              onBlur={e => { e.target.style.border = '1px solid transparent'; e.target.style.background = 'transparent'; saveTitle() }}
+              onKeyDown={e => { if (e.key === 'Enter') e.target.blur() }}
+              title="Clique para editar o título"
+            />
+          ) : (
+            <div style={{ fontSize: 17, fontWeight: 700, marginTop: 4 }}>{tk.title}</div>
+          )}
         </div>
         <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
           {p.triage && !tk.triaged && <button className="btn btn-primary btn-sm" onClick={() => setShowTriage(true)}>{t.triageBtn}</button>}
@@ -974,8 +1101,24 @@ export function TicketDetail() {
         <div>
           {/* Description */}
           <div className="card" style={{ marginBottom: 14 }}>
-            <div style={{ fontWeight: 600, marginBottom: 8 }}>Descrição</div>
-            <div style={{ fontSize: 14, color: 'var(--text2)', lineHeight: 1.7 }}>{tk.description}</div>
+            <div style={{ fontWeight: 600, marginBottom: 8 }}>
+              Descrição
+              {canEditHeader && <span style={{ fontSize: 10, color: 'var(--accent)', marginLeft: 6, fontWeight: 400 }}>✏️ clique para editar</span>}
+            </div>
+            {canEditHeader ? (
+              <textarea
+                className="textarea"
+                rows={5}
+                style={{ width: '100%', fontSize: 14, lineHeight: 1.7, border: '1px solid transparent', background: 'transparent', resize: 'vertical', cursor: 'text', borderRadius: 6, padding: '4px 6px', color: 'var(--text2)', boxSizing: 'border-box' }}
+                value={descEdit ?? (tk.description ?? '')}
+                onChange={e => setDescEdit(e.target.value)}
+                onFocus={e => { if (descEdit === null) setDescEdit(tk.description ?? ''); e.target.style.border = '1px solid var(--accent)'; e.target.style.background = 'var(--bg)' }}
+                onBlur={e => { e.target.style.border = '1px solid transparent'; e.target.style.background = 'transparent'; saveDesc() }}
+                title="Clique para editar a descrição"
+              />
+            ) : (
+              <div style={{ fontSize: 14, color: 'var(--text2)', lineHeight: 1.7 }}>{tk.description}</div>
+            )}
           </div>
 
           {/* Timer */}
@@ -1006,13 +1149,28 @@ export function TicketDetail() {
               {sessions.length > 0 && (
                 <div style={{ marginTop: 10 }}>
                   <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6, fontWeight: 500 }}>{t.sessions}:</div>
-                  {sessions.slice(0, 5).map((s, i) => (
+                  {/* Sessão ativa atual (ao vivo) */}
+                  {timerRunning && timerStart && (
+                    <div style={{ fontSize: 12, padding: '7px 0', borderBottom: '1px solid var(--border)', background: 'var(--bg2)', margin: '0 -2px 4px', borderRadius: 6, padding: '6px 8px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#16a34a', display: 'inline-block', animation: 'pulse 1.5s infinite', flexShrink: 0 }} />
+                          <span style={{ color: 'var(--text)', fontWeight: 500 }}>▶ {formatDateTime(timerStart.toISOString())}</span>
+                        </div>
+                        <span style={{ fontSize: 11, background: '#dcfce7', color: '#16a34a', padding: '2px 8px', borderRadius: 10, fontWeight: 600, flexShrink: 0 }}>
+                          {fmtMinsHM((liveNow - timerStart.getTime()) / 60000)} ao vivo
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  {/* Sessões concluídas / canceladas */}
+                  {sessions.filter(s => !s.status || s.status === 'completed').slice(0, 5).map((s, i) => (
                     <div key={s.id ?? i} style={{ fontSize: 12, padding: '7px 0', borderBottom: '1px solid var(--border)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
                         <div>
                           <span style={{ color: 'var(--text)', fontWeight: 500 }}>▶ {formatDateTime(s.start instanceof Date ? s.start.toISOString() : s.start)}</span>
                           <span style={{ color: 'var(--text2)', margin: '0 6px' }}>→</span>
-                          <span style={{ color: 'var(--text)', fontWeight: 500 }}>⏸ {formatDateTime(s.end instanceof Date ? s.end.toISOString() : s.end)}</span>
+                          <span style={{ color: 'var(--text)', fontWeight: 500 }}>⏸ {s.end ? formatDateTime(s.end instanceof Date ? s.end.toISOString() : s.end) : '—'}</span>
                         </div>
                         <span style={{ fontSize: 11, background: 'var(--bg2)', padding: '2px 8px', borderRadius: 10, color: 'var(--text2)', flexShrink: 0 }}>
                           {fmtMinsHM(s.mins)}
@@ -1025,9 +1183,9 @@ export function TicketDetail() {
                       )}
                     </div>
                   ))}
-                  {sessions.length > 5 && (
+                  {sessions.filter(s => !s.status || s.status === 'completed').length > 5 && (
                     <button className="btn btn-secondary btn-sm" style={{ marginTop: 6, fontSize: 11 }} onClick={() => { setMoreSessionsPage(0); setShowMoreSessions(true) }}>
-                      Ver mais ({sessions.length - 5} restantes)
+                      Ver mais ({sessions.filter(s => !s.status || s.status === 'completed').length - 5} restantes)
                     </button>
                   )}
                 </div>
@@ -1113,7 +1271,25 @@ export function TicketDetail() {
           <div className="card" style={{ marginBottom: 12 }}>
             <div style={{ fontWeight: 600, marginBottom: 12 }}>Detalhes</div>
             {[
-              { label: 'Solicitante', val: req ? `${req.firstName} ${req.lastName}` : '—' },
+              {
+                label: 'Solicitante',
+                val: canEditHeader ? (
+                  <select
+                    className="select"
+                    style={{ fontSize: 12, padding: '2px 6px', minWidth: 130 }}
+                    value={tk.requesterId ?? ''}
+                    onChange={e => saveRequester(e.target.value)}
+                  >
+                    <option value="">— Sem solicitante —</option>
+                    {[...users]
+                      .sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`))
+                      .map(u => (
+                        <option key={u.id} value={u.id}>{u.firstName} {u.lastName}</option>
+                      ))
+                    }
+                  </select>
+                ) : (req ? `${req.firstName} ${req.lastName}` : '—'),
+              },
               { label: 'Responsável', val: assignee ? `${assignee.firstName} ${assignee.lastName}` : 'Não atribuído' },
               { label: 'Categoria', val: <CatChip category={cat} /> },
               { label: 'Prioridade', val: <PriBadge priority={pri} /> },
@@ -1244,24 +1420,61 @@ export function TicketDetail() {
             </div>
           )}
 
-          {p.reassign && (
-            <div className="card">
-              <div style={{ fontWeight: 600, marginBottom: 8 }}>Reatribuir</div>
-              <select
-                className="select" style={{ width: '100%' }}
-                defaultValue={tk.assigneeId || ''}
-                onChange={e => {
-                  const uid = Number(e.target.value) || null
-                  assignAction(tk.id, uid).catch(() => {})
-                }}
-              >
-                <option value="">Sem responsável</option>
-                {users.filter(u => u.role !== 'user').map(u => (
-                  <option key={u.id} value={u.id}>{u.firstName} {u.lastName}</option>
-                ))}
-              </select>
-            </div>
-          )}
+          {/* Plano de execução */}
+          {(() => {
+            const plan = (tk.scheduledDays ?? [])
+              .filter(sd => sd.date >= new Date().toISOString().slice(0, 10))
+              .sort((a, b) => a.date.localeCompare(b.date))
+            const pastPlan = (tk.scheduledDays ?? [])
+              .filter(sd => sd.date < new Date().toISOString().slice(0, 10))
+              .sort((a, b) => a.date.localeCompare(b.date))
+            if ((tk.scheduledDays ?? []).length === 0) return null
+            return (
+              <div className="card" style={{ marginBottom: 12 }}>
+                <div style={{ fontWeight: 600, marginBottom: 10 }}>📅 Plano de execução</div>
+                {plan.length === 0 && pastPlan.length === 0 && (
+                  <div style={{ fontSize: 12, color: 'var(--text2)' }}>Sem dias agendados.</div>
+                )}
+                {plan.map(sd => {
+                  const d    = new Date(sd.date + 'T12:00:00')
+                  const isToday = sd.date === new Date().toISOString().slice(0, 10)
+                  return (
+                    <div key={sd.date} style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      padding: '5px 0', borderBottom: '1px solid var(--border)', fontSize: 12,
+                    }}>
+                      <span style={{ color: isToday ? 'var(--accent)' : 'var(--text)', fontWeight: isToday ? 700 : 400 }}>
+                        {isToday ? '▶ ' : ''}{d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })}
+                      </span>
+                      <span style={{ background: 'var(--bg2)', padding: '2px 8px', borderRadius: 10, fontWeight: 500 }}>
+                        {fmtHM(sd.hours)}
+                      </span>
+                    </div>
+                  )
+                })}
+                {pastPlan.length > 0 && (
+                  <details style={{ marginTop: 6 }}>
+                    <summary style={{ fontSize: 11, color: 'var(--text2)', cursor: 'pointer' }}>
+                      {pastPlan.length} dia{pastPlan.length !== 1 ? 's' : ''} já executado{pastPlan.length !== 1 ? 's' : ''}
+                    </summary>
+                    {pastPlan.map(sd => {
+                      const d = new Date(sd.date + 'T12:00:00')
+                      return (
+                        <div key={sd.date} style={{
+                          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                          padding: '4px 0', fontSize: 11, color: 'var(--text2)',
+                        }}>
+                          <span>{d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })}</span>
+                          <span>{fmtHM(sd.hours)}</span>
+                        </div>
+                      )
+                    })}
+                  </details>
+                )}
+              </div>
+            )
+          })()}
+
         </div>
       </div>
 
@@ -1410,7 +1623,23 @@ export function TicketDetail() {
               <div>
                 <label className="label">Fila *</label>
                 <select className="select" style={{ width: '100%' }} value={triageForm.queueId}
-                  onChange={e => setTriageForm(f => ({ ...f, queueId: e.target.value, assigneeId: '' }))}>
+                  onChange={e => {
+                    const newQueueId = e.target.value
+                    // Auto-select the least-loaded member of the new queue
+                    const q       = queues.find(x => x.id === Number(newQueueId))
+                    const qUsers  = users.filter(u => (q?.members ?? []).includes(u.id))
+                    const best    = qUsers.length > 0
+                      ? qUsers.reduce((b, u) => {
+                          const cb = capacityMap[String(b?.id)]
+                          const cu = capacityMap[String(u.id)]
+                          if (!cu) return b
+                          if (!cb) return u
+                          if (cu.load_pct !== cb.load_pct) return cu.load_pct < cb.load_pct ? u : b
+                          return cu.scheduled_hours < cb.scheduled_hours ? u : b
+                        }, null)
+                      : null
+                    setTriageForm(f => ({ ...f, queueId: newQueueId, assigneeId: best ? String(best.id) : '', coAssigneeIds: [] }))
+                  }}>
                   <option value="">Selecione…</option>
                   {queues.map(q => <option key={q.id} value={q.id}>{q.name}</option>)}
                 </select>
@@ -1421,11 +1650,52 @@ export function TicketDetail() {
                   onChange={e => setTriageForm(f => ({ ...f, assigneeId: e.target.value, coAssigneeIds: [] }))}>
                   <option value="">— Deixar sem responsável —</option>
                   {(() => {
-                    const q = queues.find(x => x.id === Number(triageForm.queueId))
-                    return users.filter(u => (q?.members ?? []).includes(u.id))
-                      .map(u => <option key={u.id} value={u.id}>{u.firstName} {u.lastName}</option>)
+                    const q      = queues.find(x => x.id === Number(triageForm.queueId))
+                    const qUsers = users.filter(u => (q?.members ?? []).includes(u.id))
+                    // Sugestão: membro da fila com menor carga (load_pct) → menor scheduled_hours como desempate
+                    const suggested = qUsers.length > 0
+                      ? qUsers.reduce((best, u) => {
+                          const cb = capacityMap[String(best?.id)]
+                          const cu = capacityMap[String(u.id)]
+                          if (!cu) return best
+                          if (!cb) return u
+                          if (cu.load_pct !== cb.load_pct) return cu.load_pct < cb.load_pct ? u : best
+                          return cu.scheduled_hours < cb.scheduled_hours ? u : best
+                        }, null)
+                      : null
+                    return qUsers.map(u => {
+                      const cap     = capacityMap[String(u.id)]
+                      const isBest  = suggested && String(u.id) === String(suggested.id)
+                      const loadTxt = cap
+                        ? ` — ${cap.load_pct}% ocupado (${fmtHM(Math.max(cap.free_hours, 0))} livres)`
+                        : ''
+                      const star = isBest ? '⭐ ' : ''
+                      return (
+                        <option key={u.id} value={u.id}>
+                          {star}{u.firstName} {u.lastName}{loadTxt}
+                        </option>
+                      )
+                    })
                   })()}
                 </select>
+                {/* Barra de carga do responsável selecionado */}
+                {triageForm.assigneeId && (() => {
+                  const cap = capacityMap[String(triageForm.assigneeId)]
+                  if (!cap) return null
+                  const pct   = Math.min(cap.load_pct, 100)
+                  const color = cap.load_pct >= 100 ? '#ef4444' : cap.load_pct >= 75 ? '#f59e0b' : '#22c55e'
+                  return (
+                    <div style={{ marginTop: 6 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text2)', marginBottom: 3 }}>
+                        <span>Carga nos próximos 7 dias</span>
+                        <span style={{ color, fontWeight: 600 }}>{cap.load_pct}% — {fmtHM(Math.max(cap.free_hours, 0))} livres</span>
+                      </div>
+                      <div style={{ height: 6, background: 'var(--border)', borderRadius: 4, overflow: 'hidden' }}>
+                        <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 4, transition: 'width 0.3s' }} />
+                      </div>
+                    </div>
+                  )
+                })()}
               </div>
               <div style={{ gridColumn: '1 / -1' }}>
                 <label className="label">Co-responsáveis <span style={{ fontWeight: 400, color: 'var(--text2)' }}>(opcional — membros da fila)</span></label>

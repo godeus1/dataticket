@@ -181,7 +181,7 @@ export function CalendarView() {
               </div>
               <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                 <button className="btn btn-secondary btn-sm" onClick={() => setCalTicketId(null)}>Fechar</button>
-                <button className="btn btn-primary btn-sm" onClick={() => { setSelectedTicket(ctk.id); setScreen('ticket-detail'); setCalTicketId(null) }}>
+                <button className="btn btn-primary btn-sm" onClick={() => { setSelectedTicket(ctk.id); setCalTicketId(null) }}>
                   Abrir Ticket Completo →
                 </button>
               </div>

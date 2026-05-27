@@ -1,3 +1,4 @@
+import { useLocation } from 'react-router-dom'
 import { useApp, AppProvider } from './AppContext.jsx'
 import { PERM } from './data.js'
 import { Toast } from './components.jsx'
@@ -16,41 +17,40 @@ import {
 import { SettingsTrash } from './screens/Trash.jsx'
 
 function AppInner() {
-  const { currentUser, screen, setScreen, toast, setToast, showToast, sidebar, setSidebar } = useApp()
+  const { currentUser, screen, setScreen, toast, setToast, sidebar, setSidebar } = useApp()
 
   if (!currentUser) return <LoginScreen />
 
   const p = PERM[currentUser.role]
 
   function renderScreen() {
-    // Redirect user role away from dashboard
-    if (currentUser.role === 'user' && screen === 'dashboard') return <NewTicket />
+    // Redirect user role away from dashboard → ticket list (backend filters to their own tickets)
+    if (currentUser.role === 'user' && screen === 'dashboard') return <TicketList />
 
     switch (screen) {
-      case 'dashboard':         return <Dashboard />
-      case 'tickets':           return <TicketList />
-      case 'new-ticket':        return p.createTicket ? <NewTicket /> : <TicketList />
-      case 'ticket-detail':     return <TicketDetail />
-      case 'calendar':          return p.calendar ? <CalendarView /> : <TicketList />
-      case 'kb':                return <KnowledgeBase />
-      case 'reports':           return p.reports ? <Reports /> : <TicketList />
-      case 'settings-users':    return p.settings ? <SettingsUsers /> : <TicketList />
-      case 'settings-profiles': return p.settings ? <SettingsProfiles /> : <TicketList />
+      case 'dashboard':          return <Dashboard />
+      case 'tickets':            return <TicketList />
+      case 'new-ticket':         return p.createTicket ? <NewTicket /> : <TicketList />
+      case 'ticket-detail':      return <TicketDetail />
+      case 'calendar':           return p.calendar ? <CalendarView /> : <TicketList />
+      case 'kb':                 return <KnowledgeBase />
+      case 'reports':            return p.reports ? <Reports /> : <TicketList />
+      case 'settings-users':     return p.settings ? <SettingsUsers /> : <TicketList />
+      case 'settings-profiles':  return p.settings ? <SettingsProfiles /> : <TicketList />
       case 'settings-categories':return p.settings ? <SettingsCategories /> : <TicketList />
       case 'settings-priorities':return p.settings ? <SettingsPriorities /> : <TicketList />
-      case 'settings-queues':   return p.settings ? <SettingsQueues /> : <TicketList />
-      case 'settings-holidays': return p.settings ? <SettingsHolidays /> : <TicketList />
-      case 'settings-audit':    return p.settings ? <SettingsAudit /> : <TicketList />
-      case 'settings-system':   return p.settings ? <SettingsSystem /> : <TicketList />
-      case 'settings-trash':    return p.trash    ? <SettingsTrash /> : <TicketList />
-      case 'profile':           return <MyProfile />
-      default:                  return <Dashboard />
+      case 'settings-queues':    return p.settings ? <SettingsQueues /> : <TicketList />
+      case 'settings-holidays':  return p.settings ? <SettingsHolidays /> : <TicketList />
+      case 'settings-audit':     return p.settings ? <SettingsAudit /> : <TicketList />
+      case 'settings-system':    return p.settings ? <SettingsSystem /> : <TicketList />
+      case 'settings-trash':     return p.trash    ? <SettingsTrash /> : <TicketList />
+      case 'profile':            return <MyProfile />
+      default:                   return <Dashboard />
     }
   }
 
   return (
     <div className="app">
-      {/* Backdrop mobile: fecha sidebar ao clicar fora */}
       {sidebar !== 'collapsed' && (
         <div className="sidebar-backdrop" onClick={() => setSidebar('collapsed')} />
       )}
@@ -86,7 +86,10 @@ function ErrorFallback({ error, resetError }) {
 }
 
 export default function App() {
-  if (window.location.pathname.startsWith('/csat/')) return <CsatPage />
+  const location = useLocation()
+
+  // CSAT — página pública completamente separada do app autenticado
+  if (location.pathname.startsWith('/csat/')) return <CsatPage />
 
   return (
     <Sentry.ErrorBoundary fallback={({ error, resetError }) => <ErrorFallback error={error} resetError={resetError} />}>

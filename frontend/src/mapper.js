@@ -41,8 +41,9 @@ export function mapTimerSession(s) {
   return {
     id:       s.id,
     start:    new Date(s.started_at ?? s.start),
-    end:      new Date(s.stopped_at ?? s.end),
+    end:      s.stopped_at ?? s.end ? new Date(s.stopped_at ?? s.end) : null,
     mins:     parseFloat(s.duration_mins ?? s.mins ?? 0),
+    status:   s.status ?? 'completed',
     userId:   s.user_id  ?? s.userId  ?? null,
     userName: s.user_name ?? s.userName ?? null,
   }
