@@ -210,7 +210,7 @@ module Api
         else
           params.require(:ticket).permit(
             :title, :description, :status, :ticket_type,
-            :priority_id, :category_id, :queue_id, :assignee_id, :deadline,
+            :priority_id, :category_id, :queue_id, :assignee_id, :requester_id, :deadline,
             :effort_used, :effort_estimated
           )
         end
