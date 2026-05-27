@@ -581,7 +581,6 @@ export function TicketDetail() {
       const startTime = runningInDB.start instanceof Date ? runningInDB.start : new Date(runningInDB.start)
       setTimerStart(startTime)
       setTimerRunning(true)
-      // Sincroniza localStorage com o que veio do banco
       setActiveTimer(currentUser.id, {
         ticketId:    tk.id,
         ticketTitle: tk.title,
@@ -601,6 +600,13 @@ export function TicketDetail() {
       setTimerStart(null)
     }
   }, [tk?.id, currentUser.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Mantém sessions sincronizado quando o ticket é atualizado externamente
+  useEffect(() => {
+    if (!tk || timerRunning) return   // não sobrescreve enquanto timer ativo
+    const allSessions = tk.timerSessions ?? []
+    setSessions(allSessions)
+  }, [tk?.timerSessions]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Ref para auto-stop (evita stale closure no setTimeout) ───────────────
   const toggleTimerRef = useRef(null)
@@ -951,8 +957,7 @@ export function TicketDetail() {
       // ── Bloqueia timer duplo — leitura direta do localStorage ──────────
       const active = getActiveTimer(currentUser.id)
       if (active && active.ticketId !== tk.id) {
-        alert(`⚠️ Cronômetro já ativo no ticket #${active.ticketId}.\n\nPause-o antes de iniciar este.`)
-        return
+        if (!window.confirm(`⚠️ Cronômetro ativo no ticket #${active.ticketId}.\n\nAo iniciar aqui, o timer anterior será pausado automaticamente. Deseja continuar?`)) return
       }
 
       // ── Verifica limite Máx. horas/ticket/dia ──────────────────────────
@@ -970,29 +975,31 @@ export function TicketDetail() {
       if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
         Notification.requestPermission()
       }
-      if (p.triage && tk.status !== 'Em Andamento') {
-        changeStatusAction(tk.id, 'Em Andamento').catch(() => {})
-      }
 
-      // ── Cria sessão 'running' no backend ───────────────────────────────
+      // ── Cria sessão 'running' no backend (backend muda status + cancela outros timers) ─
       api.startTimerSession(tk.id)
         .then(data => {
-          // Persiste o ID da sessão running para poder chamar /stop depois
+          // Nova API retorna { session, ticket_status }; fallback para formato antigo
+          const sessionData = data?.session ?? data
           setActiveTimer(currentUser.id, {
             ticketId:    tk.id,
             ticketTitle: tk.title,
             startTime:   start.toISOString(),
-            sessionId:   data.id,
+            sessionId:   sessionData?.id,
           })
+          // Atualiza status do ticket localmente se o backend mudou
+          if (data?.ticket_status) {
+            setTickets(prev => prev.map(x => x.id === tk.id ? { ...x, status: data.ticket_status } : x))
+          }
         })
         .catch(() => {
-          // Fallback: armazena sem sessionId — stop usará legado
+          // Fallback: armazena sem sessionId
           setActiveTimer(currentUser.id, { ticketId: tk.id, ticketTitle: tk.title, startTime: start.toISOString() })
         })
     } else {
       // ── Pausa — para sessão no backend (backend calcula duração e esforço) ─
-      const end    = new Date()
-      const mins   = (end - timerStart) / 60000
+      const end  = new Date()
+      const mins = (end - timerStart) / 60000
 
       // Limpa o timer ativo do localStorage imediatamente
       const active = getActiveTimer(currentUser.id)
@@ -1001,40 +1008,59 @@ export function TicketDetail() {
       setTimerStart(null)
 
       // Atualiza estado local imediatamente (otimista)
-      const newEffort  = +(tk.effortUsed + mins / 60).toFixed(2)
-      const newSession = {
+      const newEffortOptimistic = +(tk.effortUsed + mins / 60).toFixed(2)
+      const newSessionOptimistic = {
         id:       null,
         start:    timerStart,
         end,
         mins,
+        status:   'completed',
         userId:   currentUser.id,
         userName: `${currentUser.firstName} ${currentUser.lastName}`.trim(),
       }
-      setSessions(prev => [...prev, newSession])
-      setTickets(prev => prev.map(x => x.id === tk.id ? { ...x, effortUsed: newEffort } : x))
+      setSessions(prev => [...prev, newSessionOptimistic])
+      setTickets(prev => prev.map(x => x.id === tk.id ? { ...x, effortUsed: newEffortOptimistic } : x))
 
       const sessionId = active?.sessionId
 
       if (sessionId) {
-        // ── Endpoint novo: PATCH /stop (backend calcula duração + agenda) ─
+        // ── Endpoint novo: PATCH /stop ─────────────────────────────────────
         api.stopTimerSession(tk.id, sessionId)
           .then(data => {
-            const saved = mapTimerSession(data)
+            const sessionData = data?.session ?? data
+            const saved = mapTimerSession(sessionData)
             setTickets(prev => prev.map(x => {
               if (x.id !== tk.id) return x
-              const newSessions = [...(x.timerSessions ?? []), saved]
-              // Backend também atualizou effort_used — reflete o valor real
-              return { ...x, timerSessions: newSessions, effortUsed: saved.mins / 60 + tk.effortUsed }
+              // Substitui a sessão otimista pela real
+              const existing = x.timerSessions ?? []
+              const newSessions = [...existing.filter(s => s.id !== null), saved]
+              const updates = { timerSessions: newSessions }
+              if (data?.effort_used !== undefined) updates.effortUsed = data.effort_used
+              if (data?.ticket_status) updates.status = data.ticket_status
+              return { ...x, ...updates }
             }))
             setSessions(prev => {
               const next = [...prev]
               next[next.length - 1] = saved
               return next
             })
+            // Recarrega histórico do ticket para incluir entrada de cronômetro
+            api.histories(tk.id)
+              .then(histories => {
+                const history = (histories ?? []).map(h => ({
+                  field:  h.field,
+                  from:   h.from_value,
+                  to:     h.to_value,
+                  date:   h.created_at,
+                  userId: h.user?.id ?? null,
+                }))
+                setTickets(prev => prev.map(t => t.id === tk.id ? { ...t, history } : t))
+              })
+              .catch(() => {})
           })
           .catch(() => {})
       } else {
-        // ── Fallback legado: POST sessão completa + PATCH effort ───────────
+        // ── Fallback legado: POST sessão completa ──────────────────────────
         api.createTimerSession(tk.id, {
           started_at:    timerStart.toISOString(),
           stopped_at:    end.toISOString(),
@@ -1044,7 +1070,7 @@ export function TicketDetail() {
             const saved = mapTimerSession(data)
             setTickets(prev => prev.map(x => {
               if (x.id !== tk.id) return x
-              const newSessions = [...(x.timerSessions ?? []), saved]
+              const newSessions = [...(x.timerSessions ?? []).filter(s => s.id !== null), saved]
               return { ...x, timerSessions: newSessions }
             }))
             setSessions(prev => {
@@ -1055,7 +1081,7 @@ export function TicketDetail() {
           })
           .catch(() => {})
 
-        api.updateTicket(tk.id, { effort_used: newEffort }).catch(() => {})
+        api.updateTicket(tk.id, { effort_used: newEffortOptimistic }).catch(() => {})
       }
     }
   }
@@ -1121,7 +1147,7 @@ export function TicketDetail() {
             )}
           </div>
 
-          {/* Timer */}
+          {/* Timer — botão visível apenas para quem pode registrar esforço */}
           {p.logEffort && (
             <div className="card" style={{ marginBottom: 14 }}>
               <div style={{ fontWeight: 600, marginBottom: 10 }}>⏱ {t.timer}</div>
@@ -1140,58 +1166,72 @@ export function TicketDetail() {
               {timerRunning && timerStart && (
                 <div style={{ fontSize: 12, color: '#16a34a', fontWeight: 500, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#16a34a', display: 'inline-block', animation: 'pulse 1.5s infinite' }} />
-                  Iniciado em {formatDateTime(timerStart.toISOString())}
+                  Em andamento · {fmtMinsHM((liveNow - timerStart.getTime()) / 60000)} decorrido · Iniciado em {formatDateTime(timerStart.toISOString())}
                 </div>
               )}
               <div className="progress">
                 <div className="progress-bar" style={{ width: `${Math.min(100, (tk.effortUsed / Math.max(tk.effortEstimated, 1)) * 100)}%` }} />
               </div>
-              {sessions.length > 0 && (
-                <div style={{ marginTop: 10 }}>
-                  <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6, fontWeight: 500 }}>{t.sessions}:</div>
-                  {/* Sessão ativa atual (ao vivo) */}
-                  {timerRunning && timerStart && (
-                    <div style={{ fontSize: 12, padding: '7px 0', borderBottom: '1px solid var(--border)', background: 'var(--bg2)', margin: '0 -2px 4px', borderRadius: 6, padding: '6px 8px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#16a34a', display: 'inline-block', animation: 'pulse 1.5s infinite', flexShrink: 0 }} />
-                          <span style={{ color: 'var(--text)', fontWeight: 500 }}>▶ {formatDateTime(timerStart.toISOString())}</span>
-                        </div>
-                        <span style={{ fontSize: 11, background: '#dcfce7', color: '#16a34a', padding: '2px 8px', borderRadius: 10, fontWeight: 600, flexShrink: 0 }}>
-                          {fmtMinsHM((liveNow - timerStart.getTime()) / 60000)} ao vivo
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                  {/* Sessões concluídas / canceladas */}
-                  {sessions.filter(s => !s.status || s.status === 'completed').slice(0, 5).map((s, i) => (
-                    <div key={s.id ?? i} style={{ fontSize: 12, padding: '7px 0', borderBottom: '1px solid var(--border)' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                        <div>
-                          <span style={{ color: 'var(--text)', fontWeight: 500 }}>▶ {formatDateTime(s.start instanceof Date ? s.start.toISOString() : s.start)}</span>
-                          <span style={{ color: 'var(--text2)', margin: '0 6px' }}>→</span>
-                          <span style={{ color: 'var(--text)', fontWeight: 500 }}>⏸ {s.end ? formatDateTime(s.end instanceof Date ? s.end.toISOString() : s.end) : '—'}</span>
-                        </div>
-                        <span style={{ fontSize: 11, background: 'var(--bg2)', padding: '2px 8px', borderRadius: 10, color: 'var(--text2)', flexShrink: 0 }}>
-                          {fmtMinsHM(s.mins)}
-                        </span>
-                      </div>
-                      {s.userName && (
-                        <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 2 }}>
-                          👤 {s.userName}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                  {sessions.filter(s => !s.status || s.status === 'completed').length > 5 && (
-                    <button className="btn btn-secondary btn-sm" style={{ marginTop: 6, fontSize: 11 }} onClick={() => { setMoreSessionsPage(0); setShowMoreSessions(true) }}>
-                      Ver mais ({sessions.filter(s => !s.status || s.status === 'completed').length - 5} restantes)
-                    </button>
-                  )}
-                </div>
-              )}
             </div>
           )}
+
+          {/* Histórico de execuções — visível para admin, gestor e analista */}
+          {currentUser.role !== 'user' && (() => {
+            const completedSessions = sessions.filter(s => s.status === 'completed' || (!s.status && s.mins > 0))
+            const runningSession = timerRunning && timerStart ? {
+              id: 'live', start: timerStart, end: null, mins: (liveNow - timerStart.getTime()) / 60000,
+              userId: currentUser.id,
+              userName: `${currentUser.firstName} ${currentUser.lastName}`.trim(),
+              live: true,
+            } : null
+            const allVisible = runningSession ? [runningSession, ...completedSessions] : completedSessions
+            if (allVisible.length === 0) return null
+            return (
+              <div className="card" style={{ marginBottom: 14 }}>
+                <div style={{ fontWeight: 600, marginBottom: 10 }}>🕐 Histórico de execuções</div>
+                {runningSession && (
+                  <div style={{ fontSize: 12, padding: '8px', marginBottom: 6, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#16a34a', display: 'inline-block', animation: 'pulse 1.5s infinite' }} />
+                        <span style={{ fontWeight: 600, color: '#16a34a' }}>Em andamento</span>
+                        <span style={{ color: 'var(--text2)' }}>· Iniciado {formatDateTime(timerStart.toISOString())}</span>
+                      </div>
+                      <span style={{ fontWeight: 700, color: '#16a34a', fontSize: 11 }}>{fmtMinsHM(runningSession.mins)} ao vivo</span>
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 3 }}>👤 {runningSession.userName}</div>
+                  </div>
+                )}
+                {completedSessions.slice(0, showMoreSessions ? undefined : 5).map((s, i) => (
+                  <div key={s.id ?? i} style={{ fontSize: 12, padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                      <div style={{ color: 'var(--text2)' }}>
+                        <span style={{ fontWeight: 500, color: 'var(--text)' }}>{formatDateTime(s.start instanceof Date ? s.start.toISOString() : s.start)}</span>
+                        <span style={{ margin: '0 5px' }}>→</span>
+                        <span style={{ fontWeight: 500, color: 'var(--text)' }}>{s.end ? formatDateTime(s.end instanceof Date ? s.end.toISOString() : s.end) : '—'}</span>
+                      </div>
+                      <span style={{ fontSize: 11, background: 'var(--bg2)', padding: '2px 8px', borderRadius: 10, fontWeight: 600, flexShrink: 0 }}>
+                        {fmtMinsHM(s.mins)}
+                      </span>
+                    </div>
+                    {s.userName && (
+                      <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 2 }}>👤 {s.userName}</div>
+                    )}
+                  </div>
+                ))}
+                {!showMoreSessions && completedSessions.length > 5 && (
+                  <button className="btn btn-secondary btn-sm" style={{ marginTop: 6, fontSize: 11 }} onClick={() => setShowMoreSessions(true)}>
+                    Ver mais ({completedSessions.length - 5} restantes)
+                  </button>
+                )}
+                {showMoreSessions && completedSessions.length > 5 && (
+                  <button className="btn btn-secondary btn-sm" style={{ marginTop: 6, fontSize: 11 }} onClick={() => setShowMoreSessions(false)}>
+                    Ver menos
+                  </button>
+                )}
+              </div>
+            )
+          })()}
 
           {/* Comments */}
           <div className="card" style={{ marginBottom: 14 }}>

@@ -38,7 +38,7 @@ class Ticket < ApplicationRecord
   ALLOWED_TRANSITIONS = {
     "Não iniciado"                   => [ "Triado, aguardando atendimento", "Em andamento", "Fechado" ],
     "Triado, aguardando atendimento" => [ "Em andamento", "Aguardando terceiros", "Aguardando solicitante", "Fechado" ],
-    "Em andamento"                   => [ "Aguardando terceiros", "Aguardando solicitante", "Resolvido", "Fechado" ],
+    "Em andamento"                   => [ "Triado, aguardando atendimento", "Aguardando terceiros", "Aguardando solicitante", "Resolvido", "Fechado" ],
     "Aguardando terceiros"           => [ "Em andamento", "Resolvido", "Fechado" ],
     "Aguardando solicitante"         => [ "Em andamento", "Resolvido", "Fechado" ],
     "Resolvido"                      => [ "Reaberto", "Fechado" ],

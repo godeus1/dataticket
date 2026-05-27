@@ -15,9 +15,174 @@ import {
   SettingsAudit, SettingsSystem, MyProfile,
 } from './screens/Settings.jsx'
 import { SettingsTrash } from './screens/Trash.jsx'
+import { useState, useEffect, useRef } from 'react'
+import { api, getToken } from './api.js'
+
+// ── Helpers de localStorage para o timer (espelham Tickets.jsx) ───────────
+function getActiveTimerGlobal(userId) {
+  try { return JSON.parse(localStorage.getItem(`dt_active_timer_${userId}`) || 'null') }
+  catch { return null }
+}
+function clearActiveTimerGlobal(userId) {
+  try { localStorage.removeItem(`dt_active_timer_${userId}`) } catch {}
+}
+
+// ── Popup de inatividade (20 min sem interação) ───────────────────────────
+function GlobalTimerWatcher({ currentUser, setSelectedTicket }) {
+  const [popupVisible, setPopupVisible]   = useState(false)
+  const [countdown, setCountdown]         = useState(20)
+  const [activeInfo, setActiveInfo]       = useState(null)
+  const countdownRef                      = useRef(null)
+  const autoStopRef                       = useRef(null)
+
+  // Verifica a cada 30s se há timer ativo com > 20 min
+  useEffect(() => {
+    if (!currentUser) return
+    const CHECK_MS    = 30_000
+    const WARN_MINS   = 20
+    const AUTO_STOP_S = 20
+
+    function check() {
+      const active = getActiveTimerGlobal(currentUser.id)
+      if (!active || !active.startTime || !active.sessionId) return
+      const elapsedMins = (Date.now() - new Date(active.startTime).getTime()) / 60_000
+      if (elapsedMins >= WARN_MINS && !popupVisible) {
+        setActiveInfo(active)
+        setCountdown(AUTO_STOP_S)
+        setPopupVisible(true)
+      }
+    }
+
+    const id = setInterval(check, CHECK_MS)
+    check() // verifica imediatamente ao montar
+    return () => clearInterval(id)
+  }, [currentUser, popupVisible]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Contagem regressiva quando o popup está visível
+  useEffect(() => {
+    if (!popupVisible) return
+    countdownRef.current = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(countdownRef.current)
+          handleAutoStop()
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+    return () => clearInterval(countdownRef.current)
+  }, [popupVisible]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function handleAutoStop() {
+    const active = getActiveTimerGlobal(currentUser.id)
+    if (active?.sessionId) {
+      api.stopTimerSession(active.ticketId, active.sessionId).catch(() => {})
+      clearActiveTimerGlobal(currentUser.id)
+    }
+    setPopupVisible(false)
+    setActiveInfo(null)
+  }
+
+  function handleStillWorking() {
+    clearInterval(countdownRef.current)
+    setPopupVisible(false)
+    setActiveInfo(null)
+    // Reseta o startTime para "agora" para evitar novo disparo imediato
+    const active = getActiveTimerGlobal(currentUser.id)
+    if (active) {
+      try {
+        localStorage.setItem(`dt_active_timer_${currentUser.id}`, JSON.stringify({
+          ...active, startTime: new Date().toISOString()
+        }))
+      } catch {}
+    }
+  }
+
+  function handleGoToTicket() {
+    clearInterval(countdownRef.current)
+    setPopupVisible(false)
+    if (activeInfo?.ticketId) setSelectedTicket(activeInfo.ticketId)
+  }
+
+  if (!popupVisible || !activeInfo) return null
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      zIndex: 99999,
+    }}>
+      <div style={{
+        background: 'var(--bg)', border: '1px solid var(--border)',
+        borderRadius: 16, padding: 32, maxWidth: 400, width: '90%',
+        textAlign: 'center', boxShadow: '0 8px 40px rgba(0,0,0,.22)',
+      }}>
+        <div style={{ fontSize: 40, marginBottom: 12 }}>⏱</div>
+        <h3 style={{ fontWeight: 700, fontSize: 18, marginBottom: 8 }}>
+          Você ainda está trabalhando?
+        </h3>
+        <p style={{ color: 'var(--text2)', fontSize: 13, marginBottom: 6, lineHeight: 1.6 }}>
+          O cronômetro do ticket <strong style={{ color: 'var(--accent)' }}>#{activeInfo.ticketId}</strong> está ativo há mais de 20 minutos.
+        </p>
+        <p style={{ color: 'var(--text2)', fontSize: 12, marginBottom: 20 }}>
+          {activeInfo.ticketTitle && <em>"{activeInfo.ticketTitle}"</em>}
+        </p>
+
+        {/* Countdown bar */}
+        <div style={{ background: 'var(--bg2)', borderRadius: 8, height: 6, marginBottom: 8, overflow: 'hidden' }}>
+          <div style={{
+            height: '100%', borderRadius: 8, background: countdown > 10 ? 'var(--accent)' : 'var(--danger)',
+            width: `${(countdown / 20) * 100}%`, transition: 'width 1s linear, background 0.3s',
+          }} />
+        </div>
+        <p style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 20 }}>
+          Timer será pausado automaticamente em <strong style={{ color: countdown <= 5 ? 'var(--danger)' : 'var(--text)' }}>{countdown}s</strong>
+        </p>
+
+        <div style={{ display: 'flex', gap: 10, flexDirection: 'column' }}>
+          <button className="btn btn-primary" onClick={handleStillWorking} style={{ width: '100%', padding: 11 }}>
+            ✅ Sim, ainda estou trabalhando
+          </button>
+          <button className="btn btn-secondary" onClick={handleGoToTicket} style={{ width: '100%' }}>
+            🎫 Ir ao ticket #{activeInfo.ticketId}
+          </button>
+          <button className="btn btn-danger" onClick={handleAutoStop} style={{ width: '100%' }}>
+            ⏸ Pausar cronômetro agora
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function AppInner() {
-  const { currentUser, screen, setScreen, toast, setToast, sidebar, setSidebar } = useApp()
+  const { currentUser, screen, setScreen, toast, setToast, sidebar, setSidebar, setSelectedTicket } = useApp()
+
+  // ── Pausa o timer automaticamente ao fechar o navegador / aba ───────────
+  useEffect(() => {
+    if (!currentUser) return
+    function handleUnload() {
+      const active = getActiveTimerGlobal(currentUser.id)
+      if (!active?.sessionId) return
+      const token = getToken()
+      const BASE   = import.meta.env.VITE_API_URL ?? '/api/v1'
+      const url    = `${BASE}/tickets/${active.ticketId}/timer_sessions/${active.sessionId}/stop`
+      // keepalive permite que o request complete mesmo após o unload
+      fetch(url, {
+        method: 'PATCH',
+        keepalive: true,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({}),
+      }).catch(() => {})
+      clearActiveTimerGlobal(currentUser.id)
+    }
+    window.addEventListener('beforeunload', handleUnload)
+    return () => window.removeEventListener('beforeunload', handleUnload)
+  }, [currentUser])
 
   if (!currentUser) return <LoginScreen />
 
@@ -62,6 +227,8 @@ function AppInner() {
         </div>
       </div>
       {toast && <Toast msg={toast} onClose={() => setToast(null)} />}
+      {/* Popup global de inatividade de 20min — visível em qualquer tela */}
+      <GlobalTimerWatcher currentUser={currentUser} setSelectedTicket={setSelectedTicket} />
     </div>
   )
 }

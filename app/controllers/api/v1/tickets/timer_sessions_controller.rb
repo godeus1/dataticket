@@ -3,6 +3,7 @@ module Api
     module Tickets
       class TimerSessionsController < ApplicationController
         before_action :set_ticket
+        before_action :set_timer_session, only: %i[stop]
 
         # GET /api/v1/tickets/:ticket_id/timer_sessions
         def index
@@ -12,11 +13,110 @@ module Api
         end
 
         # POST /api/v1/tickets/:ticket_id/timer_sessions
+        # Legacy endpoint — accepts a fully-formed (completed) session from the frontend.
         def create
           authorize TicketTimerSession
-          session = @ticket.timer_sessions.new(timer_session_params.merge(user: current_user))
+          session_attrs = timer_session_params.merge(user: current_user, status: "completed")
+          session = @ticket.timer_sessions.new(session_attrs)
           session.save!
-          render json: serialize([session]).first, status: :created
+          render json: serialize_one(session), status: :created
+        end
+
+        # POST /api/v1/tickets/:ticket_id/timer_sessions/start
+        # Starts a new running session for the current user on this ticket.
+        # Cancels any other running session this user has across the entire organization.
+        def start
+          authorize TicketTimerSession, :start?
+
+          # ── Cancel ALL running sessions for this user across the whole org ──
+          # This enforces the "one active timer per user" rule globally.
+          TicketTimerSession
+            .joins(:ticket)
+            .where(tickets: { organization_id: @ticket.organization_id, deleted_at: nil })
+            .where(user: current_user, status: "running")
+            .each do |running|
+              running.cancel!
+              # Record history on the other ticket that timer was cancelled
+              running.ticket.histories.create!(
+                user:       current_user,
+                field:      "cronômetro",
+                from_value: "Em andamento",
+                to_value:   "Cancelado (novo timer iniciado em outro ticket)"
+              ) rescue nil
+            end
+
+          session = @ticket.timer_sessions.create!(
+            user:       current_user,
+            started_at: Time.current,
+            status:     "running"
+          )
+
+          # ── Change ticket status to "Em andamento" if appropriate ──────────
+          startable_statuses = [
+            "Triado, aguardando atendimento",
+            "Não iniciado",
+            "Reaberto",
+            "Aguardando terceiros",
+            "Aguardando solicitante"
+          ]
+          if startable_statuses.include?(@ticket.status)
+            TicketStatusService.new(@ticket, "Em andamento", current_user).call
+            @ticket.reload
+          end
+
+          # Record timer start in ticket history
+          @ticket.histories.create!(
+            user:       current_user,
+            field:      "cronômetro",
+            from_value: nil,
+            to_value:   "Iniciado por #{current_user.full_name}"
+          ) rescue nil
+
+          render json: { session: serialize_one(session), ticket_status: @ticket.status }, status: :created
+        end
+
+        # PATCH /api/v1/tickets/:ticket_id/timer_sessions/:id/stop
+        # Stops a running session, computes duration_mins, triggers schedule reallocation.
+        def stop
+          authorize @timer_session, :stop?
+
+          unless @timer_session.running?
+            return render json: { error: "Sessão não está em andamento" }, status: :unprocessable_entity
+          end
+
+          @timer_session.stop!
+
+          # Update effort_used on the ticket
+          added_hours = @timer_session.duration_mins / 60.0
+          new_effort  = (@ticket.effort_used.to_f + added_hours).round(2)
+          @ticket.update_columns(effort_used: new_effort)
+
+          # Record timer stop in ticket history
+          duration_label = format_duration(@timer_session.duration_mins)
+          @ticket.histories.create!(
+            user:       current_user,
+            field:      "cronômetro",
+            from_value: "Em andamento",
+            to_value:   "#{duration_label} registrado por #{current_user.full_name}"
+          ) rescue nil
+
+          # ── Revert status to "Triado, aguardando atendimento" if effort not exhausted ──
+          # Only when ticket was "Em andamento" and effort is not fully used.
+          effort_est = @ticket.effort_estimated.to_f
+          effort_exhausted = effort_est > 0 && new_effort >= effort_est
+
+          if @ticket.status == "Em andamento" && !effort_exhausted
+            TicketStatusService.new(@ticket.reload, "Triado, aguardando atendimento", current_user).call
+            @ticket.reload
+          end
+
+          # Recalculate schedule for assignee if ticket has one
+          if @ticket.assignee_id.present?
+            assignee = @ticket.organization.users.find_by(id: @ticket.assignee_id)
+            ScheduleReallocationService.new(assignee, @ticket.organization).call if assignee
+          end
+
+          render json: { session: serialize_one(@timer_session), ticket_status: @ticket.status, effort_used: new_effort }
         end
 
         private
@@ -25,21 +125,35 @@ module Api
           @ticket = policy_scope(Ticket).find(params[:ticket_id])
         end
 
+        def set_timer_session
+          @timer_session = @ticket.timer_sessions.find(params[:id])
+        end
+
         def timer_session_params
           params.permit(:started_at, :stopped_at, :duration_mins)
         end
 
         def serialize(sessions)
-          sessions.map do |s|
-            {
-              id:            s.id,
-              started_at:    s.started_at,
-              stopped_at:    s.stopped_at,
-              duration_mins: s.duration_mins,
-              user_id:       s.user_id,
-              user_name:     s.user&.full_name,
-            }
-          end
+          sessions.map { |s| serialize_one(s) }
+        end
+
+        def serialize_one(s)
+          {
+            id:            s.id,
+            started_at:    s.started_at,
+            stopped_at:    s.stopped_at,
+            duration_mins: s.duration_mins,
+            status:        s.status,
+            user_id:       s.user_id,
+            user_name:     s.user&.full_name,
+          }
+        end
+
+        def format_duration(mins)
+          total = mins.to_i
+          h = total / 60
+          m = total % 60
+          h > 0 ? "#{h}h#{m > 0 ? " #{m}min" : ""}" : "#{m}min"
         end
       end
     end
