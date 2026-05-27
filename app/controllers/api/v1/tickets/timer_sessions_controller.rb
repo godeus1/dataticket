@@ -36,20 +36,32 @@ module Api
 
           # ── Cancel ALL running sessions for this user across the whole org ──
           # This enforces the "one active timer per user" rule globally.
-          TicketTimerSession
+          # update_all + insert_all em lote: 2 queries totais em vez de N×2.
+          running_sessions = TicketTimerSession
             .joins(:ticket)
             .where(tickets: { organization_id: @ticket.organization_id, deleted_at: nil })
             .where(user: current_user, status: "running")
-            .each do |running|
-              running.cancel!
-              # Record history on the other ticket that timer was cancelled
-              running.ticket.histories.create!(
-                user:       current_user,
-                field:      "cronômetro",
-                from_value: "Em andamento",
-                to_value:   "Cancelado (novo timer iniciado em outro ticket)"
-              ) rescue nil
-            end
+            .select("ticket_timer_sessions.id, ticket_timer_sessions.ticket_id")
+            .to_a
+
+          if running_sessions.any?
+            now = Time.current
+            TicketTimerSession.where(id: running_sessions.map(&:id))
+                              .update_all(stopped_at: now, duration_mins: 0.0, status: "cancelled")
+            TicketHistory.insert_all(
+              running_sessions.map do |s|
+                {
+                  ticket_id:  s.ticket_id,
+                  user_id:    current_user.id,
+                  field:      "cronômetro",
+                  from_value: "Em andamento",
+                  to_value:   "Cancelado (novo timer iniciado em outro ticket)",
+                  created_at: now,
+                  updated_at: now
+                }
+              end
+            )
+          end
 
           session = @ticket.timer_sessions.create!(
             user:       current_user,
@@ -116,11 +128,8 @@ module Api
             @ticket.reload
           end
 
-          # Recalculate schedule for assignee if ticket has one
-          if @ticket.assignee_id.present?
-            assignee = @ticket.organization.users.find_by(id: @ticket.assignee_id)
-            ScheduleReallocationService.new(assignee, @ticket.organization).call if assignee
-          end
+          # Reagenda em background — libera a response imediatamente
+          TicketRescheduleJob.perform_later(@ticket.id, nil) if @ticket.assignee_id.present?
 
           render json: { session: serialize_one(@timer_session), ticket_status: @ticket.status, effort_used: new_effort }
         end

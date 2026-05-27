@@ -5,7 +5,7 @@ module Api
     class ReportsController < ApplicationController
       def index
         authorize :report, :index?
-        data = ReportService.new(@organization, report_params).call
+        data = cached_report_data
         render json: data
       end
 
@@ -13,7 +13,7 @@ module Api
       # GET /api/v1/reports/export?format=pdf&period=30
       def export
         authorize :report, :index?
-        @report_data = ReportService.new(@organization, report_params).call
+        @report_data = cached_report_data
         fmt = params[:format].to_s.downcase
 
         case fmt
@@ -34,6 +34,16 @@ module Api
 
       def report_params
         params.permit(:period, :from, :to, :assignee_id, :category_id, :priority_id, :format)
+      end
+
+      # Cache de 5 min por combinação de org + parâmetros do relatório.
+      # Elimina re-execução das 11 queries a cada refresh de tela.
+      # TTL curto (5 min) preserva a percepção de dados em tempo real.
+      def cached_report_data
+        key = "report/#{@organization.id}/#{report_params.to_h.sort.to_json}"
+        Rails.cache.fetch(key, expires_in: 5.minutes) do
+          ReportService.new(@organization, report_params).call
+        end
       end
 
       # ── CSV ──────────────────────────────────────────────────────────────────

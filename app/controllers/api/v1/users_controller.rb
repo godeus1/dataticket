@@ -64,6 +64,34 @@ module Api
         render json: UserBlueprint.render_as_hash(@user)
       end
 
+      # GET /api/v1/users/capacity?from=YYYY-MM-DD&to=YYYY-MM-DD
+      # Retorna a carga de todos os usuários ativos da organização para o período.
+      # Usado pelo frontend para exibir badges de carga no picker de responsável.
+      def capacity
+        authorize User, :capacity?
+
+        from = params[:from].present? ? Date.parse(params[:from]) : Date.current
+        to   = params[:to].present?   ? Date.parse(params[:to])   : from + 6
+
+        users = @organization.users.where(active: true).order(:first_name, :last_name)
+
+        # Cache por versão de org: bust automático quando ScheduledDays mudam.
+        version  = capacity_cache_version
+        cache_key = "user_capacity/#{@organization.id}/v#{version}/#{from}/#{to}"
+        data = Rails.cache.fetch(cache_key, expires_in: 30.minutes) do
+          UserCapacityService.call(
+            users:        users,
+            organization: @organization,
+            from:         from,
+            to:           to
+          )
+        end
+
+        render json: data
+      rescue ArgumentError => e
+        render json: { error: "Parâmetro de data inválido: #{e.message}" }, status: :bad_request
+      end
+
       def reset_password
         authorize @user, :reset_password?
         new_password = SecureRandom.hex(8)
@@ -82,6 +110,12 @@ module Api
       end
 
       private
+
+      def capacity_cache_version
+        Rails.cache.fetch("capacity_version/#{@organization.id}", expires_in: 24.hours) do
+          SecureRandom.hex(4)
+        end
+      end
 
       def set_user
         @user = @organization.users.find(params[:id])

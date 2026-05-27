@@ -47,11 +47,13 @@ class TriageService
       # Agenda os dias deste ticket no calendário do responsável
       apply_schedule(calc_result)
 
-      # Recalcula prazos dos outros tickets do mesmo responsável (efeito cascata)
-      recalculate_sibling_deadlines
-
       notify_assignee if @ticket.assignee_id.present?
     end
+
+    # Recalcula prazos dos tickets irmãos fora da transação e de forma assíncrona.
+    # ScheduleReallocationService é O(N²) — não deve bloquear a resposta HTTP de triagem.
+    # old_assignee_id = nil → TicketRescheduleJob realloca apenas o responsável atual.
+    TicketRescheduleJob.perform_later(@ticket.id, nil) if @ticket.assignee_id.present?
 
     audit_triage
     Result.new(success?: true, ticket: @ticket, errors: [])
@@ -74,14 +76,6 @@ class TriageService
   def apply_schedule(calc_result)
     return unless @ticket.deadline.present? && @ticket.assignee_id.present?
     ScheduleService.new(@ticket, calc_result.days).schedule
-  end
-
-  # Recalcula e persiste prazos + agenda dos outros tickets do mesmo responsável.
-  # Necessário porque inserir um ticket crítico empurra os de menor prioridade.
-  def recalculate_sibling_deadlines
-    assignee = find_assignee
-    return unless assignee
-    ScheduleReallocationService.new(assignee, @ticket.organization).call
   end
 
   # ── Helpers ──────────────────────────────────────────────────────────────
