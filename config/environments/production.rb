@@ -82,6 +82,8 @@ Rails.application.configure do
       password:             ENV["SMTP_PASS"],
       authentication:       :plain,
       enable_starttls_auto: true,
+      open_timeout:         5,
+      read_timeout:         10,
     }
   else
     # Nenhuma credencial configurada — loga mas não quebra o boot
