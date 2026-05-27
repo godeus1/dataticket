@@ -1128,7 +1128,7 @@ export function TicketDetail() {
           )}
         </div>
         <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
-          {p.triage && !tk.triaged && <button className="btn btn-primary btn-sm" onClick={() => setShowTriage(true)}>{t.triageBtn}</button>}
+          {p.triage && <button className="btn btn-primary btn-sm" onClick={() => setShowTriage(true)}>{tk.triaged ? '↺ Re-triar' : t.triageBtn}</button>}
           {transitions.map(s => <button key={s} className="btn btn-secondary btn-sm" onClick={() => changeStatus(s)}>→ {s}</button>)}
           {p.closeTicket && tk.status !== 'Fechado' && <button className="btn btn-danger btn-sm" onClick={() => changeStatus('Fechado')}>{t.closeTicket}</button>}
           {/* Analista pode fechar quando o esforço estimado foi totalmente consumido */}
@@ -1671,7 +1671,7 @@ export function TicketDetail() {
       {showTriage && (
         <ModalOverlay onClose={() => setShowTriage(false)}>
           <div className="modal">
-            <h3 style={{ fontWeight: 700, marginBottom: 18 }}>🎯 {t.triageBtn}</h3>
+            <h3 style={{ fontWeight: 700, marginBottom: 18 }}>🎯 {tk.triaged ? '↺ Re-triagem' : t.triageBtn}</h3>
             <div className="form-grid">
               <div>
                 <label className="label">Prioridade *</label>
@@ -1687,8 +1687,20 @@ export function TicketDetail() {
                 </select>
               </div>
               <div>
-                <label className="label">Horas de esforço estimadas</label>
+                <label className="label">
+                  {tk.triaged && tk.effortEstimated > 0 ? 'Horas adicionais de esforço' : 'Horas de esforço estimadas'}
+                </label>
                 <input className="input" type="number" min="0" step="0.5" value={triageForm.effortEstimated} onChange={e => setTriageForm(f => ({ ...f, effortEstimated: e.target.value }))} />
+                {tk.triaged && tk.effortEstimated > 0 && (
+                  <div style={{ marginTop: 6, fontSize: 12, color: 'var(--text2)', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <span>Esforço atual: <strong>{tk.effortEstimated} h</strong></span>
+                    {triageForm.effortEstimated > 0 && (
+                      <span style={{ color: 'var(--primary)' }}>
+                        Total após re-triagem: {tk.effortEstimated} + {parseFloat(triageForm.effortEstimated) || 0} = <strong>{(tk.effortEstimated + (parseFloat(triageForm.effortEstimated) || 0)).toFixed(1)} h</strong>
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
               <div>
                 <label className="label">Fila *</label>

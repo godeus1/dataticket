@@ -9,18 +9,43 @@ class TriageService
 
   def call
     ActiveRecord::Base.transaction do
-      @ticket.assign_attributes(triage_params)
+      attrs = triage_params.to_h.symbolize_keys
+
+      # Se o ticket já tem esforço estimado e um novo valor foi informado, soma
+      if attrs.key?(:effort_estimated) && @ticket.effort_estimated.to_f > 0
+        extra = attrs[:effort_estimated].to_f
+        if extra > 0
+          old_estimated  = @ticket.effort_estimated.to_f
+          attrs[:effort_estimated] = (old_estimated + extra).round(2)
+          @extra_effort  = extra
+          @old_estimated = old_estimated
+        else
+          attrs.delete(:effort_estimated)
+        end
+      end
+
+      @ticket.assign_attributes(attrs)
       @ticket.status = "Triado, aguardando atendimento"
 
-      # Calcula prazo via agenda do responsável (ou fallback SLA se sem esforço/responsável)
-      scheduler_result = run_agenda_scheduler
-      @ticket.deadline = extract_deadline(scheduler_result)
+      # Calcula prazo e alocação diária via TicketDeadlineCalculator
+      calc_result      = run_deadline_calculator
+      @ticket.deadline = calc_result.deadline
 
       @ticket.save!
       @ticket.sync_co_assignees(@params[:co_assignee_ids]) if @params.key?(:co_assignee_ids)
 
+      # Registra histórico de acréscimo de esforço quando re-triagem soma horas
+      if @extra_effort&.> 0
+        @ticket.histories.create!(
+          user:       @actor,
+          field:      "esforço estimado (re-triagem)",
+          from_value: "#{@old_estimated} h",
+          to_value:   "#{@ticket.effort_estimated} h (+#{@extra_effort} h)"
+        ) rescue nil
+      end
+
       # Agenda os dias deste ticket no calendário do responsável
-      apply_schedule(scheduler_result)
+      apply_schedule(calc_result)
 
       # Recalcula prazos dos outros tickets do mesmo responsável (efeito cascata)
       recalculate_sibling_deadlines
@@ -40,47 +65,23 @@ class TriageService
 
   # ── Agenda ───────────────────────────────────────────────────────────────
 
-  # Executa a simulação de agenda para o responsável atual do ticket.
-  # Retorna nil se não houver responsável ou esforço estimado.
-  def run_agenda_scheduler
-    assignee = find_assignee
-    return nil unless assignee && @ticket.effort_estimated.to_f > 0
-
-    AgendaSchedulerService.new(assignee, @ticket.organization).call(focus_ticket: @ticket)
+  # Calcula prazo e obtém alocação diária via TicketDeadlineCalculator.
+  def run_deadline_calculator
+    TicketDeadlineCalculator.new(@ticket).call
   end
 
-  # Extrai o prazo calculado para o ticket atual.
-  # Fallback: SlaCalculator (baseado apenas no SLA da prioridade).
-  def extract_deadline(result)
-    if result
-      date = result.deadline_for(AgendaSchedulerService::FOCUS_KEY)
-      return date.to_time.end_of_day.in_time_zone if date
-    end
-
-    SlaCalculator.new(@ticket).calculate_deadline
-  end
-
-  # Grava os ScheduledDay do ticket com base na simulação.
-  def apply_schedule(result)
+  # Grava os ScheduledDay do ticket com base nos dias calculados.
+  def apply_schedule(calc_result)
     return unless @ticket.deadline.present? && @ticket.assignee_id.present?
-
-    days = result&.days_for(AgendaSchedulerService::FOCUS_KEY) || {}
-    ScheduleService.new(@ticket, days).schedule
+    ScheduleService.new(@ticket, calc_result.days).schedule
   end
 
-  # Recalcula e persiste os prazos dos outros tickets do mesmo responsável.
+  # Recalcula e persiste prazos + agenda dos outros tickets do mesmo responsável.
   # Necessário porque inserir um ticket crítico empurra os de menor prioridade.
   def recalculate_sibling_deadlines
     assignee = find_assignee
     return unless assignee
-
-    # Nova simulação sem focus_ticket (usa os atributos já salvos de @ticket)
-    result = AgendaSchedulerService.new(assignee, @ticket.organization).call
-    result.deadlines.each do |ticket_id, date|
-      next unless ticket_id.is_a?(Integer) && ticket_id != @ticket.id
-      deadline_dt = date&.to_time&.end_of_day&.in_time_zone
-      Ticket.where(id: ticket_id).update_all(deadline: deadline_dt)
-    end
+    ScheduleReallocationService.new(assignee, @ticket.organization).call
   end
 
   # ── Helpers ──────────────────────────────────────────────────────────────
