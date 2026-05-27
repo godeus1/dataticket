@@ -110,14 +110,23 @@ class Ticket < ApplicationRecord
     )
   end
 
-  # Sincroniza co_assignees a partir de um array de IDs
+  # Sincroniza co_assignees a partir de um array de IDs.
+  # insert_all em lote substitui o loop de create! (N inserts → 1 insert).
+  # TicketAssignee não possui callbacks, portanto insert_all é seguro.
   def sync_co_assignees(user_ids)
     ids = Array(user_ids).map(&:to_i).uniq.reject(&:zero?)
-    current = ticket_assignees.pluck(:user_id)
+    current   = ticket_assignees.pluck(:user_id)
     to_add    = ids - current
     to_remove = current - ids
+
     ticket_assignees.where(user_id: to_remove).destroy_all
-    to_add.each { |uid| ticket_assignees.create!(user_id: uid) }
+
+    if to_add.any?
+      now = Time.current
+      TicketAssignee.insert_all(
+        to_add.map { |uid| { ticket_id: id, user_id: uid, created_at: now, updated_at: now } }
+      )
+    end
   end
 
   def sla_expired?

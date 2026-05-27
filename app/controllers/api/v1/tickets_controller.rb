@@ -12,7 +12,8 @@ module Api
         tickets = apply_search(tickets)
         tickets = tickets.order(created_at: :desc)
 
-        @pagy, tickets = pagy(tickets, limit: params.fetch(:per_page, 500).to_i)
+        per_page = [[params.fetch(:per_page, 50).to_i, 1].max, 500].min
+        @pagy, tickets = pagy(tickets, limit: per_page)
 
         render json: {
           tickets:    TicketBlueprint.render_as_hash(tickets, view: :summary),
@@ -303,11 +304,15 @@ module Api
         scope = scope.where(category_id: params[:category_id]) if params[:category_id].present?
         scope = scope.where(queue_id: params[:queue_id])       if params[:queue_id].present?
         scope = scope.overdue                                  if params[:overdue] == "true"
-        # Filter by tag: returns tickets that have ALL specified tags
+        # Filter by tag: returns tickets that have ALL specified tags.
+        # Single JOIN + GROUP/HAVING replaces the old loop of N joins (one per tag),
+        # which produced cartesian complexity. Semantics are identical.
         if params[:tag_ids].present?
-          Array(params[:tag_ids]).each do |tag_id|
-            scope = scope.joins(:ticket_tags).where(ticket_tags: { tag_id: tag_id })
-          end
+          ids = Array(params[:tag_ids]).map(&:to_i).uniq
+          scope = scope.joins(:ticket_tags)
+                       .where(ticket_tags: { tag_id: ids })
+                       .group("tickets.id")
+                       .having("COUNT(DISTINCT ticket_tags.tag_id) = ?", ids.size)
         end
         scope
       end
