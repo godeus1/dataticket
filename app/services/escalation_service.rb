@@ -41,16 +41,33 @@ class EscalationService
   def notify_stakeholders
     recipients = []
     recipients << @ticket.assignee if @ticket.assignee.present?
-    # Notifica admins e managers (gestores), pois ambos têm visibilidade total
+    # Notifica admins e managers pois ambos têm visibilidade total
     recipients += @org.users.where(role: %w[admin manager]).to_a
-    recipients.uniq.each do |user|
-      user.notifications.create!(
-        ticket:  @ticket,
-        kind:    "status",
-        title:   "Ticket escalado — #{@ticket.id}",
-        body:    "SLA excedido em #{sla_exceeded_percent}%. Ticket: #{@ticket.title}"
-      )
-      next unless @org.emails_enabled?
+    recipients = recipients.uniq
+
+    return if recipients.empty?
+
+    # Bulk insert — 1 INSERT para todos os destinatários em vez de N inserts serializados
+    now = Time.current
+    pct = sla_exceeded_percent
+    Notification.insert_all(
+      recipients.map do |user|
+        {
+          user_id:    user.id,
+          ticket_id:  @ticket.id,
+          kind:       "status",
+          title:      "Ticket escalado — #{@ticket.id}",
+          body:       "SLA excedido em #{pct}%. Ticket: #{@ticket.title}",
+          read:       false,
+          created_at: now,
+          updated_at: now
+        }
+      end
+    )
+
+    return unless @org.emails_enabled?
+
+    recipients.each do |user|
       TicketMailer.escalated(@ticket, user).deliver_later
     rescue => e
       Rails.logger.error("[escalation_email] falha ao notificar #{user.email}: #{e.message}")

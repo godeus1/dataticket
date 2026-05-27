@@ -1,17 +1,21 @@
 class SlaDigestJob < ApplicationJob
   queue_as :default
 
+  # Pluck apenas IDs para não serializar objetos AR completos em cada deliver_later.
+  # O mailer recarrega os dados necessários no momento da execução, com dados frescos.
   def perform
-    Organization.find_each do |org|
-      expired        = org.tickets.open.overdue.includes(:priority)
-      expiring_today = org.tickets.open
-                          .where(deadline: Time.current.beginning_of_day..Time.current.end_of_day)
-                          .includes(:priority)
+    today = Date.current
 
-      next if expired.empty? && expiring_today.empty?
+    Organization.find_each do |org|
+      expired_ids    = org.tickets.open.overdue.pluck(:id)
+      expiring_ids   = org.tickets.open
+                          .where(deadline: today.beginning_of_day..today.end_of_day)
+                          .pluck(:id)
+
+      next if expired_ids.empty? && expiring_ids.empty?
 
       org.users.staff.active.find_each do |user|
-        SlaDigestMailer.daily(user, expired, expiring_today).deliver_later
+        SlaDigestMailer.daily(user.id, org.id, expired_ids, expiring_ids).deliver_later
       end
     end
   end

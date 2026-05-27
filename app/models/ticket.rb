@@ -162,19 +162,59 @@ class Ticket < ApplicationRecord
   end
 
   # ── Registra histórico de campos de associação (assignee, priority, category, queue) ──
+  # Versão otimizada: preload em lote dos registros necessários antes do loop,
+  # reduzindo de N×2 queries (find_by por campo/valor) para no máximo 4 queries totais
+  # (uma por tipo, apenas se o tipo tiver campos alterados).
   def record_field_histories
-    actor = Current.user || assignee || requester
-    TRACKED_ASSOCIATIONS.each do |field, resolver|
-      next unless saved_changes.key?(field)
+    changed_fields = TRACKED_ASSOCIATIONS.keys & saved_changes.keys
+    return if changed_fields.empty?
 
+    actor = Current.user || assignee || requester
+
+    # Coleta todos os IDs que precisam de resolução, agrupados por tipo
+    user_ids = []; priority_ids = []; category_ids = []; queue_ids = []
+    changed_fields.each do |field|
       old_id, new_id = saved_changes[field]
+      case field
+      when "assignee_id"  then user_ids     += [old_id, new_id]
+      when "priority_id"  then priority_ids += [old_id, new_id]
+      when "category_id"  then category_ids += [old_id, new_id]
+      when "queue_id"     then queue_ids    += [old_id, new_id]
+      end
+    end
+
+    # Batch load — 1 query por tipo, só se necessário
+    users_map      = user_ids.any?     ? organization.users.where(id: user_ids.compact).index_by(&:id) : {}
+    priorities_map = priority_ids.any? ? organization.priorities.where(id: priority_ids.compact).index_by(&:id) : {}
+    categories_map = category_ids.any? ? organization.categories.where(id: category_ids.compact).index_by(&:id) : {}
+    queues_map     = queue_ids.any?    ? organization.queues.where(id: queue_ids.compact).index_by(&:id) : {}
+
+    changed_fields.each do |field|
+      old_id, new_id = saved_changes[field]
+      from_val, to_val = case field
+                         when "assignee_id"
+                           [ resolve_user_name(users_map, old_id),
+                             resolve_user_name(users_map, new_id) ]
+                         when "priority_id"
+                           [ priorities_map[old_id]&.name, priorities_map[new_id]&.name ]
+                         when "category_id"
+                           [ categories_map[old_id]&.name, categories_map[new_id]&.name ]
+                         when "queue_id"
+                           [ queues_map[old_id]&.name, queues_map[new_id]&.name ]
+                         end
       histories.create!(
         user:       actor,
         field:      field.sub("_id", ""),
-        from_value: resolver.call(organization, old_id),
-        to_value:   resolver.call(organization, new_id)
+        from_value: from_val,
+        to_value:   to_val
       )
     end
+  end
+
+  def resolve_user_name(map, id)
+    return nil unless id
+    u = map[id]
+    u ? "#{u.first_name} #{u.last_name}" : nil
   end
 
   # ── Registra histórico de status com o actor real (Current.user) ─────────────

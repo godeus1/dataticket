@@ -260,39 +260,33 @@ module Api
       #   effort_estimated → realoca agenda do responsável atual
       #   priority_id      → reordena prioridades na agenda do responsável atual
       #
+      # Detecta mudanças que afetam a agenda e delega o recálculo pesado para
+      # TicketRescheduleJob (background). Apenas o cleanup imediato dos
+      # scheduled_days do antigo responsável ocorre de forma síncrona para evitar
+      # double-booking enquanto o job ainda não rodou.
       def reschedule_after_update(old_assignee_id, old_effort, old_priority_id)
-        new_assignee_id = @ticket.assignee_id
-        assignee_changed  = new_assignee_id.to_s != old_assignee_id.to_s
-        effort_changed    = @ticket.effort_estimated.to_f != old_effort
-        priority_changed  = @ticket.priority_id.to_s != old_priority_id.to_s
+        new_assignee_id  = @ticket.assignee_id
+        assignee_changed = new_assignee_id.to_s != old_assignee_id.to_s
+        effort_changed   = @ticket.effort_estimated.to_f != old_effort
+        priority_changed = @ticket.priority_id.to_s != old_priority_id.to_s
 
         return unless assignee_changed || effort_changed || priority_changed
 
-        org = @organization
-
-        if assignee_changed
-          # Antigo responsável perde este ticket — libera capacidade
-          if old_assignee_id.present?
-            old_assignee = org.users.find_by(id: old_assignee_id)
-            if old_assignee
-              # Remove dias futuros agendados para o antigo responsável neste ticket
-              @ticket.scheduled_days.where(user: old_assignee).where("date >= ?", Date.current).destroy_all
-              ScheduleReallocationService.new(old_assignee, org).call
-            end
-          end
-
-          # Novo responsável recebe este ticket — recalcula sua agenda
-          if new_assignee_id.present?
-            new_assignee = org.users.find_by(id: new_assignee_id)
-            ScheduleReallocationService.new(new_assignee, org).call if new_assignee
-          end
-        else
-          # Esforço ou prioridade mudou — realoca apenas o responsável atual
-          if new_assignee_id.present?
-            assignee = org.users.find_by(id: new_assignee_id)
-            ScheduleReallocationService.new(assignee, org).call if assignee
+        # Libera a capacidade do antigo responsável de forma síncrona — sem isso
+        # os scheduled_days ficariam alocados até o job rodar, causando overbooking.
+        if assignee_changed && old_assignee_id.present?
+          old_assignee = @organization.users.find_by(id: old_assignee_id)
+          if old_assignee
+            @ticket.scheduled_days
+                   .where(user: old_assignee)
+                   .where("date >= ?", Date.current)
+                   .destroy_all
           end
         end
+
+        # O recálculo pesado de ScheduleReallocationService vai para background.
+        # old_assignee_id é passado para o job poder realocar o antigo responsável.
+        TicketRescheduleJob.perform_later(@ticket.id, old_assignee_id&.to_s)
       rescue StandardError => e
         Rails.logger.error("[reschedule_after_update] ticket #{@ticket.id}: #{e.message}")
       end

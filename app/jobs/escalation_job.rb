@@ -1,16 +1,12 @@
 ﻿class EscalationJob < ApplicationJob
   queue_as :critical
 
+  # Varredura de tickets que precisam ser escalados.
+  # Despacha um EscalationTicketJob por ticket — falhas individuais ficam isoladas
+  # e o processamento dos demais não é interrompido.
   def perform
-    Ticket.open.overdue.where(escalated: false).find_each do |ticket|
-      next unless ticket.deadline.present?
-
-      sla_duration = ticket.deadline - ticket.created_at
-      elapsed      = Time.current - ticket.created_at
-
-      next unless sla_duration > 0 && elapsed > sla_duration * 1.2
-
-      EscalationService.new(ticket).escalate
+    Ticket.open.overdue.where(escalated: false).pluck(:id).each do |ticket_id|
+      EscalationTicketJob.perform_later(ticket_id)
     end
   end
 end
