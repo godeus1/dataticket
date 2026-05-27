@@ -43,7 +43,7 @@ class Ticket < ApplicationRecord
     "Aguardando solicitante"         => [ "Em andamento", "Resolvido", "Fechado" ],
     "Resolvido"                      => [ "Reaberto", "Fechado" ],
     "Fechado"                        => [ "Reaberto" ],
-    "Reaberto"                       => [ "Em andamento", "Triado, aguardando atendimento" ]
+    "Reaberto"                       => [ "Em andamento", "Triado, aguardando atendimento", "Fechado" ]
   }.freeze
 
   validates :title,       presence: true, length: { maximum: 255 }

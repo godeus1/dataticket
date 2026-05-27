@@ -100,7 +100,7 @@ export const ALLOWED_TRANSITIONS = {
   'Aguardando terceiros':['Em andamento','Resolvido'],
   'Resolvido':           ['Fechado'],
   'Fechado':             [],
-  'Reaberto':            ['Em andamento'],
+  'Reaberto':            ['Em andamento', 'Fechado'],
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────────
