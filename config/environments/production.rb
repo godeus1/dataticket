@@ -50,8 +50,10 @@ Rails.application.configure do
   config.cache_store = :solid_cache_store
 
   # Replace the default in-process and non-durable queuing backend for Active Job.
+  # connects_to removido: SolidQueue usa o banco principal (railway) em vez de
+  # railway_queue, que nunca foi provisionado no Railway. Tabelas criadas via
+  # migration 20260528000001_create_solid_queue_tables.
   config.active_job.queue_adapter = :solid_queue
-  config.solid_queue.connects_to = { database: { writing: :queue } }
 
   # ── E-mail ────────────────────────────────────────────────────────────────
   # Configure no Railway UMA das opções abaixo:
@@ -89,7 +91,7 @@ Rails.application.configure do
     # Nenhuma credencial configurada — loga mas não quebra o boot
     config.action_mailer.delivery_method       = :smtp
     config.action_mailer.raise_delivery_errors = false
-    Rails.logger.warn("[mailer] ATENÇÃO: MAILERSEND_API_KEY e SMTP_USER/SMTP_PASS não configurados. E-mails não serão enviados.")
+    warn "[mailer] ATENÇÃO: MAILERSEND_API_KEY e SMTP_USER/SMTP_PASS não configurados. E-mails não serão enviados."
   end
 
   # Enable locale fallbacks for I18n (makes lookups for any locale fall back to
