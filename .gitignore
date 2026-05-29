@@ -42,3 +42,5 @@ frontend/.env.local
 
 # Claude Code local settings (contém tokens)
 .claude/settings.local.json
+
+.vercel

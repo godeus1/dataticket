@@ -41,7 +41,10 @@ Rails.application.routes.draw do
       # Tickets
       resources :tickets do
         resources :comments,       only: %i[index create destroy], module: :tickets
-        resources :timer_sessions, only: %i[index create],         module: :tickets
+        resources :timer_sessions, only: %i[index create], module: :tickets do
+          collection { post :start }
+          member     { patch :stop }
+        end
         resources :attachments,    only: %i[index create destroy], module: :tickets do
           member { get :download }
         end
@@ -61,6 +64,7 @@ Rails.application.routes.draw do
 
       # Usuários
       resources :users do
+        collection { get :capacity }
         member do
           patch :toggle_active
           post  :reset_password

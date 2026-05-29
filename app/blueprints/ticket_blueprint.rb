@@ -53,6 +53,7 @@ class TicketBlueprint < Blueprinter::Base
           started_at:    s.started_at,
           stopped_at:    s.stopped_at,
           duration_mins: s.duration_mins,
+          status:        s.status,
           user_id:       s.user_id,
           user_name:     s.user&.full_name,
         }
