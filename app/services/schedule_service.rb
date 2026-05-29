@@ -1,43 +1,33 @@
 class ScheduleService
   # daily_hours: Hash { Date => Float } produzido pelo AgendaSchedulerService.
-  # Se nil, usa o fallback linear (comportamento legado).
+  #
+  # IMPORTANTE: schedule_legacy foi removido intencionalmente.
+  # O fallback linear ignorava a capacidade diária dos outros tickets do responsável,
+  # causando over-allocation no calendário.
+  # Se daily_hours for nil/vazio, apenas limpamos os dias futuros existentes e
+  # deixamos o AgendaSchedulerService calcular numa próxima chamada.
   def initialize(ticket, daily_hours = nil)
     @ticket      = ticket
     @daily_hours = daily_hours
   end
 
+  # Aplica a alocação calculada pelo AgendaSchedulerService.
+  # Se daily_hours for vazio, apenas limpa os dias futuros (nenhuma nova alocação criada).
   def schedule
     return unless @ticket.assignee.present?
 
     assignee = @ticket.assignee
-    @ticket.scheduled_days.where(user: assignee).destroy_all
+    # Apenas dias futuros são replanejados — dias passados são dados históricos
+    @ticket.scheduled_days.where(user: assignee).where("date >= ?", Date.current).destroy_all
 
-    if @daily_hours.present?
-      @daily_hours.each do |date, hours|
-        @ticket.scheduled_days.create!(user: assignee, date: date, hours: hours.round(2))
-      end
-    else
-      schedule_legacy(assignee)
-    end
-  end
+    # Sem alocação do scheduler → limpar e encerrar.
+    # Nunca criar dias linearmente sem respeitar a carga dos outros tickets.
+    return if @daily_hours.blank?
 
-  private
-
-  # Fallback: distribui horas linearmente entre abertura e prazo
-  # (usado quando AgendaSchedulerService não retorna dados — ex: esforço = 0)
-  def schedule_legacy(assignee)
-    return unless @ticket.deadline.present?
-
-    hours_per_day = [ assignee.max_hours_per_ticket, assignee.available_hours ].min
-    holidays      = @ticket.organization.holidays.pluck(:date).map(&:to_date)
-    current       = @ticket.created_at&.to_date || Date.current
-    end_date      = @ticket.deadline.to_date
-
-    while current <= end_date
-      unless current.saturday? || current.sunday? || holidays.include?(current)
-        @ticket.scheduled_days.create!(user: assignee, date: current, hours: hours_per_day)
-      end
-      current += 1.day
+    @daily_hours.each do |date, hours|
+      next if date < Date.current  # nunca sobrescreve dias já passados
+      next if hours.to_f < 0.01   # ignora alocações ínfimas
+      @ticket.scheduled_days.create!(user: assignee, date: date, hours: hours.to_f.round(2))
     end
   end
 end

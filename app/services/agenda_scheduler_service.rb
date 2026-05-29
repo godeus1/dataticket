@@ -83,22 +83,25 @@ class AgendaSchedulerService
   # ── Helpers ──────────────────────────────────────────────────────────────
 
   def build_sorted_ticket_list(focus_ticket)
-    # Carrega todos os ativos do responsável
+    # Carrega apenas tickets ativos COM esforço estimado > 0.
+    # Tickets sem esforço não têm trabalho a alocar e não devem participar da simulação.
     active = @organization.tickets
                           .where(assignee_id: @assignee.id)
                           .where.not(status: %w[Resolvido Fechado])
                           .where(deleted_at: nil)
+                          .where("effort_estimated > 0")
                           .includes(:priority)
                           .to_a
 
     # Substitui pelo focus_ticket (com atributos atualizados) se já existir no DB
     if focus_ticket
       active.reject! { |t| t.id && t.id == focus_ticket.id }
-      active << focus_ticket
+      # Só inclui o focus_ticket se ele tiver esforço estimado
+      active << focus_ticket if focus_ticket.effort_estimated.to_f > 0
     end
 
     # Ordena: menor sla_hours primeiro (crítico > alta > média > baixa)
-    # Desempate: created_at mais antigo primeiro
+    # Desempate: created_at mais antigo tem precedência (tickets mais antigos são atendidos antes)
     active.sort_by! do |t|
       sla = t.priority&.sla_hours&.to_f || 999_999.0
       ts  = (focus_ticket && t.equal?(focus_ticket)) ? Time.current : (t.created_at || Time.current)
@@ -110,10 +113,13 @@ class AgendaSchedulerService
 
   def build_remaining(tickets, focus_ticket)
     tickets.each_with_object({}) do |t, h|
-      k         = key_for(t, focus_ticket)
-      effort    = t.effort_estimated.to_f
-      used      = t.effort_used.to_f
-      h[k]      = [effort - used, 0.0].max
+      k      = key_for(t, focus_ticket)
+      effort = t.effort_estimated.to_f
+      used   = t.effort_used.to_f
+      rem    = [effort - used, 0.0].max
+      # Apenas inclui no mapa tickets que realmente têm trabalho pendente.
+      # Tickets sem esforço estimado (effort = 0) não devem aparecer na simulação.
+      h[k] = rem if effort > 0
     end
   end
 
