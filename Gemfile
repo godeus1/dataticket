@@ -15,7 +15,8 @@ gem "solid_cable"
 # Deploy
 gem "kamal",    require: false
 gem "thruster", require: false
-gem "image_processing", "~> 2.0"
+gem "image_processing", "~> 1.2"
+gem "mini_magick", "~> 4.9"   # required by image_processing 1.x
 
 # ── Autenticação ──────────────────────────────────────────────────────────────
 gem "devise",     "~> 5.0"
@@ -34,7 +35,7 @@ gem "rack-attack"
 gem "blueprinter", "~> 1.0"
 
 # ── Paginação ─────────────────────────────────────────────────────────────────
-gem "pagy", "~> 43.5"
+gem "pagy", "~> 9.3"
 
 # ── Upload S3 (ativo quando STORAGE=s3) ──────────────────────────────────────
 gem "aws-sdk-s3", require: false
