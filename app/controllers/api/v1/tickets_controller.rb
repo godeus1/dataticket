@@ -40,7 +40,14 @@ module Api
 
       def create
         authorize Ticket
-        ticket = @organization.tickets.new(ticket_params.merge(requester: current_user))
+        # Admins podem abrir tickets em nome de outro usuário passando requester_id.
+        # Para todos os outros perfis o solicitante é sempre o usuário autenticado.
+        requester = if current_user.admin? && ticket_params[:requester_id].present?
+                      @organization.users.find_by(id: ticket_params[:requester_id]) || current_user
+                    else
+                      current_user
+                    end
+        ticket = @organization.tickets.new(ticket_params.except(:requester_id).merge(requester: requester))
         ticket.save!
         apply_tags(ticket)
         apply_co_assignees(ticket)
@@ -49,7 +56,7 @@ module Api
           action:    "Ticket criado",
           entity:    "Ticket",
           entity_id: ticket.id,
-          changes:   { titulo: ticket.title, categoria: ticket.category&.name, solicitante: current_user.full_name }
+          changes:   { titulo: ticket.title, categoria: ticket.category&.name, solicitante: requester.full_name }
         )
         TicketMailer.created(ticket).deliver_later if ticket.organization.emails_enabled?
         render json: TicketBlueprint.render_as_hash(ticket, view: :full), status: :created
