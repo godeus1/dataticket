@@ -48,11 +48,22 @@ function saveSessions(userId, ticketId, sessions) {
   } catch { /* quota */ }
 }
 
+// ── Saved Views helpers ───────────────────────────────────────────────────
+const VIEWS_KEY = (uid) => `dt_views_${uid}`
+function loadViews(uid) {
+  try { return JSON.parse(localStorage.getItem(VIEWS_KEY(uid)) || '[]') } catch { return [] }
+}
+function persistViews(uid, views) {
+  try { localStorage.setItem(VIEWS_KEY(uid), JSON.stringify(views)) } catch {}
+}
+
 // ── Ticket List ───────────────────────────────────────────────────────────
 export function TicketList() {
   const { currentUser, lang, tickets, priorities, categories, users, queues, setScreen, setSelectedTicket, triageAction, showToast } = useApp()
   const t = lang === 'pt' ? PT : EN
   const p = PERM[currentUser.role]
+  const canUseViews = currentUser.role !== 'user'
+
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState([])
   const [filterPri, setFilterPri] = useState([])
@@ -63,6 +74,58 @@ export function TicketList() {
   const [sortDir, setSortDir] = useState('desc')
   const [page, setPage] = useState(0)
   const PER = 25
+
+  // ── Saved Views ──────────────────────────────────────────────────────────
+  const [savedViews,  setSavedViews]  = useState(() => loadViews(currentUser.id))
+  const [activeViewId, setActiveViewId] = useState('all')
+  const [savingView,  setSavingView]  = useState(false)
+  const [newViewName, setNewViewName] = useState('')
+  const [hoveredView, setHoveredView] = useState(null)
+
+  function applyView(view) {
+    setActiveViewId(view.id)
+    setSearch(view.filters.search || '')
+    setFilterStatus(view.filters.status || [])
+    setFilterPri(view.filters.priority || [])
+    setFilterCat(view.filters.category || [])
+    setFilterAssignee(view.filters.assignee || [])
+    setPage(0)
+  }
+
+  function clearAllFilters() {
+    setActiveViewId('all')
+    setSearch(''); setFilterStatus([]); setFilterPri([]); setFilterCat([]); setFilterAssignee([])
+    setPage(0)
+  }
+
+  function saveCurrentView() {
+    if (!newViewName.trim()) return
+    const view = {
+      id: Date.now().toString(),
+      name: newViewName.trim(),
+      filters: { search, status: filterStatus, priority: filterPri, category: filterCat, assignee: filterAssignee }
+    }
+    const updated = [...savedViews, view]
+    setSavedViews(updated)
+    persistViews(currentUser.id, updated)
+    setActiveViewId(view.id)
+    setSavingView(false)
+    setNewViewName('')
+    showToast(`Lista "${view.name}" salva!`)
+  }
+
+  function deleteView(id) {
+    const updated = savedViews.filter(v => v.id !== id)
+    setSavedViews(updated)
+    persistViews(currentUser.id, updated)
+    if (activeViewId === id) clearAllFilters()
+  }
+
+  // Open ticket in new tab — middle-click
+  function openTicketNewTab(tk) {
+    const base = window.location.href.split('#')[0]
+    window.open(`${base}#ticket/${tk.id}`, '_blank')
+  }
 
   const [showInlineTriage, setShowInlineTriage] = useState(false)
   const [triageTarget, setTriageTarget] = useState(null)
@@ -179,6 +242,73 @@ export function TicketList() {
         )}
       </div>
 
+      {/* ── Saved Views bar (admin / analyst / manager) ─────────────────── */}
+      {canUseViews && (
+        <div style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <button
+            className="btn btn-secondary btn-sm"
+            style={{
+              borderRadius: 20, padding: '4px 14px', fontSize: 12,
+              fontWeight: activeViewId === 'all' ? 700 : 400,
+              background: activeViewId === 'all' ? 'var(--accent)' : 'var(--bg2)',
+              color: activeViewId === 'all' ? '#fff' : 'var(--text)',
+              border: '1px solid ' + (activeViewId === 'all' ? 'var(--accent)' : 'var(--border)'),
+            }}
+            onClick={clearAllFilters}
+          >📋 Todos</button>
+
+          {savedViews.map(view => (
+            <div key={view.id} style={{ position: 'relative', display: 'inline-flex' }}
+              onMouseEnter={() => setHoveredView(view.id)}
+              onMouseLeave={() => setHoveredView(null)}
+            >
+              <button
+                className="btn btn-secondary btn-sm"
+                style={{
+                  borderRadius: 20, padding: '4px 14px', fontSize: 12,
+                  fontWeight: activeViewId === view.id ? 700 : 400,
+                  background: activeViewId === view.id ? 'var(--accent)' : 'var(--bg2)',
+                  color: activeViewId === view.id ? '#fff' : 'var(--text)',
+                  border: '1px solid ' + (activeViewId === view.id ? 'var(--accent)' : 'var(--border)'),
+                  paddingRight: hoveredView === view.id ? 28 : 14,
+                  transition: 'padding 0.15s',
+                }}
+                onClick={() => applyView(view)}
+              >🔖 {view.name}</button>
+              {hoveredView === view.id && (
+                <button onClick={e => { e.stopPropagation(); deleteView(view.id) }}
+                  style={{
+                    position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    color: activeViewId === view.id ? 'rgba(255,255,255,0.8)' : 'var(--danger)',
+                    fontSize: 12, padding: 0, lineHeight: 1,
+                  }}
+                  title="Remover lista"
+                >✕</button>
+              )}
+            </div>
+          ))}
+
+          {!savingView ? (
+            <button className="btn btn-secondary btn-sm"
+              style={{ borderRadius: 20, padding: '4px 12px', fontSize: 12 }}
+              onClick={() => { setSavingView(true); setNewViewName('') }}
+              title="Salvar filtros atuais como lista"
+            >💾 Salvar filtro</button>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <input autoFocus className="input" placeholder="Nome da lista…"
+                value={newViewName} onChange={e => setNewViewName(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') saveCurrentView(); if (e.key === 'Escape') { setSavingView(false); setNewViewName('') } }}
+                style={{ padding: '4px 10px', fontSize: 12, height: 28, width: 160 }}
+              />
+              <button className="btn btn-primary btn-sm" style={{ fontSize: 12, padding: '4px 10px' }} onClick={saveCurrentView}>Salvar</button>
+              <button className="btn btn-secondary btn-sm" style={{ fontSize: 12, padding: '4px 8px' }} onClick={() => { setSavingView(false); setNewViewName('') }}>✕</button>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="card" style={{ marginBottom: 12 }}>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
           <div className="search-box" style={{ flex: '1 1 200px' }}>
@@ -186,19 +316,19 @@ export function TicketList() {
             <input placeholder="Buscar por título ou ID…" value={search} onChange={e => { setSearch(e.target.value); setPage(0) }} />
           </div>
           <MultiFilter
-            label="Status" filterKey="status" selected={filterStatus} setSelected={v => { setFilterStatus(v); setPage(0) }}
+            label="Status" filterKey="status" selected={filterStatus} setSelected={v => { setFilterStatus(v); setPage(0); setActiveViewId('') }}
             options={STATUS_LIST.map(s => ({ value: s, label: s }))}
           />
           <MultiFilter
-            label="Prioridade" filterKey="pri" selected={filterPri} setSelected={v => { setFilterPri(v); setPage(0) }}
+            label="Prioridade" filterKey="pri" selected={filterPri} setSelected={v => { setFilterPri(v); setPage(0); setActiveViewId('') }}
             options={priorities.map(p => ({ value: p.id, label: p.name }))}
           />
           <MultiFilter
-            label="Categoria" filterKey="cat" selected={filterCat} setSelected={v => { setFilterCat(v); setPage(0) }}
+            label="Categoria" filterKey="cat" selected={filterCat} setSelected={v => { setFilterCat(v); setPage(0); setActiveViewId('') }}
             options={categories.map(c => ({ value: c.id, label: c.name }))}
           />
           <MultiFilter
-            label="Responsável" filterKey="assignee" selected={filterAssignee} setSelected={v => { setFilterAssignee(v); setPage(0) }}
+            label="Responsável" filterKey="assignee" selected={filterAssignee} setSelected={v => { setFilterAssignee(v); setPage(0); setActiveViewId('') }}
             options={users.filter(u => u.role !== 'user').map(u => ({ value: u.id, label: `${u.firstName} ${u.lastName}` }))}
           />
         </div>
@@ -239,8 +369,15 @@ export function TicketList() {
                     background: expired ? '#fef2f2' : undefined,
                   }}
                   onClick={() => openTicket(tk)}
+                  onMouseDown={e => { if (e.button === 1) { e.preventDefault(); openTicketNewTab(tk) } }}
                 >
-                  <td style={{ color: 'var(--accent)', fontWeight: 600 }}>{tk.id}</td>
+                  <td style={{ color: 'var(--accent)', fontWeight: 600 }} onClick={e => e.stopPropagation()}>
+                    <a
+                      href={`${window.location.href.split('#')[0]}#ticket/${tk.id}`}
+                      style={{ color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}
+                      onClick={e => { e.preventDefault(); openTicket(tk) }}
+                    >{tk.id}</a>
+                  </td>
                   <td style={{ maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {expired && <span style={{ color: 'var(--danger)', marginRight: 5 }}>⚠</span>}
                     {tk.title}

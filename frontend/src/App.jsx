@@ -159,6 +159,17 @@ function GlobalTimerWatcher({ currentUser, setSelectedTicket }) {
 function AppInner() {
   const { currentUser, screen, setScreen, toast, setToast, sidebar, setSidebar, setSelectedTicket } = useApp()
 
+  // ── Abre ticket via hash URL (#ticket/TK-xxx) — suporte ao botão do meio ─
+  useEffect(() => {
+    if (!currentUser) return
+    const m = window.location.hash.match(/^#ticket\/(TK-\d+)$/)
+    if (m) {
+      setSelectedTicket(m[1])
+      setScreen('ticket-detail')
+      window.history.replaceState(null, '', window.location.pathname + window.location.search)
+    }
+  }, [currentUser]) // eslint-disable-line
+
   // ── Pausa o timer automaticamente ao fechar o navegador / aba ───────────
   useEffect(() => {
     if (!currentUser) return
