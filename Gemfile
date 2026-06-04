@@ -16,7 +16,7 @@ gem "solid_cable"
 gem "kamal",    require: false
 gem "thruster", require: false
 gem "image_processing", "~> 1.2"
-gem "mini_magick", "~> 4.9"   # required by image_processing 1.x
+gem "mini_magick", "~> 5.3"   # required by image_processing 1.x
 
 # ── Autenticação ──────────────────────────────────────────────────────────────
 gem "devise",     "~> 5.0"
