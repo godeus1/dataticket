@@ -6,7 +6,7 @@ RSpec.describe NotificationService do
   let(:assignee)     { create(:user, :analyst, organization: organization) }
   let(:ticket) do
     create(:ticket, organization: organization, requester: requester, assignee: assignee,
-                    status: "Nao iniciado")
+                    status: "Não iniciado")
   end
   let(:service) { described_class.new(ticket) }
 
@@ -29,7 +29,7 @@ RSpec.describe NotificationService do
     let(:actor) { requester }
 
     it "notifica todos os usuarios relevantes exceto o actor" do
-      expect { service.notify_status_change(actor, "Nao iniciado", "Em andamento") }
+      expect { service.notify_status_change(actor, "Não iniciado", "Em andamento") }
         .to change { assignee.notifications.count }.by(1)
 
       notif = assignee.notifications.last
@@ -37,7 +37,7 @@ RSpec.describe NotificationService do
     end
 
     it "nao notifica o actor" do
-      service.notify_status_change(assignee, "Nao iniciado", "Em andamento")
+      service.notify_status_change(assignee, "Não iniciado", "Em andamento")
       expect(assignee.notifications.where(kind: "status").count).to eq(0)
     end
   end

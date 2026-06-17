@@ -6,12 +6,13 @@ RSpec.describe SlaCalculator do
   def build_ticket(priority_name: nil, sla_hours: nil, created_at: Time.current)
     priority = nil
     if priority_name
-      priority = instance_double("Priority", name: priority_name, sla_hours: sla_hours)
+      priority = instance_double("Priority", id: 1, name: priority_name, sla_hours: sla_hours)
     end
 
     instance_double("Ticket",
       organization: organization,
       priority:     priority,
+      category:     nil,
       created_at:   created_at
     )
   end

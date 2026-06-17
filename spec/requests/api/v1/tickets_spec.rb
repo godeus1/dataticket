@@ -66,8 +66,9 @@ RSpec.describe "Tickets API", type: :request do
     end
 
     it "rejeita transicao invalida" do
+      # "Em andamento" → "Não iniciado" não está em ALLOWED_TRANSITIONS (não se volta a não-iniciado)
       patch "/api/v1/tickets/#{ticket.id}/change_status",
-            params: { status: "Triado, aguardando atendimento" },
+            params: { status: "Não iniciado" },
             headers: auth_headers(admin),
             as: :json
 
