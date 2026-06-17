@@ -527,7 +527,11 @@ export function NewTicket() {
   const [form, setForm] = useState({ title: '', description: '', categoryId: '', openingDate: todayISO, attachments: [] })
   const [errors, setErrors] = useState({})
   const [files, setFiles] = useState([])
+  const [fileError, setFileError] = useState(null)
   const [uploading, setUploading] = useState(false)
+
+  const MAX_FILES = 3
+  const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5 MB
 
   const suggestedArticles = useMemo(() => {
     if (!form.categoryId) return []
@@ -660,11 +664,31 @@ export function NewTicket() {
           </div>
         )}
         <div className="form-row">
-          <label className="label">📎 Anexos (PDF, PNG, JPG, DOCX — máx. 20 MB cada)</label>
+          <label className="label">📎 Anexos (PDF, PNG, JPG, DOCX — máx. {MAX_FILES} arquivos, 5 MB cada)</label>
           <>
             <input type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.txt,.xlsx,.zip"
               style={{ fontSize: 13, color: 'var(--text)', padding: '6px 0' }}
-              onChange={e => setFiles(Array.from(e.target.files))} />
+              onChange={e => {
+                const selected = Array.from(e.target.files)
+                if (selected.length > MAX_FILES) {
+                  setFileError(`Máximo de ${MAX_FILES} arquivos permitidos.`)
+                  e.target.value = ''
+                  return
+                }
+                const oversized = selected.filter(f => f.size > MAX_FILE_SIZE)
+                if (oversized.length > 0) {
+                  setFileError(`Arquivo(s) muito grandes: ${oversized.map(f => f.name).join(', ')}. Máximo de 5 MB por arquivo.`)
+                  e.target.value = ''
+                  return
+                }
+                setFileError(null)
+                setFiles(selected)
+              }} />
+            {fileError && (
+              <div style={{ marginTop: 6, color: 'var(--danger)', fontSize: 12, fontWeight: 500 }}>
+                ⚠ {fileError}
+              </div>
+            )}
             {files.length > 0 && (
               <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {files.map((f, i) => (
@@ -831,7 +855,10 @@ export function TicketDetail() {
   const MORE_PER = 25
   const [newAttFile, setNewAttFile] = useState(null)
   const [addingAtt, setAddingAtt] = useState(false)
+  const [attUploadError, setAttUploadError] = useState(null)
   const [localAttachments, setLocalAttachments] = useState(null) // null = not loaded yet
+  const ATT_MAX_COUNT = 3
+  const ATT_MAX_SIZE  = 5 * 1024 * 1024 // 5 MB
   const [openingDateEdit, setOpeningDateEdit] = useState(null)   // admin: data de abertura editada
   const [titleEdit,       setTitleEdit]       = useState(null)   // admin/manager: título editado
   const [descEdit,        setDescEdit]        = useState(null)   // admin/manager: descrição editada
@@ -1581,26 +1608,51 @@ export function TicketDetail() {
               ))}
               {/* Upload de novo anexo */}
               {p.createTicket && (
-                <div style={{ marginTop: 10, display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <input type="file" style={{ fontSize: 11, flex: 1, minWidth: 0 }}
-                    onChange={e => setNewAttFile(e.target.files[0] || null)} />
-                  <button className="btn btn-secondary btn-sm" disabled={!newAttFile || addingAtt}
-                    onClick={async () => {
-                      if (!newAttFile) return
-                      setAddingAtt(true)
-                      try {
-                        const att = await api.uploadAttachment(tk.id, newAttFile)
-                        setLocalAttachments(prev => [...(prev ?? []), mapAttachment(att)])
-                        setNewAttFile(null)
-                        showToast('Anexo enviado!')
-                      } catch (e) {
-                        alert(`Erro no upload: ${e.message}`)
-                      } finally {
-                        setAddingAtt(false)
-                      }
-                    }}>
-                    {addingAtt ? '⏳ Enviando...' : '➕ Enviar'}
-                  </button>
+                <div style={{ marginTop: 10 }}>
+                  {(localAttachments ?? []).length >= ATT_MAX_COUNT ? (
+                    <div style={{ fontSize: 12, color: 'var(--danger)', fontWeight: 500 }}>
+                      ⚠ Limite de {ATT_MAX_COUNT} anexos atingido. Remova um antes de enviar outro.
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <input type="file" style={{ fontSize: 11, flex: 1, minWidth: 0 }}
+                        accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.txt,.xlsx,.zip"
+                        onChange={e => {
+                          const f = e.target.files[0] || null
+                          if (f && f.size > ATT_MAX_SIZE) {
+                            setAttUploadError(`"${f.name}" excede 5 MB. Escolha um arquivo menor.`)
+                            e.target.value = ''
+                            setNewAttFile(null)
+                          } else {
+                            setAttUploadError(null)
+                            setNewAttFile(f)
+                          }
+                        }} />
+                      <button className="btn btn-secondary btn-sm" disabled={!newAttFile || addingAtt}
+                        onClick={async () => {
+                          if (!newAttFile) return
+                          setAddingAtt(true)
+                          setAttUploadError(null)
+                          try {
+                            const att = await api.uploadAttachment(tk.id, newAttFile)
+                            setLocalAttachments(prev => [...(prev ?? []), mapAttachment(att)])
+                            setNewAttFile(null)
+                            showToast('Anexo enviado!')
+                          } catch (e) {
+                            setAttUploadError(`Erro no upload: ${e.message}`)
+                          } finally {
+                            setAddingAtt(false)
+                          }
+                        }}>
+                        {addingAtt ? '⏳ Enviando...' : '➕ Enviar'}
+                      </button>
+                    </div>
+                  )}
+                  {attUploadError && (
+                    <div style={{ marginTop: 5, fontSize: 12, color: 'var(--danger)', fontWeight: 500 }}>
+                      ⚠ {attUploadError}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

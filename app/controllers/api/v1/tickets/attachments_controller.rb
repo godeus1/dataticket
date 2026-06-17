@@ -8,7 +8,8 @@ module Api
         before_action :set_ticket
         before_action :set_attachment, only: %i[destroy download]
 
-        MAX_SIZE = 20.megabytes
+        MAX_SIZE  = 5.megabytes
+        MAX_COUNT = 3
 
         def index
           authorize TicketAttachment
@@ -21,7 +22,8 @@ module Api
 
           file = params[:file]
           return render json: { error: "Arquivo não enviado" }, status: :unprocessable_entity unless file.present?
-          return render json: { error: "Arquivo excede o limite de 20 MB" }, status: :unprocessable_entity if file.size > MAX_SIZE
+          return render json: { error: "Arquivo excede o limite de 5 MB" }, status: :unprocessable_entity if file.size > MAX_SIZE
+          return render json: { error: "Limite de #{MAX_COUNT} anexos por ticket atingido" }, status: :unprocessable_entity if @ticket.ticket_attachments.count >= MAX_COUNT
 
           # Comprime imagens antes do upload
           compressed = AttachmentCompressor.compress(
