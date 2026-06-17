@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_28_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_17_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -146,10 +146,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_28_000001) do
     t.text "smtp_pass"
     t.integer "smtp_port", default: 587
     t.string "smtp_user"
+    t.string "ticket_prefix", null: false
     t.string "timezone", default: "America/Sao_Paulo"
     t.datetime "updated_at", null: false
     t.index ["account_id"], name: "index_organizations_on_account_id"
     t.index ["slug"], name: "index_organizations_on_slug", unique: true
+    t.index ["ticket_prefix"], name: "index_organizations_on_ticket_prefix", unique: true
   end
 
   create_table "priorities", force: :cascade do |t|

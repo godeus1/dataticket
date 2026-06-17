@@ -39,7 +39,7 @@ RSpec.describe "Tickets API", type: :request do
 
       expect(response).to have_http_status(:created)
       body = JSON.parse(response.body)
-      expect(body["id"]).to match(/^TK-\d+$/)
+      expect(body["id"]).to match(/^[A-Z][A-Z0-9]*-\d+$/)
       expect(body["ticket_type"]).to eq("incidente")
     end
 

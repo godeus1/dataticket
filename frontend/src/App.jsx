@@ -159,10 +159,11 @@ function GlobalTimerWatcher({ currentUser, setSelectedTicket }) {
 function AppInner() {
   const { currentUser, screen, setScreen, toast, setToast, sidebar, setSidebar, setSelectedTicket } = useApp()
 
-  // ── Abre ticket via hash URL (#ticket/TK-xxx) — suporte ao botão do meio ─
+  // ── Abre ticket via hash URL (#ticket/PREFIXO-xxx) — suporte ao botão do meio ─
+  // Aceita qualquer prefixo de empresa (ex: TK-0001, SALV-0001, DTRY-0001).
   useEffect(() => {
     if (!currentUser) return
-    const m = window.location.hash.match(/^#ticket\/(TK-\d+)$/)
+    const m = window.location.hash.match(/^#ticket\/([A-Z][A-Z0-9]*-\d+)$/)
     if (m) {
       setSelectedTicket(m[1])
       setScreen('ticket-detail')

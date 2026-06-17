@@ -25,10 +25,10 @@ class TicketPolicy < ApplicationPolicy
 
   class Scope < ApplicationPolicy::Scope
     def resolve
-      base = @scope.active.where(organization: @user.organization)
+      base = @scope.active.where(organization: Current.organization)
 
       case @user.role
-      when "admin", "manager"
+      when "admin", "manager", "msp_admin"
         base
       when "analyst"
         # Analista vê tickets onde é assignee principal OU co-responsável
@@ -46,7 +46,7 @@ class TicketPolicy < ApplicationPolicy
 
   def can_access_ticket?
     case user.role
-    when "admin", "manager"
+    when "admin", "manager", "msp_admin"
       true
     when "analyst"
       record.assignee_id == user.id ||

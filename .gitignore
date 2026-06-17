@@ -44,3 +44,4 @@ frontend/.env.local
 .claude/settings.local.json
 
 .vercel
+/coverage/

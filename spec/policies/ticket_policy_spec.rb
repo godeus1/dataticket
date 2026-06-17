@@ -10,6 +10,11 @@ RSpec.describe TicketPolicy do
 
   subject(:policy)   { described_class }
 
+  # O Scope agora escopa pela empresa EFETIVA da requisição (Current.organization).
+  # Em specs unitários precisamos estabelecer esse contexto explicitamente.
+  before { Current.organization = organization }
+  after  { Current.reset }
+
   permissions :index?, :create? do
     it "permite qualquer usuario autenticado" do
       expect(policy).to permit(requester, ticket)
@@ -33,13 +38,26 @@ RSpec.describe TicketPolicy do
     end
   end
 
-  permissions :update?, :triage?, :change_status?, :assign? do
-    it "permite ao admin e analyst" do
+  # update? e change_status?: admin + analista responsável pelo ticket
+  permissions :update?, :change_status? do
+    it "permite ao admin e ao analyst responsavel" do
       expect(policy).to permit(admin,   ticket)
       expect(policy).to permit(analyst, ticket)
     end
 
     it "nega a usuario comum" do
+      expect(policy).not_to permit(requester, ticket)
+    end
+  end
+
+  # triage? e assign?: somente admin e manager (analista NÃO tria nem atribui)
+  permissions :triage?, :assign? do
+    it "permite apenas a admin e manager" do
+      expect(policy).to permit(admin, ticket)
+    end
+
+    it "nega ao analyst e usuario comum" do
+      expect(policy).not_to permit(analyst,   ticket)
       expect(policy).not_to permit(requester, ticket)
     end
   end
@@ -65,9 +83,10 @@ RSpec.describe TicketPolicy do
       expect(scope).to include(own_ticket, assigned_ticket, unassigned_ticket)
     end
 
-    it "analyst ve tickets atribuidos a ele ou sem assignee" do
+    it "analyst ve tickets atribuidos a ele (principal ou co-responsavel)" do
       scope = described_class::Scope.new(analyst, Ticket.all).resolve
-      expect(scope).to include(assigned_ticket, unassigned_ticket)
+      expect(scope).to include(assigned_ticket)
+      expect(scope).not_to include(unassigned_ticket)
     end
 
     it "usuario comum ve apenas seus proprios tickets" do

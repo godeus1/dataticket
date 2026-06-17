@@ -13,7 +13,7 @@ class UserPolicy < ApplicationPolicy
 
   class Scope < ApplicationPolicy::Scope
     def resolve
-      @scope.where(organization: @user.organization)
+      @scope.where(organization: Current.organization)
     end
   end
 end

@@ -19,9 +19,9 @@ RSpec.describe Ticket, type: :model do
   end
 
   describe "#generate_ticket_id" do
-    it "assigns a TK-NNNN id on create" do
+    it "assigns a PREFIX-NNNN id on create" do
       ticket = org.tickets.create!(title: "Teste", requester: requester)
-      expect(ticket.id).to match(/^TK-\d{4,}$/)
+      expect(ticket.id).to match(/\A#{Regexp.escape(org.ticket_prefix)}-\d{4,}\z/)
     end
 
     it "increments the sequence per organization" do

@@ -68,15 +68,26 @@ module Api
 
       # ── Contexto de request ────────────────────────────────────────────────
 
+      # Resolve a empresa EFETIVA da requisição e publica em Current.organization,
+      # que é a única fonte de verdade de tenancy (controllers E Pundit Scopes).
+      #
+      # Regra de segurança: SOMENTE msp_admin pode trocar de empresa, e apenas
+      # entre organizações da MESMA conta. Qualquer outro papel ignora o header
+      # X-Organization-Id e fica preso à própria organização (anti-spoofing).
       def set_organization
+        @organization = resolve_effective_organization
+        Current.organization = @organization
+      end
+
+      def resolve_effective_organization
         if current_user.msp_admin? && request.headers["X-Organization-Id"].present?
           org_id  = request.headers["X-Organization-Id"].to_i
           account = current_user.organization.account
           # msp_admin só acessa orgs da mesma conta
-          @organization = account&.organizations&.find_by(id: org_id) ||
-                          raise(ActiveRecord::RecordNotFound, "Organização não encontrada nesta conta")
+          account&.organizations&.find_by(id: org_id) ||
+            raise(ActiveRecord::RecordNotFound, "Organização não encontrada nesta conta")
         else
-          @organization = current_user.organization
+          current_user.organization
         end
       end
 

@@ -23,8 +23,12 @@ class ApplicationPolicy
   # analyst  → tickets atribuídos, comentários, esforço
   # user     → apenas tickets próprios
 
+  # msp_admin é admin-equivalente DENTRO da empresa atualmente selecionada
+  # (além de poder trocar de empresa e gerir contas). Por isso satisfaz todos
+  # os checks operacionais de admin. A distinção de papel permanece estrita no
+  # model (User#admin?) e no AccountPolicy (que checa user.msp_admin? à parte).
   def admin?
-    user.role == "admin"
+    user.role == "admin" || user.role == "msp_admin"
   end
 
   def manager?
@@ -60,8 +64,12 @@ class ApplicationPolicy
       @scope = scope
     end
 
+    # Escopa pela empresa EFETIVA da requisição (Current.organization), não pela
+    # organização-casa do usuário. Isso garante que o msp_admin que trocou de
+    # empresa veja os dados da empresa correta — e, se o contexto não estiver
+    # definido, escopa por nil (NOT NULL nas tabelas ⇒ resultado vazio = fail-closed).
     def resolve
-      @scope.where(organization: @user.organization)
+      @scope.where(organization: Current.organization)
     end
 
     private

@@ -15,5 +15,13 @@ FactoryBot.define do
     trait :analyst do
       role { "analyst" }
     end
+
+    trait :manager do
+      role { "manager" }
+    end
+
+    trait :msp_admin do
+      role { "msp_admin" }
+    end
   end
 end
