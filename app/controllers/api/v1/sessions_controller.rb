@@ -35,9 +35,11 @@ module Api
         }, status: :ok
       end
 
-      def respond_to_on_destroy
+      # Devise 5 chama este método com o kwarg `non_navigational_status:`.
+      # A assinatura sem argumentos causava ArgumentError (logout retornava 500).
+      def respond_to_on_destroy(non_navigational_status: :no_content)
         if request.headers["Authorization"].present?
-          render json: { message: "Logout realizado com sucesso." }, status: :ok
+          head non_navigational_status
         else
           render json: { error: "Token não encontrado." }, status: :unauthorized
         end

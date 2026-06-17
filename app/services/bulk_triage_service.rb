@@ -1,13 +1,17 @@
 ﻿# frozen_string_literal: true
 # Aplica triagem a multiplos tickets de uma vez.
-# Apenas tickets com status "Nao iniciado" sao elegíveis.
+# Apenas tickets com status "Não iniciado" são elegíveis.
 
 class BulkTriageService
   Result = Struct.new(:success?, :triaged, :skipped, :errors, keyword_init: true)
 
   def initialize(ticket_ids, triage_attrs, actor)
     @ticket_ids   = Array(ticket_ids)
-    @triage_attrs = triage_attrs.slice(:priority_id, :category_id, :queue_id, :assignee_id)
+    # Normaliza para Hash puro: triage_attrs pode chegar como ActionController::Parameters
+    # (caminho do controller) ou Hash (chamadas internas). ActionController::Parameters.new
+    # só aceita Hash, então convertemos antes para evitar erro no caminho real.
+    raw = triage_attrs.respond_to?(:to_unsafe_h) ? triage_attrs.to_unsafe_h : triage_attrs.to_h
+    @triage_attrs = raw.symbolize_keys.slice(:priority_id, :category_id, :queue_id, :assignee_id)
     @actor        = actor
   end
 
@@ -23,7 +27,9 @@ class BulkTriageService
         next
       end
 
-      unless ticket.status == "Nao iniciado"
+      # Status canônico COM acento (Ticket::STATUSES). Antes comparava-se com
+      # "Nao iniciado" (ASCII), que nunca casava → todos os tickets eram pulados.
+      unless ticket.status == "Não iniciado"
         skipped << tid
         next
       end
