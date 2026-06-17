@@ -1267,13 +1267,7 @@ export function TicketDetail() {
         <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
           {p.triage && <button className="btn btn-primary btn-sm" onClick={() => setShowTriage(true)}>{tk.triaged ? '↺ Re-triar' : t.triageBtn}</button>}
           {transitions.map(s => <button key={s} className="btn btn-secondary btn-sm" onClick={() => changeStatus(s)}>→ {s}</button>)}
-          {p.closeTicket && tk.status !== 'Fechado' && <button className="btn btn-danger btn-sm" onClick={() => changeStatus('Fechado')}>{t.closeTicket}</button>}
-          {/* Analista pode fechar quando o esforço estimado foi totalmente consumido */}
-          {!p.closeTicket && currentUser.role === 'analyst' && tk.effortEstimated > 0 && tk.effortUsed >= tk.effortEstimated && !['Fechado', 'Resolvido'].includes(tk.status) && (
-            <button className="btn btn-danger btn-sm" onClick={() => changeStatus('Fechado')} title="Esforço totalmente utilizado — ticket pronto para fechar">
-              {t.closeTicket}
-            </button>
-          )}
+          {p.closeTicket && !['Fechado', 'Resolvido'].includes(tk.status) && <button className="btn btn-danger btn-sm" onClick={() => changeStatus('Fechado')}>{t.closeTicket}</button>}
           {p.reopenTicket && ['Fechado', 'Resolvido'].includes(tk.status) && (
             <button className="btn btn-secondary btn-sm" onClick={() => { setReopenHours(''); setShowReopenModal(true) }}>
               {t.reopenTicket}

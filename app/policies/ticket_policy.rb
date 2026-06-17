@@ -13,13 +13,12 @@ class TicketPolicy < ApplicationPolicy
   def purge?            = admin?
   def trash_index?      = admin?
 
-  # Triagem, mudança de status e atribuição: admin e manager apenas
-  # Exceção: analista pode fechar um ticket quando o esforço estimado foi totalmente consumido
+  # Triagem e atribuição: admin e manager apenas
+  # Mudança de status: admin, manager e analista (analista restrito aos seus tickets via can_access_ticket?)
   def triage?        = admin_or_manager?
   def change_status?
     return true if admin_or_manager?
-    # Analista pode somente fechar quando esforço >= estimado e é responsável
-    analyst? && can_access_ticket? && closes_with_full_effort?
+    analyst? && can_access_ticket?
   end
   def assign?        = admin_or_manager?
   def bulk_triage?   = admin_or_manager?
@@ -57,9 +56,5 @@ class TicketPolicy < ApplicationPolicy
     end
   end
 
-  # Verdadeiro quando o esforço estimado é > 0 e o utilizado já atingiu ou superou
-  def closes_with_full_effort?
-    est = record.effort_estimated.to_f
-    est > 0 && record.effort_used.to_f >= est
-  end
+
 end
