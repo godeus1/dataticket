@@ -21,8 +21,8 @@ class Organization < ApplicationRecord
   validates :name, :slug, presence: true
   validates :slug, uniqueness: true, format: { with: /\A[a-z0-9\-]+\z/, message: "apenas letras minúsculas, números e hífens" }
 
-  # Prefixo dos IDs de ticket (ex: SALV → SALV-0001). Único por empresa para
-  # garantir unicidade global dos tickets entre organizações.
+  # Prefixo dos IDs de ticket = 3 primeiras letras do nome (ex: Salvabras → SAL-00001,
+  # Datatry → DAT-00001). Único por empresa para garantir unicidade global dos tickets.
   validates :ticket_prefix, presence: true,
             uniqueness: { case_sensitive: false },
             format: {
@@ -44,14 +44,14 @@ class Organization < ApplicationRecord
     self.ticket_prefix = ticket_prefix.to_s.strip.upcase if ticket_prefix.present?
   end
 
-  # Deriva um prefixo a partir do slug quando não informado explicitamente.
-  # Mantém-se conservador (até 6 chars) deixando margem para sufixos de colisão.
+  # Deriva o prefixo das 3 primeiras LETRAS do nome quando não informado
+  # explicitamente (ex: "Salvabras" → "SAL", "Datatry" → "DAT"). Colisões entre
+  # empresas com as mesmas 3 letras são barradas pelo índice único — nesse caso
+  # o admin deve informar um prefixo alternativo manualmente.
   def derive_ticket_prefix
     return if ticket_prefix.present?
 
-    base = slug.to_s.gsub(/[^a-zA-Z0-9]/, "").upcase[0, 6]
-    base = "ORG"        if base.blank?
-    base = "O#{base}"[0, 6] unless base.match?(/\A[A-Z]/)
-    self.ticket_prefix = base
+    letters = name.to_s.gsub(/[^a-zA-Z]/, "").upcase
+    self.ticket_prefix = letters.present? ? letters[0, 3] : "ORG"
   end
 end

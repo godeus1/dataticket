@@ -164,10 +164,10 @@ class Ticket < ApplicationRecord
       organization_id
     ])
     num = self.class.connection.select_value(sql).to_i
-    # Prefixo por empresa garante unicidade global do ID entre organizações.
-    # Fallback "TK" apenas defensivo (organização sempre tem prefixo via validação).
+    # Prefixo por empresa (3 letras) + 5 dígitos garante unicidade global do ID
+    # entre organizações. Fallback "TK" apenas defensivo (org sempre tem prefixo).
     prefix = organization&.ticket_prefix.presence || "TK"
-    self.id = "#{prefix}-#{format('%04d', num)}"
+    self.id = "#{prefix}-#{format('%05d', num)}"
   end
 
   # ── Registra histórico de campos de associação (assignee, priority, category, queue) ──
