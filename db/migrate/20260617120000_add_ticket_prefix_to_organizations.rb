@@ -6,14 +6,29 @@ class AddTicketPrefixToOrganizations < ActiveRecord::Migration[8.1]
   def up
     add_column :organizations, :ticket_prefix, :string
 
-    # Backfill: deriva o prefixo do slug (maiúsculo, alfanumérico, até 6 chars),
-    # resolvendo colisões com sufixo numérico. Roda em SQL puro para não depender
-    # das validações do model durante a migração.
+    # Backfill do prefixo, em SQL puro (não depende das validações do model):
+    #   1. Se a empresa JÁ tem tickets, preserva o prefixo deles (ex: Salvabras = "TK")
+    #      — evita o formato duplo (TK-xxxx antigos + SLUG-xxxx novos).
+    #   2. Caso contrário, deriva do slug (maiúsculo, alfanumérico, até 6 chars).
+    # Colisões são resolvidas com sufixo numérico + índice único garante integridade.
     used = {}
     select_all("SELECT id, slug FROM organizations ORDER BY id").each do |row|
-      base = row["slug"].to_s.gsub(/[^a-zA-Z0-9]/, "").upcase[0, 6]
-      base = "ORG" if base.blank?
-      base = "O#{base}"[0, 6] unless base.match?(/\A[A-Z]/)
+      org_id = row["id"].to_i
+
+      existing_ticket_id = select_value(
+        "SELECT id FROM tickets WHERE organization_id = #{org_id} ORDER BY created_at ASC LIMIT 1"
+      )
+
+      base =
+        if existing_ticket_id.to_s =~ /\A([A-Za-z][A-Za-z0-9]*)-\d+\z/
+          # Preserva o prefixo dos tickets existentes (continuidade)
+          Regexp.last_match(1).upcase[0, 10]
+        else
+          b = row["slug"].to_s.gsub(/[^a-zA-Z0-9]/, "").upcase[0, 6]
+          b = "ORG" if b.blank?
+          b = "O#{b}"[0, 6] unless b.match?(/\A[A-Z]/)
+          b
+        end
 
       candidate = base
       i = 1
@@ -24,7 +39,7 @@ class AddTicketPrefixToOrganizations < ActiveRecord::Migration[8.1]
       used[candidate] = true
 
       execute(
-        "UPDATE organizations SET ticket_prefix = #{quote(candidate)} WHERE id = #{row['id'].to_i}"
+        "UPDATE organizations SET ticket_prefix = #{quote(candidate)} WHERE id = #{org_id}"
       )
     end
 
