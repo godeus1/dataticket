@@ -20,9 +20,9 @@ RSpec.describe "Triage Rules API", type: :request do
       expect(JSON.parse(response.body)).to be_an(Array)
     end
 
-    it "returns list for analyst" do
+    it "denies access to analyst (regras de triagem sao admin/manager apenas)" do
       get "/api/v1/triage_rules", headers: auth_headers(analyst)
-      expect(response).to have_http_status(:ok)
+      expect(response).to have_http_status(:forbidden)
     end
   end
 

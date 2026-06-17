@@ -3,7 +3,9 @@ require "rails_helper"
 RSpec.describe EventStore do
   let(:organization) { create(:organization) }
   let(:actor)        { create(:user, organization: organization) }
-  let(:ticket)       { create(:ticket, organization: organization, requester: actor) }
+  # let! força a criação na configuração: o Ticket auto-publica um evento de
+  # criação (after_create_commit), então o agregado já nasce com version 1.
+  let!(:ticket)      { create(:ticket, organization: organization, requester: actor) }
 
   describe ".publish" do
     it "cria um Event imutável" do
@@ -26,6 +28,9 @@ RSpec.describe EventStore do
     end
 
     it "incrementa version a cada evento no mesmo aggregate" do
+      # Limpa o evento de criação auto-publicado para isolar o incremento testado.
+      Event.where(aggregate_type: "Ticket", aggregate_id: ticket.id).delete_all
+
       EventStore.publish(event_type: "ticket.created",      aggregate: ticket, organization: organization)
       EventStore.publish(event_type: "ticket.status_changed", aggregate: ticket, organization: organization)
 

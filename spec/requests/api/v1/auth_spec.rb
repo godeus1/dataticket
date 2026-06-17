@@ -12,8 +12,9 @@ RSpec.describe "Auth", type: :request do
         }, as: :json
 
         expect(response).to have_http_status(:ok)
+        # devise-jwt despacha o token no header Authorization (não no corpo).
+        expect(response.headers["Authorization"]).to match(/\ABearer .+/)
         body = JSON.parse(response.body)
-        expect(body["token"]).to be_present
         expect(body["user"]["email"]).to eq(user.email)
       end
     end
