@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import * as Sentry from '@sentry/react'
-import { api, getToken, setToken, setOn401Handler } from './api.js'
+import { api, getToken, setToken, setOn401Handler, getCurrentOrg, setCurrentOrg } from './api.js'
 import {
   mapUser, mapTicket, mapPriority, mapCategory, mapQueue,
   mapHoliday, mapArticle, mapNotification, mapAuditLog, mapOrganization, mapComment,
@@ -87,6 +87,10 @@ export function AppProvider({ children }) {
   const [currentUserState,   setCurrentUserState]   = useState(null)
   const [sessionExpiredMsg,  setSessionExpiredMsg]  = useState(false)
 
+  // ── Multi-empresa (msp_admin troca entre empresas) ────────────────────
+  const [availableOrgs, setAvailableOrgs] = useState([])
+  const [currentOrgId,  setCurrentOrgId]  = useState(() => getCurrentOrg())
+
   // ── Routing ───────────────────────────────────────────────────────────
   const navigate = useNavigate()
   const location = useLocation()
@@ -123,7 +127,7 @@ export function AppProvider({ children }) {
 
     const [
       usersRes, ticketsRes, catsRes, prisRes,
-      queuesRes, holidaysRes, articlesRes, notifRes, orgRes, auditRes,
+      queuesRes, holidaysRes, articlesRes, notifRes, orgRes, auditRes, orgsRes,
     ] = await Promise.all([
       settle(api.users()),
       settle(api.tickets()),
@@ -135,6 +139,7 @@ export function AppProvider({ children }) {
       settle(api.notifications()),
       settle(api.organization()),
       settle(api.auditLogs()),
+      settle(api.organizations()),
     ])
 
     // Se qualquer endpoint retornar 401 a sessão expirou
@@ -170,6 +175,7 @@ export function AppProvider({ children }) {
     setNotifications( (notifData  ?? []).map(mapNotification))
     setAuditLog(      (auditData  ?? []).map(mapAuditLog))
     if (orgData) setSystemConfig(mapOrganization(orgData))
+    setAvailableOrgs(val(orgsRes, []) ?? [])
   }, [])
 
   // ── Interceptor global de 401 — desloga automaticamente ─────────────
@@ -269,6 +275,7 @@ export function AppProvider({ children }) {
     } else {
       try { await api.logout() } catch {}
       setToken(null)
+      setCurrentOrg(null); setCurrentOrgId(null); setAvailableOrgs([])
       setCurrentUserState(null)
       setTickets([]); setUsers([]); setCategories([]); setPriorities([])
       setQueues([]); setHolidays([]); setArticles([]); setNotifications([]); setAuditLog([])
@@ -276,6 +283,25 @@ export function AppProvider({ children }) {
       navigate(SCREEN_TO_PATH['dashboard'])
     }
   }, [loadData, navigate])
+
+  // ── Troca de empresa (msp_admin) ───────────────────────────────────────
+  // Grava a empresa em localStorage (→ header X-Organization-Id) e recarrega
+  // todos os dados da empresa selecionada. Volta ao painel para não exibir um
+  // ticket da empresa anterior.
+  const switchOrg = useCallback(async (orgId) => {
+    setCurrentOrg(orgId)
+    setCurrentOrgId(String(orgId))
+    setLoadingData(true)
+    navigate(SCREEN_TO_PATH['dashboard'])
+    try { await loadData() } finally { setLoadingData(false) }
+  }, [loadData, navigate])
+
+  // Cria uma empresa nova (msp_admin) e a adiciona à lista do seletor.
+  const createOrganizationAction = useCallback(async (data) => {
+    const org = await api.createOrganization(data)
+    setAvailableOrgs(prev => [...prev, org].sort((a, b) => a.name.localeCompare(b.name)))
+    return org
+  }, [])
 
   // ── Backup ────────────────────────────────────────────────────────────
   const backupRef = useRef(null)
@@ -514,6 +540,9 @@ export function AppProvider({ children }) {
     currentUser: currentUserState, setCurrentUser,
     dbReady, loadingData, apiError,
     supabaseOk: true, supabaseError: null, // backward compat
+
+    // Multi-empresa
+    availableOrgs, currentOrgId, switchOrg, createOrganizationAction,
 
     // UI
     lang, setLang, theme, setTheme,

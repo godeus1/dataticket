@@ -4,10 +4,15 @@
 
 const BASE = import.meta.env.VITE_API_URL ?? '/api/v1'
 const TOKEN_KEY = 'dt_token'
+const ORG_KEY   = 'dt_current_org'
 
 export const getToken  = ()  => localStorage.getItem(TOKEN_KEY)
 export const setToken  = (t) => t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY)
 export const clearToken = () => localStorage.removeItem(TOKEN_KEY)
+
+// Empresa selecionada (só msp_admin troca; o backend ignora o header para os demais).
+export const getCurrentOrg = ()   => localStorage.getItem(ORG_KEY)
+export const setCurrentOrg = (id) => id ? localStorage.setItem(ORG_KEY, String(id)) : localStorage.removeItem(ORG_KEY)
 
 // Callback chamado quando qualquer request retorna 401 — registrado pelo AppContext
 let _on401 = null
@@ -16,9 +21,11 @@ export const setOn401Handler = (fn) => { _on401 = fn }
 // ── Core fetch wrapper ─────────────────────────────────────────────────────
 async function req(path, opts = {}) {
   const token = getToken()
+  const orgId = getCurrentOrg()
   const headers = {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(orgId ? { 'X-Organization-Id': orgId } : {}),
     ...opts.headers,
   }
 
@@ -137,6 +144,9 @@ export const api = {
   // ── Organization ──────────────────────────────────────────────────────
   organization:       ()  => req('/organization'),
   updateOrganization: (d) => req('/organization', { method: 'PATCH', body: j({ organization: d }) }),
+  // Gestão de empresas (multi-tenant)
+  organizations:       ()  => req('/organizations'),
+  createOrganization:  (d) => req('/organizations', { method: 'POST', body: j({ organization: d }) }),
 
   // ── Audit log ─────────────────────────────────────────────────────────
 
@@ -147,9 +157,13 @@ export const api = {
     const fd = new FormData()
     fd.append('file', file)
     const token = getToken()
+    const orgId = getCurrentOrg()
     return fetch(`${BASE}/tickets/${ticketId}/attachments`, {
       method: 'POST',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(orgId ? { 'X-Organization-Id': orgId } : {}),
+      },
       body: fd,
     }).then(async res => {
       if (res.status === 204) return null

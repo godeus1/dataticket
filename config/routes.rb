@@ -94,8 +94,10 @@ Rails.application.routes.draw do
         collection { get :export }
       end
 
-      # Organização (single resource)
+      # Organização atual (singular: show/update das configurações da empresa atual)
       resource :organization, only: %i[show update]
+      # Gestão de empresas (plural: listar para o seletor + criar — msp_admin)
+      resources :organizations, only: %i[index create]
 
       # ── Fase 4: Automação e Inteligência ──────────────────────────────────
       resources :triage_rules

@@ -1,0 +1,58 @@
+require "rails_helper"
+
+RSpec.describe "Organizations API", type: :request do
+  let(:account)  { create(:account) }
+  let(:org_a)    { create(:organization, account: account) }
+  let(:org_b)    { create(:organization, account: account) }
+  let(:admin_a)  { create(:user, :admin,     organization: org_a, password: "Password123!") }
+  let(:msp)      { create(:user, :msp_admin, organization: org_a, password: "Password123!") }
+
+  def login(u)
+    post "/api/v1/login", params: { user: { email: u.email, password: "Password123!" } }, as: :json
+    auth = response.headers["Authorization"]
+    auth ? auth.sub(/^Bearer\s+/i, "") : nil
+  end
+
+  def headers(u) = { "Authorization" => "Bearer #{login(u)}" }
+
+  describe "GET /api/v1/organizations" do
+    before { org_a; org_b }
+
+    it "msp_admin vê todas as empresas da conta" do
+      get "/api/v1/organizations", headers: headers(msp)
+      slugs = JSON.parse(response.body).map { |o| o["slug"] }
+      expect(slugs).to include(org_a.slug, org_b.slug)
+    end
+
+    it "admin comum vê apenas a própria empresa" do
+      get "/api/v1/organizations", headers: headers(admin_a)
+      slugs = JSON.parse(response.body).map { |o| o["slug"] }
+      expect(slugs).to eq([org_a.slug])
+    end
+  end
+
+  describe "POST /api/v1/organizations" do
+    it "msp_admin cria empresa sob a conta, com seed mínimo" do
+      h = headers(msp)  # força criação de msp/org_a/conta antes de medir a contagem
+      expect {
+        post "/api/v1/organizations",
+             params: { organization: { name: "Nova Co", slug: "nova-co", ticket_prefix: "NOV" } },
+             headers: h, as: :json
+      }.to change(Organization, :count).by(1)
+
+      expect(response).to have_http_status(:created)
+      org = Organization.find_by(slug: "nova-co")
+      expect(org.account_id).to eq(account.id)
+      expect(org.ticket_prefix).to eq("NOV")
+      expect(org.priorities.count).to eq(4)
+      expect(org.categories.count).to eq(1)
+    end
+
+    it "admin comum não pode criar empresa (403)" do
+      post "/api/v1/organizations",
+           params: { organization: { name: "X", slug: "x-co", ticket_prefix: "XCO" } },
+           headers: headers(admin_a), as: :json
+      expect(response).to have_http_status(:forbidden)
+    end
+  end
+end

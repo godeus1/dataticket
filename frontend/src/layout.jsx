@@ -95,6 +95,91 @@ export function Sidebar({ screen, setScreen }) {
   )
 }
 
+// ── Seletor de empresa (multi-tenant) — visível só para msp_admin ──────────
+function OrgSwitcher({ currentUser, availableOrgs, currentOrgId, switchOrg, createOrganizationAction }) {
+  const [open, setOpen]         = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [form, setForm]         = useState({ name: '', slug: '', ticket_prefix: '' })
+  const [busy, setBusy]         = useState(false)
+  const [error, setError]       = useState('')
+
+  const activeId   = String(currentOrgId || currentUser.organizationId || '')
+  const activeOrg  = availableOrgs.find(o => String(o.id) === activeId)
+  const activeName = activeOrg?.name || 'Empresa'
+
+  const inputStyle = { width: '100%', marginBottom: 6, padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--bg)', color: 'var(--text)' }
+
+  function onNameChange(name) {
+    const slug = name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+    const prefix = name.replace(/[^a-zA-Z]/g, '').toUpperCase().slice(0, 3)
+    setForm({ name, slug, ticket_prefix: prefix })
+  }
+
+  async function submitCreate() {
+    if (!form.name.trim() || !form.slug.trim() || form.ticket_prefix.length < 2) {
+      setError('Preencha nome, slug e prefixo (mín. 2 letras).'); return
+    }
+    setBusy(true); setError('')
+    try {
+      const org = await createOrganizationAction({
+        name: form.name.trim(), slug: form.slug.trim(), ticket_prefix: form.ticket_prefix.toUpperCase(),
+      })
+      setCreating(false); setOpen(false)
+      setForm({ name: '', slug: '', ticket_prefix: '' })
+      await switchOrg(org.id)  // entra direto na empresa recém-criada
+    } catch (e) {
+      setError(e?.message || 'Erro ao criar empresa.')
+    } finally { setBusy(false) }
+  }
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <button className="btn btn-secondary btn-sm" onClick={() => setOpen(o => !o)} title="Trocar de empresa">
+        🏢 <span className="hide-mobile">{activeName}</span> ▾
+      </button>
+      {open && (
+        <>
+          <div onClick={() => { setOpen(false); setCreating(false) }} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
+          <div className="dropdown" style={{ top: '110%', right: 0, minWidth: 250, zIndex: 50 }}>
+            {!creating ? (
+              <>
+                <div style={{ fontSize: 11, color: 'var(--text2)', padding: '6px 10px', textTransform: 'uppercase', letterSpacing: 0.5 }}>Empresas</div>
+                {availableOrgs.map(o => (
+                  <div key={o.id} className="dropdown-item"
+                    onClick={() => { setOpen(false); if (String(o.id) !== activeId) switchOrg(o.id) }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: String(o.id) === activeId ? 700 : 400 }}>
+                    <span style={{ width: 14 }}>{String(o.id) === activeId ? '✓' : ''}</span>
+                    <span style={{ flex: 1 }}>{o.name}</span>
+                    <span style={{ fontSize: 10, color: 'var(--text2)' }}>{o.ticket_prefix}</span>
+                  </div>
+                ))}
+                <div style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }} />
+                <div className="dropdown-item" onClick={() => setCreating(true)} style={{ color: 'var(--accent)', fontWeight: 600 }}>
+                  ＋ Nova empresa
+                </div>
+              </>
+            ) : (
+              <div style={{ padding: 10, minWidth: 250 }}>
+                <div style={{ fontWeight: 700, marginBottom: 8, fontSize: 13 }}>Nova empresa</div>
+                <input placeholder="Nome da empresa" value={form.name} onChange={e => onNameChange(e.target.value)} style={inputStyle} />
+                <input placeholder="slug (url)" value={form.slug} onChange={e => setForm(f => ({ ...f, slug: e.target.value }))} style={{ ...inputStyle, fontSize: 12 }} />
+                <input placeholder="Prefixo do ticket (ex: DAT)" value={form.ticket_prefix} maxLength={10}
+                  onChange={e => setForm(f => ({ ...f, ticket_prefix: e.target.value.toUpperCase() }))} style={inputStyle} />
+                {error && <div style={{ color: 'var(--danger)', fontSize: 11, marginBottom: 6 }}>{error}</div>}
+                <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                  <button className="btn btn-secondary btn-sm" onClick={() => { setCreating(false); setError('') }}>Cancelar</button>
+                  <button className="btn btn-primary btn-sm" disabled={busy} onClick={submitCreate}>{busy ? '…' : 'Criar'}</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 export function Topbar() {
   const {
     currentUser, setCurrentUser, lang, setLang, theme, setTheme,
@@ -102,6 +187,7 @@ export function Topbar() {
     tickets, articles, users, sidebar, setSidebar,
     markReadAction, markAllReadAction,
     setScreen, setSelectedTicket,
+    availableOrgs, currentOrgId, switchOrg, createOrganizationAction,
   } = useApp()
   const t = lang === 'pt' ? PT : EN
   const [showNotif, setShowNotif] = useState(false)
@@ -168,6 +254,16 @@ export function Topbar() {
       </div>
 
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
+        {/* Seletor de empresa (multi-tenant) — só msp_admin */}
+        {currentUser.role === 'msp_admin' && (
+          <OrgSwitcher
+            currentUser={currentUser}
+            availableOrgs={availableOrgs}
+            currentOrgId={currentOrgId}
+            switchOrg={switchOrg}
+            createOrganizationAction={createOrganizationAction}
+          />
+        )}
         {/* Indicador de conexão com a API */}
         <div
           title="Conectado ao Rails API"
