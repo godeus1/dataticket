@@ -198,7 +198,7 @@ function AppInner() {
 
   if (!currentUser) return <LoginScreen />
 
-  const p = PERM[currentUser.role]
+  const p = PERM[currentUser.role] || PERM.user  // fallback defensivo: papel desconhecido nunca quebra o app
 
   function renderScreen() {
     // Redirect user role away from dashboard → ticket list (backend filters to their own tickets)

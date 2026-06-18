@@ -16,7 +16,7 @@ export const PT = {
   notifications:'Notificações', markAllRead:'Marcar todas como lidas',
   day:'Dia', week:'Semana', month:'Mês', year:'Ano',
   total:'Total', hours:'Horas', effort:'Esforço', available:'Disponível',
-  admin:'Administrador', analyst:'Analista', user:'Usuário',
+  admin:'Administrador', analyst:'Analista', user:'Usuário', manager:'Gestor', msp_admin:'Super Admin',
   welcome:'Bem-vindo ao', forgotPassword:'Esqueci minha senha',
   triageBtn:'Triar Ticket', closeTicket:'Fechar Ticket', reopenTicket:'Reabrir Ticket',
   assignTo:'Atribuir a', history:'Histórico', attachments:'Anexos',
@@ -49,7 +49,7 @@ export const EN = {
   notifications:'Notifications', markAllRead:'Mark all as read',
   day:'Day', week:'Week', month:'Month', year:'Year',
   total:'Total', hours:'Hours', effort:'Effort', available:'Available',
-  admin:'Administrator', analyst:'Analyst', user:'User',
+  admin:'Administrator', analyst:'Analyst', user:'User', manager:'Manager', msp_admin:'Super Admin',
   welcome:'Welcome to', forgotPassword:'Forgot password',
   triageBtn:'Triage Ticket', closeTicket:'Close Ticket', reopenTicket:'Reopen Ticket',
   assignTo:'Assign to', history:'History', attachments:'Attachments',
@@ -67,6 +67,8 @@ export const EN = {
 
 // ── Permissions ──────────────────────────────────────────────────────────
 export const PERM = {
+  // msp_admin: super admin multi-empresa — mesmos poderes do admin + troca de empresa
+  msp_admin:{ createTicket:true,  editTicket:true,  deleteTicket:true,  reassign:true,  closeTicket:true,  reopenTicket:true,  comment:true, internalComment:true,  calendar:true,  allTickets:true,  reports:true,  settings:true,  triage:true,  logEffort:true,  trash:true  },
   // admin: tudo + exclusão + configurações de sistema
   admin:    { createTicket:true,  editTicket:true,  deleteTicket:true,  reassign:true,  closeTicket:true,  reopenTicket:true,  comment:true, internalComment:true,  calendar:true,  allTickets:true,  reports:true,  settings:true,  triage:true,  logEffort:true,  trash:true  },
   // manager: visão total, tria, muda status, sem config de admin
