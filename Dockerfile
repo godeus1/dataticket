@@ -64,10 +64,11 @@ RUN chmod +x bin/* && \
 ARG BUILD_DATE
 FROM base
 
-# Run and own only the runtime files as a non-root user for security
+# Cria o usuário rails (uid 1000). O container INICIA como root para que o
+# entrypoint possa ajustar a permissão do volume de anexos (montado pelo Railway
+# como root) e então DROPAR privilégios para o usuário rails ao iniciar o app.
 RUN groupadd --system --gid 1000 rails && \
     useradd rails --uid 1000 --gid 1000 --create-home --shell /bin/bash
-USER 1000:1000
 
 # Copy built artifacts: gems, application
 COPY --chown=rails:rails --from=build "${BUNDLE_PATH}" "${BUNDLE_PATH}"

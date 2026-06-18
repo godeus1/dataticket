@@ -1,5 +1,14 @@
 #!/bin/bash -e
 
+# O container inicia como ROOT para poder ajustar a permissão do volume de
+# anexos (o Railway monta o volume como root:root, e o app roda como uid 1000).
+# Sem isso, a criação de /data/attachments/tickets falha com EACCES e TODO
+# upload de anexo retorna 500.
+STORAGE="${STORAGE_PATH:-/data/attachments}"
+if [ -d "$STORAGE" ] || mkdir -p "$STORAGE" 2>/dev/null; then
+  chown -R 1000:1000 "$STORAGE" 2>/dev/null || true
+fi
+
 # Prepara o banco apenas quando for chamada DIRETA ao rails server ou thrust
 # (i.e., sem passar por bin/start, que já cuida do db:prepare).
 # Condição usa grep para ser compatível tanto com:
@@ -10,4 +19,12 @@ if echo "$*" | grep -qE "rails[[:space:]]+server|thrust"; then
   ./bin/rails db:prepare
 fi
 
-exec "${@}"
+# Dropa privilégios para o usuário rails (uid/gid 1000) antes de executar o app.
+# setpriv faz parte do util-linux (presente na imagem Debian). Fallback: se não
+# existir, executa como root — menos seguro, mas garante que o app suba e que o
+# volume seja gravável.
+if command -v setpriv >/dev/null 2>&1; then
+  exec setpriv --reuid=1000 --regid=1000 --init-groups "${@}"
+else
+  exec "${@}"
+fi
