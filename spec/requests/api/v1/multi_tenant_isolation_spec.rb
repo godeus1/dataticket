@@ -93,4 +93,40 @@ RSpec.describe "Isolamento multi-tenant", type: :request do
       expect(response).to have_http_status(:not_found)
     end
   end
+
+  describe "isolamento de usuários" do
+    let!(:user_a) { create(:user, organization: org_a) }
+    let!(:user_b) { create(:user, organization: org_b) }
+
+    it "admin de A lista apenas usuários de A" do
+      get "/api/v1/users", headers: headers_for(admin_a)
+      emails = JSON.parse(response.body).map { |u| u["email"] }
+      expect(emails).to include(user_a.email)
+      expect(emails).not_to include(user_b.email)
+    end
+
+    it "msp_admin trocando para B lista apenas usuários de B" do
+      get "/api/v1/users", headers: headers_for(msp, org_id: org_b.id)
+      emails = JSON.parse(response.body).map { |u| u["email"] }
+      expect(emails).to include(user_b.email)
+      expect(emails).not_to include(user_a.email)
+    end
+  end
+
+  describe "isolamento no acesso direto a um ticket (show)" do
+    it "admin de A não acessa o ticket da empresa B (404)" do
+      get "/api/v1/tickets/#{ticket_b.id}", headers: headers_for(admin_a)
+      expect(response).to have_http_status(:not_found)
+    end
+
+    it "msp_admin sem trocar de empresa não acessa ticket de B pela home A (404)" do
+      get "/api/v1/tickets/#{ticket_b.id}", headers: headers_for(msp)
+      expect(response).to have_http_status(:not_found)
+    end
+
+    it "msp_admin trocando para B acessa o ticket de B" do
+      get "/api/v1/tickets/#{ticket_b.id}", headers: headers_for(msp, org_id: org_b.id)
+      expect(response).to have_http_status(:ok)
+    end
+  end
 end

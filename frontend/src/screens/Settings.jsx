@@ -885,3 +885,77 @@ export function MyProfile() {
     </div>
   )
 }
+
+// ── Empresas (multi-tenant — visível só para msp_admin) ─────────────────────
+export function SettingsCompanies() {
+  const { currentUser, availableOrgs, currentOrgId, switchOrg, createOrganizationAction, showToast } = useApp()
+  const [creating, setCreating] = useState(false)
+  const [form, setForm]         = useState({ name: '', slug: '', ticket_prefix: '' })
+  const [busy, setBusy]         = useState(false)
+  const [error, setError]       = useState('')
+
+  const activeId = String(currentOrgId || currentUser.organizationId || '')
+  const inp = { width: '100%', marginBottom: 8, padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--bg)', color: 'var(--text)' }
+
+  function onName(name) {
+    const slug = name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+    const prefix = name.replace(/[^a-zA-Z]/g, '').toUpperCase().slice(0, 3)
+    setForm({ name, slug, ticket_prefix: prefix })
+  }
+
+  async function create() {
+    if (!form.name.trim() || !form.slug.trim() || form.ticket_prefix.length < 2) {
+      setError('Preencha nome, slug e prefixo (mín. 2 letras).'); return
+    }
+    setBusy(true); setError('')
+    try {
+      await createOrganizationAction({ name: form.name.trim(), slug: form.slug.trim(), ticket_prefix: form.ticket_prefix.toUpperCase() })
+      setForm({ name: '', slug: '', ticket_prefix: '' }); setCreating(false)
+      showToast('Empresa criada!')
+    } catch (e) { setError(e?.message || 'Erro ao criar empresa.') } finally { setBusy(false) }
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+        <h2 style={{ fontWeight: 700, fontSize: 20 }}>🏢 Empresas</h2>
+        <button className="btn btn-primary" onClick={() => setCreating(c => !c)}>＋ Nova empresa</button>
+      </div>
+
+      {creating && (
+        <div className="card" style={{ marginBottom: 16, maxWidth: 460 }}>
+          <div style={{ fontWeight: 600, marginBottom: 10 }}>Nova empresa</div>
+          <input placeholder="Nome da empresa" value={form.name} onChange={e => onName(e.target.value)} style={inp} />
+          <input placeholder="slug (identificador na url)" value={form.slug} onChange={e => setForm(f => ({ ...f, slug: e.target.value }))} style={inp} />
+          <input placeholder="Prefixo do ticket (ex: DAT)" maxLength={10} value={form.ticket_prefix} onChange={e => setForm(f => ({ ...f, ticket_prefix: e.target.value.toUpperCase() }))} style={inp} />
+          {error && <div style={{ color: 'var(--danger)', fontSize: 12, marginBottom: 8 }}>{error}</div>}
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button className="btn btn-secondary" onClick={() => { setCreating(false); setError('') }}>Cancelar</button>
+            <button className="btn btn-primary" disabled={busy} onClick={create}>{busy ? '…' : 'Criar empresa'}</button>
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 }}>
+        {availableOrgs.map(o => {
+          const active = String(o.id) === activeId
+          return (
+            <div key={o.id} className="card" style={{ borderLeft: `3px solid ${active ? 'var(--accent)' : 'var(--border)'}` }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                <span style={{ fontWeight: 700, fontSize: 15 }}>{o.name}</span>
+                {active && <span style={{ fontSize: 10, background: 'var(--accent)', color: '#fff', padding: '1px 7px', borderRadius: 10 }}>atual</span>}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 12 }}>
+                Prefixo <strong>{o.ticket_prefix}</strong> · {o.timezone}
+              </div>
+              {active
+                ? <span style={{ fontSize: 12, color: 'var(--text2)' }}>Configure em ⚙️ Config. Sistema</span>
+                : <button className="btn btn-secondary btn-sm" onClick={() => switchOrg(o.id)}>Entrar nesta empresa</button>}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
