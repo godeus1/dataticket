@@ -6,14 +6,22 @@ module Api
         include ActionController::DataStreaming
 
         before_action :set_ticket
-        before_action :set_attachment, only: %i[destroy download]
+        before_action :set_attachment, only: %i[destroy download restore]
 
         MAX_SIZE  = 5.megabytes
         MAX_COUNT = 3
 
         def index
           authorize TicketAttachment
-          attachments = @ticket.ticket_attachments.includes(:user).order(created_at: :asc)
+          attachments = @ticket.ticket_attachments.active.includes(:user).order(created_at: :asc)
+          render json: TicketAttachmentBlueprint.render_as_hash(attachments)
+        end
+
+        # GET /api/v1/tickets/:ticket_id/attachments/trash — anexos na lixeira (gestor)
+        def trash
+          authorize TicketAttachment, :trash?
+          attachments = @ticket.ticket_attachments.trashed
+                               .includes(:user, :deleted_by).order(deleted_at: :desc)
           render json: TicketAttachmentBlueprint.render_as_hash(attachments)
         end
 
@@ -23,7 +31,7 @@ module Api
           file = params[:file]
           return render json: { error: "Arquivo não enviado" }, status: :unprocessable_entity unless file.present?
           return render json: { error: "Arquivo excede o limite de 5 MB" }, status: :unprocessable_entity if file.size > MAX_SIZE
-          return render json: { error: "Limite de #{MAX_COUNT} anexos por ticket atingido" }, status: :unprocessable_entity if @ticket.ticket_attachments.count >= MAX_COUNT
+          return render json: { error: "Limite de #{MAX_COUNT} anexos por ticket atingido" }, status: :unprocessable_entity if @ticket.ticket_attachments.active.count >= MAX_COUNT
 
           # Comprime imagens antes do upload
           compressed = AttachmentCompressor.compress(
@@ -53,6 +61,7 @@ module Api
         # GET /api/v1/tickets/:ticket_id/attachments/:id/download
         def download
           authorize @attachment, :show?
+          return render json: { error: "Anexo na lixeira" }, status: :not_found if @attachment.deleted?
 
           if S3Uploader.enabled?
             url = S3Uploader.presigned_url(@attachment.storage_key)
@@ -81,11 +90,19 @@ module Api
           end
         end
 
+        # Move o anexo para a lixeira (soft delete). O arquivo é preservado para
+        # restauração em até 30 dias. Somente gestor/admin (policy destroy?).
         def destroy
           authorize @attachment
-          S3Uploader.delete(@attachment.storage_key)
-          @attachment.destroy!
+          @attachment.soft_delete!(current_user)
           head :no_content
+        end
+
+        # PATCH /api/v1/tickets/:ticket_id/attachments/:id/restore — restaura da lixeira
+        def restore
+          authorize @attachment, :restore?
+          @attachment.restore!
+          render json: TicketAttachmentBlueprint.render_as_hash(@attachment)
         end
 
         private

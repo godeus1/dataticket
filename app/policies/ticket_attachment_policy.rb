@@ -4,8 +4,10 @@ class TicketAttachmentPolicy < ApplicationPolicy
   def show?    = true   # download
   def create?  = true
 
-  # Pode apagar: admin, manager ou o próprio autor
-  def destroy? = admin_or_manager? || record.user_id == user.id
+  # Mover para a lixeira e restaurar: somente gestor (manager) e admin/msp_admin.
+  def destroy? = admin_or_manager?
+  def restore? = admin_or_manager?
+  def trash?   = admin_or_manager?
 
   class Scope < ApplicationPolicy::Scope
     def resolve

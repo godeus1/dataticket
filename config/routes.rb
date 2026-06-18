@@ -46,7 +46,11 @@ Rails.application.routes.draw do
           member     { patch :stop }
         end
         resources :attachments,    only: %i[index create destroy], module: :tickets do
-          member { get :download }
+          member do
+            get   :download
+            patch :restore
+          end
+          collection { get :trash }
         end
         collection do
           post :bulk_triage

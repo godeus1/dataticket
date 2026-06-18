@@ -857,8 +857,11 @@ export function TicketDetail() {
   const [addingAtt, setAddingAtt] = useState(false)
   const [attUploadError, setAttUploadError] = useState(null)
   const [localAttachments, setLocalAttachments] = useState(null) // null = not loaded yet
+  const [trashedAtts, setTrashedAtts] = useState([])             // anexos na lixeira (só gestor)
   const ATT_MAX_COUNT = 3
   const ATT_MAX_SIZE  = 5 * 1024 * 1024 // 5 MB
+  // Mover anexo para a lixeira / restaurar: somente gestor (manager) e admin/msp_admin
+  const canManageAtt  = ['admin', 'manager', 'msp_admin'].includes(currentUser.role)
   const [openingDateEdit, setOpeningDateEdit] = useState(null)   // admin: data de abertura editada
   const [titleEdit,       setTitleEdit]       = useState(null)   // admin/manager: título editado
   const [descEdit,        setDescEdit]        = useState(null)   // admin/manager: descrição editada
@@ -960,6 +963,11 @@ export function TicketDetail() {
     api.attachments(tk.id)
       .then(data => setLocalAttachments((data ?? []).map(mapAttachment)))
       .catch(() => setLocalAttachments(tk.attachments ?? []))
+    if (canManageAtt) {
+      api.trashedAttachments(tk.id)
+        .then(data => setTrashedAtts((data ?? []).map(mapAttachment)))
+        .catch(() => setTrashedAtts([]))
+    }
   }, [tk?.id])
 
   const p = PERM[currentUser.role] || PERM.user
@@ -1594,15 +1602,18 @@ export function TicketDetail() {
                     onClick={() => api.downloadAttachment(tk.id, att.id, att.name).catch(e => alert(`Erro no download: ${e.message}`))}>
                     ⬇ Baixar
                   </button>
-                  {p.deleteTicket && (
+                  {canManageAtt && (
                     <button className="btn btn-danger btn-sm" style={{ flexShrink: 0, padding: '2px 6px' }}
+                      title="Mover para a lixeira"
                       onClick={async () => {
-                        if (!confirm(`Remover "${att.name}"?`)) return
+                        if (!confirm(`Mover "${att.name}" para a lixeira? Poderá ser restaurado em até 30 dias.`)) return
                         try {
                           await api.deleteAttachment(tk.id, att.id)
                           setLocalAttachments(prev => prev.filter(a => a.id !== att.id))
-                        } catch (e) { alert(`Erro ao remover: ${e.message}`) }
-                      }}>✕</button>
+                          api.trashedAttachments(tk.id).then(d => setTrashedAtts((d ?? []).map(mapAttachment))).catch(() => {})
+                          showToast('Anexo movido para a lixeira.')
+                        } catch (e) { alert(`Erro: ${e.message}`) }
+                      }}>🗑</button>
                   )}
                 </div>
               ))}
@@ -1653,6 +1664,36 @@ export function TicketDetail() {
                       ⚠ {attUploadError}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Lixeira de anexos (só gestor) — restaurável em até 30 dias */}
+              {canManageAtt && trashedAtts.length > 0 && (
+                <div style={{ marginTop: 14, paddingTop: 10, borderTop: '1px dashed var(--border)' }}>
+                  <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 12, color: 'var(--text2)' }}>🗑 Lixeira de anexos</div>
+                  {trashedAtts.map(att => {
+                    const daysLeft = att.restorableUntil
+                      ? Math.max(0, Math.ceil((new Date(att.restorableUntil) - new Date()) / 86400000))
+                      : null
+                    return (
+                      <div key={att.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid var(--border)', fontSize: 12 }}>
+                        <span style={{ opacity: 0.6 }}>📄</span>
+                        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: 'line-through', color: 'var(--text2)' }}>{att.name}</span>
+                        {daysLeft != null && (
+                          <span style={{ fontSize: 11, color: daysLeft <= 5 ? 'var(--danger)' : 'var(--text2)', flexShrink: 0 }}>{daysLeft}d p/ restaurar</span>
+                        )}
+                        <button className="btn btn-secondary btn-sm" style={{ flexShrink: 0 }}
+                          onClick={async () => {
+                            try {
+                              await api.restoreAttachment(tk.id, att.id)
+                              setTrashedAtts(prev => prev.filter(a => a.id !== att.id))
+                              api.attachments(tk.id).then(d => setLocalAttachments((d ?? []).map(mapAttachment))).catch(() => {})
+                              showToast('Anexo restaurado.')
+                            } catch (e) { alert(`Erro ao restaurar: ${e.message}`) }
+                          }}>↩ Restaurar</button>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </div>

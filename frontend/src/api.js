@@ -180,6 +180,10 @@ export const api = {
 
   deleteAttachment: (ticketId, attId) =>
     req(`/tickets/${ticketId}/attachments/${attId}`, { method: 'DELETE' }),
+  trashedAttachments: (ticketId) =>
+    req(`/tickets/${ticketId}/attachments/trash`),
+  restoreAttachment: (ticketId, attId) =>
+    req(`/tickets/${ticketId}/attachments/${attId}/restore`, { method: 'PATCH' }),
 
   downloadAttachment: async (ticketId, attId, filename) => {
     const token = getToken()

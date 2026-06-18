@@ -4,6 +4,11 @@ class TicketAttachmentBlueprint < Blueprinter::Base
 
   association :user, blueprint: UserBlueprint, view: :summary
 
+  # Campos de lixeira (nulos para anexos ativos)
+  field :deleted_at
+  field :restorable_until, &:restorable_until
+  association :deleted_by, blueprint: UserBlueprint, view: :summary, if: ->(_f, att, _o) { att.deleted_by.present? }
+
   # URL de download autenticada via endpoint da API.
   # O frontend usa fetch autenticado para baixar o arquivo.
   field :download_url do |attachment|

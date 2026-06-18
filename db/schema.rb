@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_17_150000) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_18_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -375,11 +375,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_17_150000) do
     t.integer "byte_size"
     t.string "content_type"
     t.datetime "created_at", null: false
+    t.datetime "deleted_at"
+    t.bigint "deleted_by_id"
     t.string "filename", null: false
     t.string "storage_key"
     t.string "ticket_id", null: false
     t.datetime "updated_at", null: false
     t.bigint "user_id", null: false
+    t.index ["deleted_by_id"], name: "index_ticket_attachments_on_deleted_by_id"
+    t.index ["ticket_id", "deleted_at"], name: "index_ticket_attachments_on_ticket_id_and_deleted_at"
     t.index ["ticket_id"], name: "index_ticket_attachments_on_ticket_id"
     t.index ["user_id"], name: "index_ticket_attachments_on_user_id"
   end
@@ -585,6 +589,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_17_150000) do
   add_foreign_key "ticket_assignees", "users"
   add_foreign_key "ticket_attachments", "tickets"
   add_foreign_key "ticket_attachments", "users"
+  add_foreign_key "ticket_attachments", "users", column: "deleted_by_id"
   add_foreign_key "ticket_comments", "tickets"
   add_foreign_key "ticket_comments", "users"
   add_foreign_key "ticket_counters", "organizations"

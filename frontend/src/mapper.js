@@ -58,6 +58,9 @@ export function mapAttachment(a) {
     url:      a.download_url ?? a.url   ?? null,
     size:     a.byte_size ?? a.file_size ?? a.size ?? 0,
     type:     a.content_type ?? a.type  ?? '',
+    deletedAt:        a.deleted_at ?? null,
+    restorableUntil:  a.restorable_until ?? null,
+    deletedBy:        a.deleted_by ? `${a.deleted_by.first_name ?? ''} ${a.deleted_by.last_name ?? ''}`.trim() : null,
   }
 }
 
