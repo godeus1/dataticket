@@ -30,6 +30,7 @@ const SCREEN_TO_PATH = {
   'settings-audit':        '/log-de-auditoria',
   'settings-system':       '/config-sistema',
   'settings-trash':        '/lixeira',
+  'settings-companies':    '/empresas',
   'profile':               '/perfil',
 }
 
@@ -52,6 +53,7 @@ function pathToScreen(pathname) {
     '/log-de-auditoria':          'settings-audit',
     '/config-sistema':            'settings-system',
     '/lixeira':                   'settings-trash',
+    '/empresas':                  'settings-companies',
     '/perfil':                    'profile',
   }
   return MAP[pathname] ?? 'dashboard'
@@ -226,6 +228,18 @@ export function AppProvider({ children }) {
     restore(1)
     return () => { cancelled = true }
   }, [loadData])
+
+  // ── Carrega a lista de empresas do seletor de forma INDEPENDENTE ─────────
+  // Não fica acoplada ao loadData (onde um mapper que falhe poderia pular a
+  // etapa). Sempre que houver usuário logado, busca /organizations direto.
+  useEffect(() => {
+    if (!currentUserState) { setAvailableOrgs([]); return }
+    let cancelled = false
+    api.organizations()
+      .then(orgs => { if (!cancelled) setAvailableOrgs(Array.isArray(orgs) ? orgs : []) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [currentUserState])
 
   // ── Sync currentUser when users list changes ──────────────────────────
   useEffect(() => {
