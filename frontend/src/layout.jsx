@@ -7,7 +7,7 @@ import { Avatar } from './components.jsx'
 export function Sidebar({ screen, setScreen }) {
   const { currentUser, lang, notifications, sidebar, setSidebar } = useApp()
   const t = lang === 'pt' ? PT : EN
-  const p = PERM[currentUser.role]
+  const p = PERM[currentUser.role] || PERM.user  // fallback defensivo: papel desconhecido não quebra a sidebar
   const collapsed = sidebar === 'collapsed'
 
   const items = [

@@ -222,8 +222,8 @@ export function SettingsProfiles() {
             <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 14 }}>{r.desc}</div>
             {Object.keys(PERM.admin).map(k => (
               <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, marginBottom: 6 }}>
-                <span style={{ color: PERM[r.key][k] ? 'var(--success)' : 'var(--border)', fontSize: 15, flexShrink: 0 }}>{PERM[r.key][k] ? '✓' : '✗'}</span>
-                <span style={{ color: PERM[r.key][k] ? 'var(--text)' : 'var(--text2)' }}>{permLabels[k] || k}</span>
+                <span style={{ color: (PERM[r.key] || {})[k] ? 'var(--success)' : 'var(--border)', fontSize: 15, flexShrink: 0 }}>{(PERM[r.key] || {})[k] ? '✓' : '✗'}</span>
+                <span style={{ color: (PERM[r.key] || {})[k] ? 'var(--text)' : 'var(--text2)' }}>{permLabels[k] || k}</span>
               </div>
             ))}
           </div>

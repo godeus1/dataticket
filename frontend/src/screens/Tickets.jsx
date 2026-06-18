@@ -61,7 +61,7 @@ function persistViews(uid, views) {
 export function TicketList() {
   const { currentUser, lang, tickets, priorities, categories, users, queues, setScreen, setSelectedTicket, triageAction, showToast } = useApp()
   const t = lang === 'pt' ? PT : EN
-  const p = PERM[currentUser.role]
+  const p = PERM[currentUser.role] || PERM.user
   const canUseViews = currentUser.role !== 'user'
 
   const [search, setSearch] = useState('')
@@ -962,7 +962,7 @@ export function TicketDetail() {
       .catch(() => setLocalAttachments(tk.attachments ?? []))
   }, [tk?.id])
 
-  const p = PERM[currentUser.role]
+  const p = PERM[currentUser.role] || PERM.user
 
   if (!tk) return <EmptyState icon="🎫" title="Ticket não encontrado" desc="O ticket pode ter sido removido." />
 

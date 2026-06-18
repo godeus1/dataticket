@@ -146,7 +146,7 @@ export function CalendarView() {
         const creq = users.find(u => u.id === ctk.requesterId)
         const cassignee = users.find(u => u.id === ctk.assigneeId)
         const cexpired = ctk.deadline && new Date(ctk.deadline) < new Date() && !['Resolvido', 'Fechado'].includes(ctk.status)
-        const cp = PERM[currentUser.role]
+        const cp = PERM[currentUser.role] || PERM.user
         return (
           <ModalOverlay onClose={() => setCalTicketId(null)}>
             <div className="modal" style={{ maxWidth: 560 }}>
@@ -238,7 +238,7 @@ export function KnowledgeBase() {
   const [selected, setSelected] = useState(null)
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ name: '', categoryId: '', description: '', keywords: '' })
-  const p = PERM[currentUser.role]
+  const p = PERM[currentUser.role] || PERM.user
   const canManage = p.settings || currentUser.role === 'analyst'
 
   const filtered = articles.filter(a =>
