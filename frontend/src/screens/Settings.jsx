@@ -53,6 +53,9 @@ export function SettingsUsers() {
     setSavingPw(true)
     try {
       if (editUser) {
+        if (form.newPassword && form.newPassword.length < 12) {
+          alert('A nova senha deve ter pelo menos 12 caracteres (regra de segurança válida para todas as empresas).'); return
+        }
         const data = {
           first_name:           form.firstName,
           last_name:            form.lastName,
@@ -67,6 +70,7 @@ export function SettingsUsers() {
         showToast('Usuário atualizado com sucesso!')
       } else {
         if (!form.password) { alert('Defina uma senha para o novo usuário.'); return }
+        if (form.password.length < 12) { alert('A senha inicial deve ter pelo menos 12 caracteres (regra de segurança válida para todas as empresas).'); return }
         const av = (form.firstName[0] || '') + (form.lastName[0] || '')
         const colors = ['#2383e2', '#7c3aed', '#059669', '#d97706', '#e53e3e', '#0891b2']
         const data = {
@@ -178,8 +182,13 @@ export function SettingsUsers() {
                   <option value="user">{t.user}</option>
                 </select>
               </div>
-              <div><label className="label">Horas disponíveis/dia</label><input className="input" type="number" value={form.availableHours} onChange={e => setForm(f => ({ ...f, availableHours: Number(e.target.value) }))} /></div>
-              <div><label className="label">Máx. horas/ticket/dia</label><input className="input" type="number" value={form.maxHoursPerTicket} onChange={e => setForm(f => ({ ...f, maxHoursPerTicket: Number(e.target.value) }))} /></div>
+              {/* Horas só fazem sentido para a equipe (admin/gestor/analista) — o perfil Usuário não atende tickets */}
+              {form.role !== 'user' && (
+                <>
+                  <div><label className="label">Horas disponíveis/dia</label><input className="input" type="number" value={form.availableHours} onChange={e => setForm(f => ({ ...f, availableHours: Number(e.target.value) }))} /></div>
+                  <div><label className="label">Máx. horas/ticket/dia</label><input className="input" type="number" value={form.maxHoursPerTicket} onChange={e => setForm(f => ({ ...f, maxHoursPerTicket: Number(e.target.value) }))} /></div>
+                </>
+              )}
               {!editUser && (
                 <div style={{ gridColumn: '1/-1' }}>
                   <label className="label">Senha inicial *</label>

@@ -29,6 +29,12 @@ class User < ApplicationRecord
   validates :available_hours,      numericality: { greater_than: 0, less_than_or_equal_to: 24 }
   validates :max_hours_per_ticket, numericality: { greater_than: 0 }
 
+  # Regra de segurança GLOBAL (vale para todas as empresas): senha mínima de 12
+  # caracteres. Validada sempre que uma senha está sendo definida/alterada.
+  PASSWORD_MIN_LENGTH = 12
+  validates :password, length: { minimum: PASSWORD_MIN_LENGTH, message: "deve ter pelo menos #{PASSWORD_MIN_LENGTH} caracteres" },
+            if: -> { password.present? }
+
   before_validation :normalize_email
   before_create     :generate_jti
 
