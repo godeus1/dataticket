@@ -4,7 +4,8 @@ class TicketBlueprint < Blueprinter::Base
   # Summary view — used in index
   view :summary do
     fields :id, :title, :status, :ticket_type, :escalated, :created_at, :deadline, :resolved_at,
-           :priority_id, :category_id, :queue_id, :effort_estimated, :effort_used, :triaged
+           :priority_id, :category_id, :queue_id, :effort_estimated, :effort_used, :triaged,
+           :csat_score
 
     association :requester, blueprint: UserBlueprint, view: :summary
     association :assignee,  blueprint: UserBlueprint, view: :summary

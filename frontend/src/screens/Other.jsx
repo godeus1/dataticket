@@ -265,6 +265,7 @@ export function KnowledgeBase() {
     setEditingId(null); setForm(EMPTY_KB_FORM); setPendingFiles([]); setFormErr(''); setShowForm(true)
   }
   function openEdit(art) {
+    setSelected(null)   // sai da visão de detalhe p/ o modal (renderizado na lista) aparecer na hora
     setEditingId(art.id)
     setForm({ name: art.name, categoryId: art.categoryId || '', description: art.description, keywords: art.keywords })
     setPendingFiles([]); setFormErr(''); setShowForm(true)

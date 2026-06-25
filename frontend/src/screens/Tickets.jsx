@@ -1283,6 +1283,14 @@ export function TicketDetail() {
             <Badge status={tk.status} />
             {pri && <PriBadge priority={pri} />}
             {expired && <span style={{ background: '#fef2f2', color: 'var(--danger)', padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600 }}>⚠ {t.slaExpired}</span>}
+            {tk.csatScore != null && (
+              <span
+                title={tk.csatComment || 'Avaliação de satisfação'}
+                style={{ background: '#fce7f3', color: '#be185d', padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600 }}
+              >
+                ⭐ NPS: {tk.csatScore}/5
+              </span>
+            )}
           </div>
           {canEditHeader ? (
             <input
@@ -1452,6 +1460,9 @@ export function TicketDetail() {
                             <strong style={{ fontSize: 13 }}>{authorName}</strong>
                             {c.authorEmail && (
                               <span style={{ fontSize: 11, color: 'var(--text2)' }}>{c.authorEmail}</span>
+                            )}
+                            {c.source === 'email' && (
+                              <span style={{ fontSize: 10, fontWeight: 600, color: '#0369a1', background: '#e0f2fe', padding: '1px 6px', borderRadius: 10 }}>✉️ via e-mail</span>
                             )}
                             <span style={{ fontSize: 11, color: 'var(--text2)', marginLeft: 'auto' }}>{formatDate(c.date)}</span>
                           </div>

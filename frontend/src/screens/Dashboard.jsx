@@ -179,6 +179,9 @@ export default function Dashboard() {
   const metrics = useMemo(() => {
     const effortAllocated = filtered.reduce((a, tk) => a + (tk.effortEstimated || 0), 0)
     const effortUsed      = filtered.reduce((a, tk) => a + (tk.effortUsed      || 0), 0)
+    // NPS = média da nota CSAT (1-5) apenas dos tickets respondidos
+    const answered        = filtered.filter(tk => tk.csatScore != null)
+    const npsAvg          = answered.length ? answered.reduce((a, tk) => a + tk.csatScore, 0) / answered.length : null
     return {
       total:           filtered.length,
       notStarted:      filtered.filter(tk => tk.status === 'Não iniciado').length,
@@ -187,6 +190,8 @@ export default function Dashboard() {
       resolved:        filtered.filter(tk => RESOLVED_STATUSES.includes(tk.status)).length,
       effortAllocated,
       effortAvailable: Math.max(0, effortAllocated - effortUsed),
+      npsAvg,
+      npsCount:        answered.length,
     }
   }, [filtered])
 
@@ -198,6 +203,7 @@ export default function Dashboard() {
     { label: 'Resolvido',          val: metrics.resolved,                    color: '#15803d' },
     { label: 'Esforço alocado',    val: fmtH(metrics.effortAllocated),       color: '#7c3aed' },
     { label: 'Esforço disponível', val: fmtH(metrics.effortAvailable),       color: 'var(--warning)' },
+    { label: 'NPS',                val: metrics.npsAvg != null ? `${metrics.npsAvg.toFixed(1)} (${metrics.npsCount})` : '—', color: '#e11d8f' },
   ]
 
   // ── Gráficos ──────────────────────────────────────────────────────────────
@@ -227,6 +233,8 @@ export default function Dashboard() {
       const uTks            = filtered.filter(tk => tk.assigneeId === u.id)
       const effortAllocated = uTks.reduce((a, tk) => a + (tk.effortEstimated || 0), 0)
       const effortUsed      = uTks.reduce((a, tk) => a + (tk.effortUsed      || 0), 0)
+      const uAnswered       = uTks.filter(tk => tk.csatScore != null)
+      const uNps            = uAnswered.length ? uAnswered.reduce((a, tk) => a + tk.csatScore, 0) / uAnswered.length : null
       return {
         user:           u,
         total:          uTks.length,
@@ -236,6 +244,8 @@ export default function Dashboard() {
         resolved:       uTks.filter(tk => RESOLVED_STATUSES.includes(tk.status)).length,
         effortAllocated,
         effortAvailable: Math.max(0, effortAllocated - effortUsed),
+        npsAvg:         uNps,
+        npsCount:       uAnswered.length,
       }
     }),
     [filtered, analysts]
@@ -347,6 +357,7 @@ export default function Dashboard() {
                   <th style={{ textAlign: 'center' }}>Triado</th>
                   <th style={{ textAlign: 'center' }}>Em andamento</th>
                   <th style={{ textAlign: 'center' }}>Resolvido</th>
+                  <th style={{ textAlign: 'center' }}>NPS</th>
                   <th style={{ textAlign: 'center' }}>Esforço alocado</th>
                   <th style={{ textAlign: 'center' }}>Esforço disponível</th>
                 </tr>
@@ -365,12 +376,13 @@ export default function Dashboard() {
                     <td style={{ textAlign: 'center' }}>{r.triaged}</td>
                     <td style={{ textAlign: 'center' }}>{r.inProgress}</td>
                     <td style={{ textAlign: 'center' }}>{r.resolved}</td>
+                    <td style={{ textAlign: 'center' }}>{r.npsAvg != null ? `${r.npsAvg.toFixed(1)} (${r.npsCount})` : '—'}</td>
                     <td style={{ textAlign: 'center' }}>{fmtH(r.effortAllocated)}</td>
                     <td style={{ textAlign: 'center' }}>{fmtH(r.effortAvailable)}</td>
                   </tr>
                 ))}
                 {analystRows.length === 0 && (
-                  <tr><td colSpan={8} style={{ textAlign: 'center', color: 'var(--text2)', padding: 24 }}>Nenhum analista encontrado</td></tr>
+                  <tr><td colSpan={9} style={{ textAlign: 'center', color: 'var(--text2)', padding: 24 }}>Nenhum analista encontrado</td></tr>
                 )}
               </tbody>
             </table>

@@ -28,10 +28,11 @@ export function mapComment(c) {
     // (que só é carregado para admin/manager).
     authorName:     c.user
                       ? `${c.user.first_name ?? ''} ${c.user.last_name ?? ''}`.trim()
-                      : (c.authorName ?? ''),
+                      : (c.author_name ?? c.authorName ?? 'Desconhecido'),
     authorInitials: c.user?.avatar_initials ?? c.authorInitials ?? '',
     authorColor:    c.user?.avatar_color    ?? c.authorColor    ?? '#6b7280',
-    authorEmail:    c.user?.email           ?? c.authorEmail    ?? '',
+    authorEmail:    c.user?.email           ?? c.author_email   ?? c.authorEmail ?? '',
+    source:         c.source ?? 'app',
     date:           c.created_at ?? c.date ?? new Date().toISOString(),
   }
 }
@@ -85,6 +86,8 @@ export function mapTicket(t) {
     effortUsed:      parseFloat(t.effort_used      ?? t.effortUsed      ?? 0),
     triaged:         t.triaged   ?? false,
     escalated:       t.escalated ?? false,
+    csatScore:       t.csat_score ?? t.csatScore ?? null,
+    csatComment:     t.csat_comment ?? t.csatComment ?? null,
     slaExpired:      t.sla_expired ?? t.slaExpired ?? false,
     tags:            (t.tags         ?? []).map(tag  => ({ id: tag.id, name: tag.name, color: tag.color })),
     comments:        (t.comments     ?? []).map(mapComment),

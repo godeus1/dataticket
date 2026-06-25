@@ -4,6 +4,7 @@ import { PT, EN, PERM } from '../data.js'
 import { Avatar, CatChip, PriBadge, ModalOverlay } from '../components.jsx'
 import { formatDateTime } from '../data.js'
 import { api } from '../api.js'
+import { mapAuditLog } from '../mapper.js'
 
 
 // ── Users ──────────────────────────────────────────────────────────────────
@@ -615,7 +616,7 @@ const AUDIT_TYPE_LABELS = {
 }
 
 export function SettingsAudit() {
-  const { lang, auditLog, users, showToast } = useApp()
+  const { lang, auditLog, setAuditLog, users, showToast } = useApp()
   const t = lang === 'pt' ? PT : EN
   const [filterAction, setFilterAction] = useState('')
   const [filterEntity, setFilterEntity] = useState('')
@@ -629,6 +630,11 @@ export function SettingsAudit() {
 
   useEffect(() => {
     let live = true
+    // Recarrega os logs ao abrir a tela (a lista do login fica desatualizada
+    // conforme novos eventos vão sendo registrados).
+    api.auditLogs().then(rows => {
+      if (live && Array.isArray(rows)) setAuditLog(rows.map(mapAuditLog))
+    }).catch(() => {})
     api.organization().then(o => {
       if (!live) return
       const types = o.audit_types || []
@@ -638,7 +644,7 @@ export function SettingsAudit() {
       setAuditCfg(cfg)
     }).catch(() => {})
     return () => { live = false }
-  }, [])
+  }, [setAuditLog])
 
   async function saveAuditCfg() {
     setSavingCfg(true)

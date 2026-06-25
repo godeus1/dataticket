@@ -27,6 +27,10 @@ production:
     class: TrashCleanupJob
     schedule: "0 3 * * *"        # diariamente às 03:00 UTC — remove tickets na lixeira > 30 dias
 
+  inbound_email_poll:
+    class: InboundEmailPollJob
+    schedule: "*/3 * * * *"      # a cada 3 min — respostas de e-mail viram comentários (requer Mail.Read)
+
 development:
   escalation_check:
     class: EscalationJob

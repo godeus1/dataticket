@@ -11,7 +11,7 @@ module Api
           # Comentários internos visíveis apenas para equipe operacional
           comments = comments.public_only unless current_user.role.in?(%w[admin manager analyst])
           render json: comments.as_json(
-            only: %i[id body kind created_at updated_at],
+            only: %i[id body kind created_at updated_at author_name author_email source],
             include: { user: { only: %i[id first_name last_name email avatar_initials avatar_color] } }
           )
         end
