@@ -31,53 +31,48 @@ class MicrosoftGraphMailReader
     @mailbox       = mailbox
   end
 
-  # Itera sobre as mensagens não lidas. Para cada uma, chama o bloco com um hash
-  # { id:, subject:, from_email:, from_name:, body_text:, received_at: }.
-  # Se o bloco retornar truthy, a mensagem é marcada como lida.
-  def each_unread(limit: 25)
+  # Itera sobre as mensagens RECEBIDAS nos últimos `lookback_minutes`, da mais
+  # nova para a mais antiga, INDEPENDENTE de estarem lidas ou não. Isso evita
+  # depender do estado de leitura de caixas movimentadas (com backlog de não
+  # lidos) e não modifica a caixa (não marca nada como lido). A deduplicação
+  # entre ciclos fica a cargo do chamador (ProcessedInboundEmail).
+  #
+  # Para cada mensagem chama o bloco com:
+  #   { id:, subject:, from_email:, from_name:, body_text:, received_at: }
+  def each_recent(lookback_minutes: 30, limit: 50)
     token = access_token
-    msgs  = fetch_unread(token, limit)
+    msgs  = fetch_recent(token, lookback_minutes, limit)
     msgs.each do |m|
-      parsed = {
+      yield(
         id:          m["id"],
-        subject:     m.dig("subject").to_s,
+        subject:     m["subject"].to_s,
         from_email:  m.dig("from", "emailAddress", "address").to_s.downcase,
         from_name:   m.dig("from", "emailAddress", "name").to_s,
         body_text:   extract_text(m["body"]),
-        received_at: m["receivedDateTime"],
-      }
-      mark_read(token, m["id"]) if yield(parsed)
+        received_at: m["receivedDateTime"]
+      )
     end
     msgs.size
   end
 
   private
 
-  def fetch_unread(token, limit)
+  def fetch_recent(token, lookback_minutes, limit)
+    since = (Time.now.utc - (lookback_minutes * 60)).strftime("%Y-%m-%dT%H:%M:%SZ")
     uri = URI("https://#{GRAPH_HOST}/v1.0/users/#{@mailbox}/mailFolders/inbox/messages")
     uri.query = URI.encode_www_form(
-      "$filter"  => "isRead eq false",
+      "$filter"  => "receivedDateTime ge #{since}",
       "$top"     => limit,
       "$select"  => "id,subject,from,body,receivedDateTime",
-      "$orderby" => "receivedDateTime asc"
+      "$orderby" => "receivedDateTime desc"
     )
     req = Net::HTTP::Get.new(uri)
     req["Authorization"] = "Bearer #{token}"
+    req["Prefer"]        = 'outlook.body-content-type="text"' # corpo já em texto puro
     res = https(uri).request(req)
     raise "Graph mail read error #{res.code}: #{res.body}" unless res.code.to_i.between?(200, 299)
 
     JSON.parse(res.body).fetch("value", [])
-  end
-
-  def mark_read(token, message_id)
-    uri = URI("https://#{GRAPH_HOST}/v1.0/users/#{@mailbox}/messages/#{message_id}")
-    req = Net::HTTP::Patch.new(uri)
-    req["Authorization"] = "Bearer #{token}"
-    req["Content-Type"]  = "application/json"
-    req.body = { isRead: true }.to_json
-    https(uri).request(req)
-  rescue => e
-    Rails.logger.error("[ms_graph_read] falha ao marcar lida #{message_id}: #{e.message}")
   end
 
   # Extrai texto puro do corpo (Graph devolve { contentType:, content: }).

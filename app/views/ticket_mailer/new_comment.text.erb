@@ -4,7 +4,7 @@ Olá, <%= @recipient.first_name %>.
 
 Um novo comentário foi adicionado ao ticket #<%= @ticket.id %> — <%= @ticket.title %>.
 
-Autor: <%= @comment.user.first_name %> <%= @comment.user.last_name %>
+Autor: <%= @comment.display_author %>
 Em: <%= @comment.created_at.strftime("%d/%m/%Y às %H:%M") %>
 
 <%= @comment.body %>

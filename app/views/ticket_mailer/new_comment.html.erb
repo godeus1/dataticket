@@ -3,11 +3,11 @@
 <p>Um novo comentário foi adicionado ao ticket <strong>#<%= @ticket.id %></strong>.</p>
 <table>
   <tr><th>Ticket</th><td>#<%= @ticket.id %> — <%= @ticket.title %></td></tr>
-  <tr><th>Autor</th><td><%= @comment.user.first_name %> <%= @comment.user.last_name %></td></tr>
+  <tr><th>Autor</th><td><%= @comment.display_author %></td></tr>
   <tr><th>Em</th><td><%= @comment.created_at.strftime("%d/%m/%Y às %H:%M") %></td></tr>
 </table>
 <% if @comment.body.present? %>
-<div style="margin: 16px 0; padding: 14px 16px; background: #f9fafb; border-left: 3px solid #1e40af; border-radius: 4px; font-size: 14px; color: #374151; white-space: pre-wrap;">
+<div style="margin: 16px 0; padding: 14px 16px; background: #f9fafb; border-left: 3px solid #2383e2; border-radius: 4px; font-size: 14px; color: #374151; white-space: pre-wrap;">
   <%= @comment.body %>
 </div>
 <% end %>

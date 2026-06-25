@@ -26,31 +26,47 @@ class InboundEmailService
     /\[DataTicket\]/i,                         # nosso próprio e-mail citado
   ].freeze
 
-  def self.poll!(limit: 50)
+  def self.poll!(lookback_minutes: 30, limit: 50)
     return 0 unless MicrosoftGraphMailReader.configured? && MicrosoftGraphMailReader.mailbox.present?
 
-    new.poll!(limit: limit)
+    new.poll!(lookback_minutes: lookback_minutes, limit: limit)
   end
 
-  def poll!(limit: 50)
+  def poll!(lookback_minutes: 30, limit: 50)
     mailbox = MicrosoftGraphMailReader.mailbox.downcase
     reader  = MicrosoftGraphMailReader.new
+    processed = 0
 
-    reader.each_unread(limit: limit) do |msg|
-      next false if msg[:from_email].blank? || msg[:from_email] == mailbox # ignora os próprios envios
+    reader.each_recent(lookback_minutes: lookback_minutes, limit: limit) do |msg|
+      next if msg[:id].blank?
+      next if already_processed?(msg[:id])
+      next if msg[:from_email].blank? || msg[:from_email] == mailbox # ignora os próprios envios
 
       ticket = find_ticket(msg[:subject])
-      next false unless ticket # não é resposta a um ticket conhecido → deixa intacta
+      mark_processed(msg[:id]) # registra SEMPRE que examinamos, p/ não reprocessar
+      next unless ticket # não é resposta a um ticket conhecido
 
       create_comment(ticket, msg)
-      true # processado → marca como lida
+      processed += 1
     end
+
+    processed
   rescue => e
     Rails.logger.error("[inbound_email] erro no poll: #{e.class}: #{e.message}")
     0
   end
 
   private
+
+  def already_processed?(message_id)
+    ProcessedInboundEmail.exists?(message_id: message_id)
+  end
+
+  def mark_processed(message_id)
+    ProcessedInboundEmail.create!(message_id: message_id)
+  rescue ActiveRecord::RecordNotUnique
+    # corrida entre ciclos — já registrado, ok
+  end
 
   def find_ticket(subject)
     id = subject[TICKET_FROM_SUBJECT, 1] || subject[TICKET_GENERIC, 1]
