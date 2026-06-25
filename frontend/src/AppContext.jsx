@@ -31,6 +31,7 @@ const SCREEN_TO_PATH = {
   'settings-system':       '/config-sistema',
   'settings-trash':        '/lixeira',
   'settings-companies':    '/empresas',
+  'settings-emails':       '/emails',
   'profile':               '/perfil',
 }
 
@@ -54,6 +55,7 @@ function pathToScreen(pathname) {
     '/config-sistema':            'settings-system',
     '/lixeira':                   'settings-trash',
     '/empresas':                  'settings-companies',
+    '/emails':                    'settings-emails',
     '/perfil':                    'profile',
   }
   return MAP[pathname] ?? 'dashboard'

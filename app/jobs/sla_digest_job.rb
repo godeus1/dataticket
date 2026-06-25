@@ -7,6 +7,8 @@ class SlaDigestJob < ApplicationJob
     today = Date.current
 
     Organization.find_each do |org|
+      next unless org.email_type_enabled?("sla_digest")
+
       expired_ids    = org.tickets.open.overdue.pluck(:id)
       expiring_ids   = org.tickets.open
                           .where(deadline: today.beginning_of_day..today.end_of_day)

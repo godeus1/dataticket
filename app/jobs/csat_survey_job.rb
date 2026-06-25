@@ -5,7 +5,7 @@
     ticket = Ticket.find_by(id: ticket_id)
     return unless ticket
     return unless ticket.status == "Fechado"
-    return unless ticket.organization.emails_enabled?
+    return unless ticket.organization.email_type_enabled?("csat")
 
     # Atomic check-and-set: garante idempotência em caso de retry do job.
     # Se o UPDATE retornar 0 linhas, outro worker já marcou → aborta silenciosamente.

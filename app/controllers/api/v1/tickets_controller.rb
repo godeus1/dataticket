@@ -58,7 +58,7 @@ module Api
           entity_id: ticket.id,
           changes:   { titulo: ticket.title, categoria: ticket.category&.name, solicitante: requester.full_name }
         )
-        TicketMailer.created(ticket).deliver_later if ticket.organization.emails_enabled?
+        TicketMailer.created(ticket).deliver_later if ticket.organization.email_type_enabled?("ticket_created")
         render json: TicketBlueprint.render_as_hash(ticket, view: :full), status: :created
       end
 
@@ -177,7 +177,7 @@ module Api
         end
 
         NotificationService.new(@ticket).notify_assignee(assignee)
-        TicketMailer.assigned(@ticket).deliver_later if @ticket.organization.emails_enabled?
+        TicketMailer.assigned(@ticket).deliver_later if @ticket.organization.email_type_enabled?("ticket_assigned")
         render json: TicketBlueprint.render_as_hash(@ticket, view: :full)
       end
 

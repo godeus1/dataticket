@@ -26,7 +26,7 @@ module Api
           comment = @ticket.comments.new(safe_params.merge(user: current_user))
           comment.save!
           NotificationService.new(@ticket).notify_new_comment(current_user)
-          send_comment_emails(comment) if @ticket.organization.emails_enabled? && comment.kind != "internal"
+          send_comment_emails(comment) if @ticket.organization.email_type_enabled?("new_comment") && comment.kind != "internal"
           render json: comment.as_json(
             only: %i[id body kind created_at],
             include: { user: { only: %i[id first_name last_name email avatar_initials avatar_color] } }

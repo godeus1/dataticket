@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { useApp } from '../AppContext.jsx'
 import { PT, EN, PERM } from '../data.js'
 import { Avatar, CatChip, PriBadge, ModalOverlay } from '../components.jsx'
@@ -24,6 +24,20 @@ export function SettingsUsers() {
       showToast(`E-mail de redefinição enviado para ${u.email}.`)
     } catch (e) {
       alert(`Erro ao enviar reset: ${e.message}`)
+    } finally {
+      setResetingId(null)
+    }
+  }
+
+  // Gera uma nova senha e envia ao usuário um e-mail com o e-mail de acesso + a senha.
+  async function sendLoginInfo(u) {
+    if (!window.confirm(`Enviar informações de login para ${u.firstName} ${u.lastName} (${u.email})?\n\nUma NOVA senha será gerada e enviada por e-mail (a senha atual deixará de funcionar).`)) return
+    setResetingId(u.id)
+    try {
+      await api.resetPassword(u.id)
+      showToast(`Informações de login enviadas para ${u.email}.`)
+    } catch (e) {
+      alert(`Erro ao enviar login: ${e.message}`)
     } finally {
       setResetingId(null)
     }
@@ -129,6 +143,14 @@ export function SettingsUsers() {
                       title="Envia e-mail com código de redefinição de senha para o usuário"
                     >
                       {resetingId === u.id ? '⏳' : '🔑'} Reset senha
+                    </button>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      disabled={resetingId === u.id}
+                      onClick={() => sendLoginInfo(u)}
+                      title="Gera uma nova senha e envia e-mail com login e senha para o usuário"
+                    >
+                      {resetingId === u.id ? '⏳' : '📧'} Enviar login
                     </button>
                     <button className="btn btn-secondary btn-sm" onClick={() => toggleUserAction(u.id).catch(e => alert(e.message))}>{u.active ? 'Inativar' : 'Ativar'}</button>
                   </div>
@@ -999,6 +1021,73 @@ export function SettingsCompanies() {
             </div>
           )
         })}
+      </div>
+    </div>
+  )
+}
+
+// ── E-mails enviados (toggles por tipo, por empresa — Super Admin) ──────────
+const EMAIL_TYPE_LABELS = {
+  password_reset:  'Redefinição de senha',
+  welcome:         'Boas-vindas / informações de login',
+  ticket_created:  'Ticket criado',
+  ticket_assigned: 'Ticket atribuído',
+  status_changed:  'Mudança de status',
+  new_comment:     'Novo comentário',
+  escalated:       'Ticket escalado',
+  csat:            'Pesquisa de satisfação (CSAT)',
+  sla_digest:      'Resumo diário de SLA',
+}
+
+export function SettingsEmails() {
+  const { showToast, currentUser, availableOrgs, currentOrgId } = useApp()
+  const [settings, setSettings] = useState(null)  // { tipo: bool }
+  const [types, setTypes]       = useState([])
+  const [busy, setBusy]         = useState(false)
+
+  const activeId  = String(currentOrgId || currentUser.organizationId || '')
+  const orgName   = availableOrgs.find(o => String(o.id) === activeId)?.name || 'empresa atual'
+
+  useEffect(() => {
+    api.organization()
+      .then(org => {
+        setTypes(org.email_types?.length ? org.email_types : Object.keys(EMAIL_TYPE_LABELS))
+        setSettings(org.email_settings || {})
+      })
+      .catch(() => { setTypes(Object.keys(EMAIL_TYPE_LABELS)); setSettings({}) })
+  }, [activeId])
+
+  const isOn   = (t) => settings?.[t] !== false  // default ligado
+  const toggle = (t) => setSettings(s => ({ ...s, [t]: !(s?.[t] !== false) }))
+
+  async function save() {
+    setBusy(true)
+    try {
+      const full = {}
+      types.forEach(t => { full[t] = isOn(t) })
+      await api.updateOrganization({ email_settings: full })
+      showToast('Preferências de e-mail salvas.')
+    } catch (e) { alert(`Erro ao salvar: ${e.message}`) } finally { setBusy(false) }
+  }
+
+  if (settings === null) return <div style={{ color: 'var(--text2)' }}>Carregando...</div>
+
+  return (
+    <div>
+      <h2 style={{ fontWeight: 700, fontSize: 20, marginBottom: 4 }}>📧 E-mails enviados</h2>
+      <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 16 }}>
+        Ligue ou desligue cada tipo de e-mail para a empresa <strong>{orgName}</strong>. A configuração é por empresa.
+      </p>
+      <div className="card" style={{ maxWidth: 560 }}>
+        {types.map(t => (
+          <label key={t} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 0', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}>
+            <span style={{ fontSize: 14 }}>{EMAIL_TYPE_LABELS[t] || t}</span>
+            <input type="checkbox" checked={isOn(t)} onChange={() => toggle(t)} style={{ width: 18, height: 18, cursor: 'pointer' }} />
+          </label>
+        ))}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 14 }}>
+          <button className="btn btn-primary" disabled={busy} onClick={save}>{busy ? '…' : 'Salvar'}</button>
+        </div>
       </div>
     </div>
   )

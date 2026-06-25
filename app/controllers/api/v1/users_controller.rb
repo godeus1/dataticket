@@ -41,9 +41,11 @@ module Api
         user = @organization.users.new(user_params)
         user.password = auto_password if auto_password
         user.save!
-        # Sempre envia e-mail de boas-vindas via MailerSend (mesmo pipeline do SLA digest)
+        # E-mail de boas-vindas (respeita o toggle "welcome" da empresa).
         # auto_password é nil quando o admin definiu a senha — o template cuida disso
-        TicketMailer.welcome(user, auto_password).deliver_later
+        if user.organization&.email_type_enabled?("welcome")
+          TicketMailer.welcome(user, auto_password).deliver_later
+        end
         render json: UserBlueprint.render_as_hash(user), status: :created
       end
 

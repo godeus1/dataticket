@@ -31,7 +31,9 @@ module Api
           reset_password_token:   Digest::SHA256.hexdigest(code),
           reset_password_sent_at: Time.current
         )
-        PasswordResetMailer.reset_code(user, code).deliver_later
+        if user.organization&.email_type_enabled?("password_reset")
+          PasswordResetMailer.reset_code(user, code).deliver_later
+        end
 
         render json: { message: "Se o e-mail estiver cadastrado, você receberá o código em instantes." }
       end

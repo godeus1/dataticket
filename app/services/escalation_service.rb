@@ -65,7 +65,7 @@ class EscalationService
       end
     )
 
-    return unless @org.emails_enabled?
+    return unless @org.email_type_enabled?("escalated")
 
     recipients.each do |user|
       TicketMailer.escalated(@ticket, user).deliver_later

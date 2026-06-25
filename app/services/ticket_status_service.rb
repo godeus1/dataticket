@@ -62,10 +62,11 @@ class TicketStatusService
       user:         @actor
     )
 
-    if @ticket.organization.emails_enabled?
+    if @ticket.organization.email_type_enabled?("status_changed")
       TicketMailer.status_changed(@ticket, old_status).deliver_later
-      CsatSurveyJob.perform_later(@ticket.id) if @new_status == "Fechado"
     end
+    # CSAT é decidido pelo próprio job (toggle "csat"); sempre enfileira ao fechar.
+    CsatSurveyJob.perform_later(@ticket.id) if @new_status == "Fechado"
 
     Result.new(success?: true, ticket: @ticket, errors: [])
   rescue ActiveRecord::RecordInvalid => e

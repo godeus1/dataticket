@@ -20,7 +20,10 @@ export function Sidebar({ screen, setScreen }) {
   ]
 
   const settingsItems = p.settings ? [
-    ...(currentUser.role === 'msp_admin' ? [{ key: 'settings-companies', label: 'Empresas', icon: '🏢' }] : []),
+    ...(currentUser.role === 'msp_admin' ? [
+      { key: 'settings-companies', label: 'Empresas', icon: '🏢' },
+      { key: 'settings-emails',    label: 'E-mails',  icon: '📧' },
+    ] : []),
     { key: 'settings-users',      label: t.users,       icon: '👥' },
     { key: 'settings-profiles',   label: t.profiles,    icon: '🔑' },
     { key: 'settings-categories', label: t.categories,  icon: '🏷️' },

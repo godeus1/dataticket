@@ -12,7 +12,7 @@ import { CalendarView, KnowledgeBase, Reports } from './screens/Other.jsx'
 import {
   SettingsUsers, SettingsProfiles, SettingsCategories,
   SettingsPriorities, SettingsQueues, SettingsHolidays,
-  SettingsAudit, SettingsSystem, MyProfile, SettingsCompanies,
+  SettingsAudit, SettingsSystem, MyProfile, SettingsCompanies, SettingsEmails,
 } from './screens/Settings.jsx'
 import { SettingsTrash } from './screens/Trash.jsx'
 import { useState, useEffect, useRef } from 'react'
@@ -213,6 +213,7 @@ function AppInner() {
       case 'kb':                 return <KnowledgeBase />
       case 'reports':            return p.reports ? <Reports /> : <TicketList />
       case 'settings-companies': return currentUser.role === 'msp_admin' ? <SettingsCompanies /> : <TicketList />
+      case 'settings-emails':    return currentUser.role === 'msp_admin' ? <SettingsEmails /> : <TicketList />
       case 'settings-users':     return p.settings ? <SettingsUsers /> : <TicketList />
       case 'settings-profiles':  return p.settings ? <SettingsProfiles /> : <TicketList />
       case 'settings-categories':return p.settings ? <SettingsCategories /> : <TicketList />

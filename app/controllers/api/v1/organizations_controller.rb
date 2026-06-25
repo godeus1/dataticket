@@ -65,8 +65,8 @@ module Api
       end
 
       def org_json(org)
-        org.as_json(only: %i[id name slug ticket_prefix timezone date_format emails_enabled created_at updated_at])
-           .merge(attachments_enabled: true)
+        org.as_json(only: %i[id name slug ticket_prefix timezone date_format emails_enabled email_settings created_at updated_at])
+           .merge(attachments_enabled: true, email_types: Organization::EMAIL_TYPES)
       end
 
       def create_org_params
@@ -74,7 +74,10 @@ module Api
       end
 
       def organization_params
-        params.require(:organization).permit(:name, :timezone, :date_format, :emails_enabled)
+        params.require(:organization).permit(
+          :name, :timezone, :date_format, :emails_enabled,
+          email_settings: Organization::EMAIL_TYPES
+        )
       end
     end
   end
