@@ -61,7 +61,7 @@ export function CalendarView() {
       <div className="page-header">
         <h2 className="page-title">{t.calendar}</h2>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          {currentUser.role === 'admin' && (
+          {['admin', 'manager', 'msp_admin'].includes(currentUser.role) && (
             <select className="select" value={filterAssignee} onChange={e => setFilterAssignee(e.target.value)}>
               <option value="">Todos responsáveis</option>
               {users.filter(u => u.role !== 'user').map(u => (

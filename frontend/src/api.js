@@ -147,6 +147,7 @@ export const api = {
   // Gestão de empresas (multi-tenant)
   organizations:       ()  => req('/organizations'),
   createOrganization:  (d) => req('/organizations', { method: 'POST', body: j({ organization: d }) }),
+  updateCompany:    (id, d) => req(`/organizations/${id}`, { method: 'PATCH', body: j({ organization: d }) }),
 
   // ── Audit log ─────────────────────────────────────────────────────────
 

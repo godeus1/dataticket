@@ -39,7 +39,9 @@ class User < ApplicationRecord
   scope :analysts,   -> { where(role: "analyst") }
   scope :msp_admins, -> { where(role: "msp_admin") }
 
-  def admin?     = role == "admin"
+  # msp_admin (super admin) é admin-equivalente em TODA empresa: tem todos os
+  # poderes de admin (editar ticket, solicitante, data de abertura, etc.).
+  def admin?     = role == "admin" || role == "msp_admin"
   def manager?   = role == "manager"
   def analyst?   = role == "analyst"
   def msp_admin? = role == "msp_admin"

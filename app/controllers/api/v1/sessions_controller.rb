@@ -3,6 +3,19 @@ module Api
     class SessionsController < Devise::SessionsController
       respond_to :json
 
+      # Bloqueia o login quando a EMPRESA do usuário está inativa — ANTES da
+      # autenticação Devise, para não emitir token. O msp_admin (super admin) é
+      # isento: nunca fica trancado fora, mesmo que sua empresa-casa esteja inativa.
+      def create
+        email = params.dig(:user, :email).to_s.strip.downcase
+        user  = User.find_for_database_authentication(email: email)
+        if user && !user.msp_admin? && user.organization && !user.organization.active? &&
+           user.valid_password?(params.dig(:user, :password).to_s)
+          return render json: { error: "Empresa inativa. Contate o administrador." }, status: :unauthorized
+        end
+        super
+      end
+
       private
 
       def respond_with(resource, _opts = {})

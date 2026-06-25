@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_18_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_18_000002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -137,6 +137,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_18_000001) do
 
   create_table "organizations", force: :cascade do |t|
     t.bigint "account_id"
+    t.boolean "active", default: true, null: false
     t.datetime "created_at", null: false
     t.string "date_format", default: "DD/MM/YYYY"
     t.boolean "emails_enabled", default: false

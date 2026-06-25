@@ -888,13 +888,33 @@ export function MyProfile() {
 
 // ── Empresas (multi-tenant — visível só para msp_admin) ─────────────────────
 export function SettingsCompanies() {
-  const { currentUser, availableOrgs, currentOrgId, switchOrg, createOrganizationAction, showToast } = useApp()
+  const { currentUser, availableOrgs, currentOrgId, switchOrg, createOrganizationAction, updateCompanyAction, showToast } = useApp()
   const [creating, setCreating] = useState(false)
   const [form, setForm]         = useState({ name: '', slug: '', ticket_prefix: '' })
   const [busy, setBusy]         = useState(false)
   const [error, setError]       = useState('')
+  const [editingId, setEditingId] = useState(null)
+  const [editName, setEditName]   = useState('')
 
   const activeId = String(currentOrgId || currentUser.organizationId || '')
+
+  async function saveName(o) {
+    if (!editName.trim()) return
+    try {
+      await updateCompanyAction(o.id, { name: editName.trim() })
+      setEditingId(null)
+      showToast('Nome atualizado.')
+    } catch (e) { alert(`Erro ao renomear: ${e.message}`) }
+  }
+
+  async function toggleActive(o) {
+    const inactivating = o.active !== false
+    if (inactivating && !confirm(`Inativar "${o.name}"? Os usuários dessa empresa não conseguirão entrar até você reativar. A empresa NÃO é deletada.`)) return
+    try {
+      await updateCompanyAction(o.id, { active: !inactivating })
+      showToast(inactivating ? 'Empresa inativada.' : 'Empresa reativada.')
+    } catch (e) { alert(`Erro: ${e.message}`) }
+  }
   const inp = { width: '100%', marginBottom: 8, padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--bg)', color: 'var(--text)' }
 
   function onName(name) {
@@ -939,19 +959,43 @@ export function SettingsCompanies() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 }}>
         {availableOrgs.map(o => {
-          const active = String(o.id) === activeId
+          const active     = String(o.id) === activeId
+          const isInactive = o.active === false
+          const editing    = editingId === o.id
           return (
-            <div key={o.id} className="card" style={{ borderLeft: `3px solid ${active ? 'var(--accent)' : 'var(--border)'}` }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                <span style={{ fontWeight: 700, fontSize: 15 }}>{o.name}</span>
-                {active && <span style={{ fontSize: 10, background: 'var(--accent)', color: '#fff', padding: '1px 7px', borderRadius: 10 }}>atual</span>}
+            <div key={o.id} className="card" style={{ borderLeft: `3px solid ${isInactive ? 'var(--danger)' : active ? 'var(--accent)' : 'var(--border)'}`, opacity: isInactive ? 0.7 : 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
+                {editing ? (
+                  <input value={editName} onChange={e => setEditName(e.target.value)} autoFocus
+                    style={{ ...inp, marginBottom: 0, flex: 1, minWidth: 120 }}
+                    onKeyDown={e => { if (e.key === 'Enter') saveName(o) }} />
+                ) : (
+                  <span style={{ fontWeight: 700, fontSize: 15 }}>{o.name}</span>
+                )}
+                {active     && <span style={{ fontSize: 10, background: 'var(--accent)', color: '#fff', padding: '1px 7px', borderRadius: 10 }}>atual</span>}
+                {isInactive && <span style={{ fontSize: 10, background: 'var(--danger)', color: '#fff', padding: '1px 7px', borderRadius: 10 }}>inativa</span>}
               </div>
               <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 12 }}>
                 Prefixo <strong>{o.ticket_prefix}</strong> · {o.timezone}
               </div>
-              {active
-                ? <span style={{ fontSize: 12, color: 'var(--text2)' }}>Configure em ⚙️ Config. Sistema</span>
-                : <button className="btn btn-secondary btn-sm" onClick={() => switchOrg(o.id)}>Entrar nesta empresa</button>}
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {editing ? (
+                  <>
+                    <button className="btn btn-primary btn-sm" onClick={() => saveName(o)}>Salvar</button>
+                    <button className="btn btn-secondary btn-sm" onClick={() => setEditingId(null)}>Cancelar</button>
+                  </>
+                ) : (
+                  <>
+                    {!active && !isInactive && (
+                      <button className="btn btn-secondary btn-sm" onClick={() => switchOrg(o.id)}>Entrar</button>
+                    )}
+                    <button className="btn btn-secondary btn-sm" onClick={() => { setEditingId(o.id); setEditName(o.name) }}>✏️ Renomear</button>
+                    <button className={isInactive ? 'btn btn-primary btn-sm' : 'btn btn-danger btn-sm'} onClick={() => toggleActive(o)}>
+                      {isInactive ? '✓ Reativar' : '⊘ Inativar'}
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
           )
         })}

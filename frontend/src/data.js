@@ -66,6 +66,9 @@ export const EN = {
 };
 
 // ── Permissions ──────────────────────────────────────────────────────────
+// msp_admin (super admin) é admin-equivalente em toda empresa.
+export const isAdmin = (role) => role === 'admin' || role === 'msp_admin'
+
 export const PERM = {
   // msp_admin: super admin multi-empresa — mesmos poderes do admin + troca de empresa
   msp_admin:{ createTicket:true,  editTicket:true,  deleteTicket:true,  reassign:true,  closeTicket:true,  reopenTicket:true,  comment:true, internalComment:true,  calendar:true,  allTickets:true,  reports:true,  settings:true,  triage:true,  logEffort:true,  trash:true  },

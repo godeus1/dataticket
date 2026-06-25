@@ -2,7 +2,7 @@
 import { api } from '../api.js'
 import { mapAttachment, mapTicket, mapTimerSession } from '../mapper.js'
 import { useApp } from '../AppContext.jsx'
-import { PT, EN, PERM, STATUS_LIST, ALLOWED_TRANSITIONS, isExpired, formatDate, formatDateTime } from '../data.js'
+import { PT, EN, PERM, STATUS_LIST, ALLOWED_TRANSITIONS, isExpired, formatDate, formatDateTime, isAdmin } from '../data.js'
 import { Avatar, Badge, PriBadge, CatChip, ModalOverlay, EmptyState } from '../components.jsx'
 
 // ── Formatação de esforço em H:MM ─────────────────────────────────────────
@@ -557,7 +557,7 @@ export function NewTicket() {
         category_id: Number(form.categoryId) || null,
       })
       // Admin: sobrescreve created_at se diferente de hoje
-      if (currentUser.role === 'admin' && form.openingDate && form.openingDate !== todayISO) {
+      if (isAdmin(currentUser.role) && form.openingDate && form.openingDate !== todayISO) {
         await updateTicketAction(ticket.id, { created_at: form.openingDate })
       }
       addNotification({ title: `Ticket ${ticket.id} criado`, desc: form.title, type: 'create', ticketId: ticket.id })
@@ -644,7 +644,7 @@ export function NewTicket() {
             </div>
           )}
         </div>
-        {currentUser.role === 'admin' && (
+        {isAdmin(currentUser.role) && (
           <div className="form-row">
             <label className="label">
               📅 Data de Abertura
@@ -866,7 +866,7 @@ export function TicketDetail() {
   const [titleEdit,       setTitleEdit]       = useState(null)   // admin/manager: título editado
   const [descEdit,        setDescEdit]        = useState(null)   // admin/manager: descrição editada
 
-  const canEditHeader = currentUser.role === 'admin' || currentUser.role === 'manager'
+  const canEditHeader = isAdmin(currentUser.role) || currentUser.role === 'manager'
 
   useEffect(() => { setTitleEdit(null); setDescEdit(null) }, [tk?.id])
 
@@ -1554,11 +1554,11 @@ export function TicketDetail() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid var(--border)', fontSize: 13 }}>
               <span style={{ color: 'var(--text2)' }}>
                 Abertura
-                {currentUser.role === 'admin' && (
+                {isAdmin(currentUser.role) && (
                   <span style={{ fontSize: 10, color: 'var(--accent)', marginLeft: 5, fontWeight: 500 }}>✏️ editável</span>
                 )}
               </span>
-              {currentUser.role === 'admin' ? (
+              {isAdmin(currentUser.role) ? (
                 <input
                   type="date"
                   value={openingDateEdit ?? toLocalDateInput(tk.createdAt)}

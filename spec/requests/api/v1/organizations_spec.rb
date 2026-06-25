@@ -55,4 +55,43 @@ RSpec.describe "Organizations API", type: :request do
       expect(response).to have_http_status(:forbidden)
     end
   end
+
+  describe "PATCH /api/v1/organizations/:id (editar/inativar)" do
+    before { org_a; org_b }
+
+    it "msp_admin edita o nome da empresa" do
+      patch "/api/v1/organizations/#{org_b.id}",
+            params: { organization: { name: "Novo Nome" } }, headers: headers(msp), as: :json
+      expect(response).to have_http_status(:ok)
+      expect(org_b.reload.name).to eq("Novo Nome")
+    end
+
+    it "msp_admin inativa a empresa" do
+      patch "/api/v1/organizations/#{org_b.id}",
+            params: { organization: { active: false } }, headers: headers(msp), as: :json
+      expect(response).to have_http_status(:ok)
+      expect(org_b.reload.active).to be false
+    end
+
+    it "admin comum não consegue inativar (active é ignorado)" do
+      patch "/api/v1/organizations/#{org_a.id}",
+            params: { organization: { active: false } }, headers: headers(admin_a), as: :json
+      expect(org_a.reload.active).to be true
+    end
+  end
+
+  describe "login bloqueado em empresa inativa" do
+    it "usuário de empresa inativa não loga (Empresa inativa)" do
+      org_a.update!(active: false)
+      post "/api/v1/login", params: { user: { email: admin_a.email, password: "Password123!" } }, as: :json
+      expect(response).to have_http_status(:unauthorized)
+      expect(JSON.parse(response.body)["error"]).to match(/Empresa inativa/i)
+    end
+
+    it "msp_admin loga mesmo com a empresa-casa inativa" do
+      org_a.update!(active: false)
+      post "/api/v1/login", params: { user: { email: msp.email, password: "Password123!" } }, as: :json
+      expect(response).to have_http_status(:ok)
+    end
+  end
 end

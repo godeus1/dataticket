@@ -100,8 +100,8 @@ Rails.application.routes.draw do
 
       # Organização atual (singular: show/update das configurações da empresa atual)
       resource :organization, only: %i[show update]
-      # Gestão de empresas (plural: listar para o seletor + criar — msp_admin)
-      resources :organizations, only: %i[index create]
+      # Gestão de empresas (plural: listar/criar/editar — msp_admin)
+      resources :organizations, only: %i[index create update]
 
       # ── Fase 4: Automação e Inteligência ──────────────────────────────────
       resources :triage_rules

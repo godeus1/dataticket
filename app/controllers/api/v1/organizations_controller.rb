@@ -26,11 +26,23 @@ module Api
         render json: org_json(@organization)
       end
 
-      # PATCH /organization — atualiza a empresa atual
+      # PATCH /organization — atualiza a empresa ATUAL (singular)
+      # PATCH /organizations/:id — edita uma empresa específica (nome / ativa) — msp_admin
+      # Empresas NUNCA são deletadas, apenas inativadas (active: false).
       def update
-        authorize @organization
-        @organization.update!(organization_params)
-        render json: org_json(@organization)
+        if params[:id].present?
+          org = accessible_organizations.find(params[:id])
+          authorize org
+          attrs = company_params
+          # Inativar/reativar empresa é exclusivo do msp_admin (super admin).
+          attrs = attrs.except(:active) unless current_user.msp_admin?
+          org.update!(attrs)
+          render json: org_summary(org)
+        else
+          authorize @organization
+          @organization.update!(organization_params)
+          render json: org_json(@organization)
+        end
       end
 
       private
@@ -45,7 +57,11 @@ module Api
       end
 
       def org_summary(org)
-        org.as_json(only: %i[id name slug ticket_prefix timezone])
+        org.as_json(only: %i[id name slug ticket_prefix timezone active])
+      end
+
+      def company_params
+        params.require(:organization).permit(:name, :active)
       end
 
       def org_json(org)

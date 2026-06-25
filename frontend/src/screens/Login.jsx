@@ -75,7 +75,6 @@ export default function LoginScreen() {
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <div style={{ fontSize: 32, marginBottom: 8 }}>🎯</div>
           <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--accent)', letterSpacing: -1 }}>DataTicket</div>
-          <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 4 }}>Salvabras · Sistema de Helpdesk</div>
         </div>
 
         {/* ── Login ── */}

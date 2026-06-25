@@ -317,6 +317,13 @@ export function AppProvider({ children }) {
     return org
   }, [])
 
+  // Edita nome / status (ativa) de uma empresa (msp_admin).
+  const updateCompanyAction = useCallback(async (id, data) => {
+    const org = await api.updateCompany(id, data)
+    setAvailableOrgs(prev => prev.map(o => (o.id === org.id ? org : o)))
+    return org
+  }, [])
+
   // ── Backup ────────────────────────────────────────────────────────────
   const backupRef = useRef(null)
   useEffect(() => {
@@ -556,7 +563,7 @@ export function AppProvider({ children }) {
     supabaseOk: true, supabaseError: null, // backward compat
 
     // Multi-empresa
-    availableOrgs, currentOrgId, switchOrg, createOrganizationAction,
+    availableOrgs, currentOrgId, switchOrg, createOrganizationAction, updateCompanyAction,
 
     // UI
     lang, setLang, theme, setTheme,

@@ -241,7 +241,7 @@ export default function Dashboard() {
     [filtered, analysts]
   )
 
-  const isAdmin = currentUser.role === 'admin' || currentUser.role === 'manager'
+  const isAdmin = ['admin', 'manager', 'msp_admin'].includes(currentUser.role)
 
   return (
     <div>
