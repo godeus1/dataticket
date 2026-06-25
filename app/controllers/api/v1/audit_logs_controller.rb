@@ -3,8 +3,11 @@ module Api
     class AuditLogsController < ApplicationController
       def index
         authorize AuditLog
+
         logs = @organization.audit_logs.includes(:user).recent
-        logs = logs.where(action:   params[:action])                  if params[:action].present?
+        # ATENÇÃO: NÃO usar params[:action] — é reservado pelo Rails (= "index")
+        # e fazia o filtro casar com action "index", zerando o resultado.
+        logs = logs.where(action:   params[:log_action])              if params[:log_action].present?
         logs = logs.where(entity:   params[:entity])                  if params[:entity].present?
         logs = logs.where(user_id:  params[:user_id])                 if params[:user_id].present?
         logs = logs.where("created_at >= ?", params[:from].to_time)   if params[:from].present?

@@ -29,6 +29,21 @@ class User < ApplicationRecord
   validates :available_hours,      numericality: { greater_than: 0, less_than_or_equal_to: 24 }
   validates :max_hours_per_ticket, numericality: { greater_than: 0 }
 
+  # Limite de usuários da organização (config. de sistema por empresa).
+  # Bloqueia a criação de novos usuários quando o limite é atingido.
+  # max_users nil/0 = ilimitado.
+  validate :organization_within_user_limit, on: :create
+
+  def organization_within_user_limit
+    return if organization.nil?
+
+    limit = organization.max_users
+    return if limit.nil? || limit.to_i <= 0
+    return if organization.users.count < limit
+
+    errors.add(:base, "Limite de usuários da organização atingido (#{limit}). Contate o administrador.")
+  end
+
   # Regra de segurança GLOBAL (vale para todas as empresas): senha mínima de 12
   # caracteres. Validada sempre que uma senha está sendo definida/alterada.
   PASSWORD_MIN_LENGTH = 12

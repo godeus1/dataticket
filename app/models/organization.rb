@@ -36,6 +36,32 @@ class Organization < ApplicationRecord
     emails_enabled? && toggle
   end
 
+  # ── Tipos de evento que podem ser registrados (ou não) no Log de Auditoria ─
+  # Cada empresa escolhe, via caixas de seleção, o que quer auditar. Default: ON.
+  AUDIT_EVENT_TYPES = %w[
+    ticket_created ticket_changed ticket_deleted ticket_restored kb_changed
+  ].freeze
+
+  def audit_event_enabled?(type)
+    audit_settings.fetch(type.to_s, true) != false
+  end
+
+  # Funil único de criação de log de auditoria, respeitando o toggle do tipo.
+  # Falha silenciosa: auditoria nunca deve quebrar a operação principal.
+  def record_audit(event:, action:, entity:, entity_id: nil, changes: {}, user: nil)
+    return unless audit_event_enabled?(event)
+
+    audit_logs.create!(
+      action:       action,
+      entity:       entity,
+      entity_id:    entity_id.to_s,
+      changes_data: (changes || {}).compact,
+      user:         user
+    )
+  rescue => e
+    Rails.logger.error("[AuditLog] #{event}/#{action} — #{e.message}")
+  end
+
   validates :name, :slug, presence: true
   validates :slug, uniqueness: true, format: { with: /\A[a-z0-9\-]+\z/, message: "apenas letras minúsculas, números e hífens" }
 

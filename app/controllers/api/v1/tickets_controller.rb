@@ -53,6 +53,7 @@ module Api
         apply_co_assignees(ticket)
         apply_custom_field_values(ticket)
         audit!(
+          event:     "ticket_created",
           action:    "Ticket criado",
           entity:    "Ticket",
           entity_id: ticket.id,
@@ -93,6 +94,7 @@ module Api
         saved_title = @ticket.title
         @ticket.soft_delete!(current_user)
         audit!(
+          event:     "ticket_deleted",
           action:    "Ticket excluído (lixeira)",
           entity:    "Ticket",
           entity_id: @ticket.id,
@@ -106,6 +108,7 @@ module Api
         authorize @ticket, :restore?
         @ticket.restore!(current_user)
         audit!(
+          event:     "ticket_restored",
           action:    "Ticket restaurado",
           entity:    "Ticket",
           entity_id: @ticket.id,
@@ -120,6 +123,7 @@ module Api
         saved_title = @ticket.title
         saved_id    = @ticket.id
         audit!(
+          event:     "ticket_deleted",
           action:    "Ticket excluído permanentemente",
           entity:    "Ticket",
           entity_id: saved_id,

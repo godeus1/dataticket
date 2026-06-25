@@ -61,12 +61,18 @@ module Api
       end
 
       def company_params
-        params.require(:organization).permit(:name, :active)
+        # Edição por-id (msp_admin): nome, ativar/inativar e limite de usuários.
+        params.require(:organization).permit(:name, :active, :max_users)
       end
 
       def org_json(org)
-        org.as_json(only: %i[id name slug ticket_prefix timezone date_format emails_enabled email_settings created_at updated_at])
-           .merge(attachments_enabled: true, email_types: Organization::EMAIL_TYPES)
+        org.as_json(only: %i[id name slug ticket_prefix timezone date_format emails_enabled email_settings audit_settings max_users created_at updated_at])
+           .merge(
+             attachments_enabled: true,
+             email_types:         Organization::EMAIL_TYPES,
+             audit_types:         Organization::AUDIT_EVENT_TYPES,
+             user_count:          org.users.count
+           )
       end
 
       def create_org_params
@@ -74,9 +80,14 @@ module Api
       end
 
       def organization_params
+        permitted = %i[name timezone date_format emails_enabled]
+        # max_users (limite de plano) só pode ser alterado pelo super admin —
+        # um admin comum não pode elevar o próprio limite.
+        permitted << :max_users if current_user.msp_admin?
         params.require(:organization).permit(
-          :name, :timezone, :date_format, :emails_enabled,
-          email_settings: Organization::EMAIL_TYPES
+          *permitted,
+          email_settings: Organization::EMAIL_TYPES,
+          audit_settings: Organization::AUDIT_EVENT_TYPES
         )
       end
     end

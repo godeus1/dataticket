@@ -54,12 +54,13 @@ class TicketStatusService
     end
 
     # Auditoria fora da transação — falha silenciosa não desfaz a mudança de status
-    @ticket.organization.audit_logs.create(
-      action:       "Status alterado",
-      entity:       "Ticket",
-      entity_id:    @ticket.id.to_s,
-      changes_data: { de: old_status, para: @new_status, titulo: @ticket.title },
-      user:         @actor
+    @ticket.organization.record_audit(
+      event:     "ticket_changed",
+      action:    "Status alterado",
+      entity:    "Ticket",
+      entity_id: @ticket.id,
+      changes:   { de: old_status, para: @new_status, titulo: @ticket.title },
+      user:      @actor
     )
 
     if @ticket.organization.email_type_enabled?("status_changed")

@@ -606,13 +606,51 @@ function formatAuditDetails(changes = {}) {
     .join(' · ')
 }
 
+const AUDIT_TYPE_LABELS = {
+  ticket_created:  'Criação de Ticket',
+  ticket_changed:  'Mudança de Ticket (status / triagem)',
+  ticket_deleted:  'Exclusão de Ticket',
+  ticket_restored: 'Restauração de Ticket',
+  kb_changed:      'Base de Conhecimento',
+}
+
 export function SettingsAudit() {
-  const { lang, auditLog, users } = useApp()
+  const { lang, auditLog, users, showToast } = useApp()
   const t = lang === 'pt' ? PT : EN
   const [filterAction, setFilterAction] = useState('')
   const [filterEntity, setFilterEntity] = useState('')
   const [page, setPage]   = useState(0)
   const PER = 30
+
+  // ── Configuração: quais tipos de evento registrar (caixas de seleção) ──
+  const [auditTypes, setAuditTypes] = useState([])
+  const [auditCfg, setAuditCfg]     = useState({})   // { tipo: bool }
+  const [savingCfg, setSavingCfg]   = useState(false)
+
+  useEffect(() => {
+    let live = true
+    api.organization().then(o => {
+      if (!live) return
+      const types = o.audit_types || []
+      setAuditTypes(types)
+      const cfg = {}
+      types.forEach(ty => { cfg[ty] = (o.audit_settings?.[ty] ?? true) !== false })
+      setAuditCfg(cfg)
+    }).catch(() => {})
+    return () => { live = false }
+  }, [])
+
+  async function saveAuditCfg() {
+    setSavingCfg(true)
+    try {
+      await api.updateOrganization({ audit_settings: auditCfg })
+      showToast('Tipos de auditoria atualizados!')
+    } catch (e) {
+      showToast(`Erro ao salvar: ${e.message}`)
+    } finally {
+      setSavingCfg(false)
+    }
+  }
 
   const actionOptions = [...new Set(auditLog.map(a => a.action).filter(Boolean))].sort()
   const entityOptions = [...new Set(auditLog.map(a => a.entity).filter(Boolean))].sort()
@@ -655,6 +693,31 @@ export function SettingsAudit() {
         <h2 className="page-title">{t.auditLog}</h2>
         <button className="btn btn-secondary btn-sm" onClick={exportAuditCSV}>📥 {t.export} CSV</button>
       </div>
+
+      {/* Configuração: o que registrar no log */}
+      {auditTypes.length > 0 && (
+        <div className="card" style={{ marginBottom: 12 }}>
+          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>⚙️ O que registrar no log</div>
+          <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 12 }}>
+            Selecione os tipos de evento que devem ser gravados na auditoria desta empresa.
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 8, marginBottom: 14 }}>
+            {auditTypes.map(ty => (
+              <label key={ty} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13 }}>
+                <input
+                  type="checkbox"
+                  checked={auditCfg[ty] !== false}
+                  onChange={e => setAuditCfg(c => ({ ...c, [ty]: e.target.checked }))}
+                />
+                {AUDIT_TYPE_LABELS[ty] || ty}
+              </label>
+            ))}
+          </div>
+          <button className="btn btn-primary btn-sm" disabled={savingCfg} onClick={saveAuditCfg}>
+            💾 {savingCfg ? 'Salvando…' : 'Salvar tipos'}
+          </button>
+        </div>
+      )}
 
       {/* Filtros */}
       <div className="card" style={{ marginBottom: 12 }}>
@@ -751,54 +814,80 @@ export function SettingsAudit() {
 
 // ── System Config ──────────────────────────────────────────────────────────
 export function SettingsSystem() {
-  const { lang, systemConfig, setSystemConfig, downloadBackup, showToast } = useApp()
+  const { lang, currentUser, downloadBackup, showToast } = useApp()
   const t = lang === 'pt' ? PT : EN
-  const [form, setForm] = useState({ ...systemConfig })
   const lastBackup = localStorage.getItem('dt_last_backup')
+
+  // Fuso horário e formato de data são fixos para TODAS as empresas
+  // (Brasília / DD/MM/AAAA) — não há mais seleção. "Ativar e-mails" foi
+  // removido (a configuração de e-mails fica na tela de E-mails por empresa).
+  const isSuper = currentUser.role === 'msp_admin'
+  const [name, setName]         = useState('')
+  const [maxUsers, setMaxUsers] = useState('')   // '' = ilimitado
+  const [userCount, setUserCount] = useState(null)
+  const [saving, setSaving]     = useState(false)
+
+  useEffect(() => {
+    let live = true
+    api.organization().then(o => {
+      if (!live) return
+      setName(o.name || '')
+      setMaxUsers(o.max_users == null ? '' : String(o.max_users))
+      setUserCount(o.user_count ?? null)
+    }).catch(() => {})
+    return () => { live = false }
+  }, [])
+
+  async function save() {
+    setSaving(true)
+    try {
+      const payload = { name }
+      // Apenas o super admin pode alterar o limite de usuários da empresa.
+      if (isSuper) payload.max_users = maxUsers === '' ? null : Number(maxUsers)
+      await api.updateOrganization(payload)
+      showToast('Configurações salvas!')
+    } catch (e) {
+      showToast(`Erro ao salvar: ${e.message}`)
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return (
     <div style={{ maxWidth: 580 }}>
       <h2 className="page-title" style={{ marginBottom: 22 }}>{t.systemConfig}</h2>
       <div className="card">
-        <div className="form-row"><label className="label">{t.companyName}</label><input className="input" value={form.companyName} onChange={e => setForm(f => ({ ...f, companyName: e.target.value }))} /></div>
         <div className="form-row">
-          <label className="label">{t.timezone}</label>
-          <select className="select" style={{ width: '100%' }} value={form.timezone} onChange={e => setForm(f => ({ ...f, timezone: e.target.value }))}>
-            <option>America/Sao_Paulo</option>
-            <option>America/New_York</option>
-            <option>Europe/London</option>
-            <option>UTC</option>
-          </select>
+          <label className="label">{t.companyName}</label>
+          <input className="input" value={name} onChange={e => setName(e.target.value)} />
         </div>
+
         <div className="form-row">
-          <label className="label">{t.dateFormat}</label>
-          <select className="select" style={{ width: '100%' }} value={form.dateFormat} onChange={e => setForm(f => ({ ...f, dateFormat: e.target.value }))}>
-            <option value="DD/MM/AAAA">DD/MM/AAAA</option>
-            <option value="MM/DD/AAAA">MM/DD/AAAA</option>
-          </select>
+          <label className="label">Limite de usuários da empresa</label>
+          <input
+            className="input"
+            type="number"
+            min="0"
+            value={maxUsers}
+            disabled={!isSuper}
+            placeholder="Ilimitado"
+            onChange={e => setMaxUsers(e.target.value)}
+          />
+          <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 6 }}>
+            {userCount != null && (
+              <>Usuários atuais: <strong>{userCount}</strong>{maxUsers !== '' && <> de <strong>{maxUsers}</strong></>}. </>
+            )}
+            {maxUsers === '' ? 'Sem limite definido.' : 'Novos usuários são bloqueados ao atingir o limite.'}
+            {!isSuper && <span style={{ display: 'block', marginTop: 2 }}>Somente o Super Admin pode alterar este limite.</span>}
+          </div>
         </div>
-        <div style={{ marginBottom: 20 }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13 }}>
-            <input type="checkbox" checked={form.enableEmails} onChange={e => setForm(f => ({ ...f, enableEmails: e.target.checked }))} />
-            {t.enableEmails}
-          </label>
+
+        <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 16, lineHeight: 1.6 }}>
+          🕐 Fuso horário: <strong>Brasília (America/Sao_Paulo)</strong> · 📅 Formato de data: <strong>DD/MM/AAAA</strong> — padrão para todas as empresas.
         </div>
-        <button className="btn btn-primary" onClick={async () => {
-          try {
-            const payload = {
-              name:           form.companyName,
-              emails_enabled: form.enableEmails,
-              timezone:       form.timezone,
-              date_format:    form.dateFormat,
-            }
-            const updated = await api.updateOrganization(payload)
-            setSystemConfig({ ...form })
-            showToast('Configurações salvas!')
-          } catch (e) {
-            showToast(`Erro ao salvar: ${e.message}`)
-          }
-        }}>
-          💾 {t.save}
+
+        <button className="btn btn-primary" disabled={saving} onClick={save}>
+          💾 {saving ? 'Salvando…' : t.save}
         </button>
       </div>
 

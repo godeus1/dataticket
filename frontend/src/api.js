@@ -132,9 +132,58 @@ export const api = {
 
   // ── Articles (KB) ─────────────────────────────────────────────────────
   articles:      ()       => req('/articles'),
+  article:       (id)     => req(`/articles/${id}`),
   createArticle: (d)      => req('/articles',       { method: 'POST',   body: j({ article: d }) }),
   updateArticle: (id, d)  => req(`/articles/${id}`, { method: 'PATCH',  body: j({ article: d }) }),
   deleteArticle: (id)     => req(`/articles/${id}`, { method: 'DELETE' }),
+
+  // Anexos de artigos (mesmo modelo dos tickets: máx. 3 arquivos de 5 MB)
+  uploadArticleAttachment: (articleId, file) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    const token = getToken()
+    const orgId = getCurrentOrg()
+    return fetch(`${BASE}/articles/${articleId}/attachments`, {
+      method: 'POST',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(orgId ? { 'X-Organization-Id': orgId } : {}),
+      },
+      body: fd,
+    }).then(async res => {
+      if (res.status === 204) return null
+      let data
+      try { data = await res.json() } catch { data = {} }
+      if (!res.ok) {
+        const err = new Error(data?.error ?? `HTTP ${res.status}`)
+        err.status = res.status
+        throw err
+      }
+      return data
+    })
+  },
+  deleteArticleAttachment: (articleId, attId) =>
+    req(`/articles/${articleId}/attachments/${attId}`, { method: 'DELETE' }),
+  downloadArticleAttachment: async (articleId, attId, filename) => {
+    const token = getToken()
+    const orgId = getCurrentOrg()
+    const res = await fetch(`${BASE}/articles/${articleId}/attachments/${attId}/download`, {
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(orgId ? { 'X-Organization-Id': orgId } : {}),
+      },
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename || 'arquivo'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  },
 
   // ── Notifications ─────────────────────────────────────────────────────
   notifications:  ()   => req('/notifications'),

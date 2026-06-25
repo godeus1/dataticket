@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useApp } from '../AppContext.jsx'
+import { api } from '../api.js'
 import { PT, EN, PERM, isExpired, formatDate } from '../data.js'
 import { CatChip, PriBadge, Badge, ModalOverlay } from '../components.jsx'
 import {
@@ -231,15 +232,28 @@ export function CalendarView() {
 }
 
 // ── Knowledge Base ────────────────────────────────────────────────────────
+const KB_MAX_FILES = 3
+const KB_MAX_SIZE  = 5 * 1024 * 1024
+const fmtBytes = (b) => !b ? '' : b < 1024 ? `${b} B` : b < 1048576 ? `${(b / 1024).toFixed(0)} KB` : `${(b / 1048576).toFixed(1)} MB`
+const EMPTY_KB_FORM = { name: '', categoryId: '', description: '', keywords: '' }
+
 export function KnowledgeBase() {
-  const { currentUser, lang, articles, createArticleAction, categories } = useApp()
+  const {
+    currentUser, lang, articles, categories,
+    createArticleAction, updateArticleAction, deleteArticleAction, refreshArticleAction,
+  } = useApp()
   const t = lang === 'pt' ? PT : EN
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState(null)
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ name: '', categoryId: '', description: '', keywords: '' })
-  const p = PERM[currentUser.role] || PERM.user
-  const canManage = p.settings || currentUser.role === 'analyst'
+  const [editingId, setEditingId] = useState(null)
+  const [form, setForm] = useState(EMPTY_KB_FORM)
+  const [pendingFiles, setPendingFiles] = useState([])   // novos arquivos a enviar
+  const [saving, setSaving] = useState(false)
+  const [formErr, setFormErr] = useState('')
+
+  // Gestor/Admin/Super-admin (e analista) podem criar e editar artigos da Base.
+  const canManage = ['admin', 'manager', 'analyst', 'msp_admin'].includes(currentUser.role)
 
   const filtered = articles.filter(a =>
     a.active &&
@@ -247,34 +261,127 @@ export function KnowledgeBase() {
       a.keywords.toLowerCase().includes(search.toLowerCase()))
   )
 
+  function openNew() {
+    setEditingId(null); setForm(EMPTY_KB_FORM); setPendingFiles([]); setFormErr(''); setShowForm(true)
+  }
+  function openEdit(art) {
+    setEditingId(art.id)
+    setForm({ name: art.name, categoryId: art.categoryId || '', description: art.description, keywords: art.keywords })
+    setPendingFiles([]); setFormErr(''); setShowForm(true)
+  }
+
+  function addFiles(fileList) {
+    const incoming = Array.from(fileList || [])
+    const existing = editingId ? (articles.find(a => a.id === editingId)?.attachments?.length || 0) : 0
+    setFormErr('')
+    const next = [...pendingFiles]
+    for (const f of incoming) {
+      if (f.size > KB_MAX_SIZE) { setFormErr(`"${f.name}" excede o limite de 5 MB`); continue }
+      if (existing + next.length >= KB_MAX_FILES) { setFormErr(`Máximo de ${KB_MAX_FILES} anexos por artigo`); break }
+      next.push(f)
+    }
+    setPendingFiles(next)
+  }
+
+  async function downloadAtt(articleId, att) {
+    try { await api.downloadArticleAttachment(articleId, att.id, att.filename) }
+    catch (e) { alert(`Erro ao baixar: ${e.message}`) }
+  }
+
+  async function removeExistingAtt(articleId, att) {
+    if (!window.confirm(`Remover o anexo "${att.filename}"?`)) return
+    try { await api.deleteArticleAttachment(articleId, att.id); await refreshArticleAction(articleId) }
+    catch (e) { alert(`Erro ao remover: ${e.message}`) }
+  }
+
+  async function saveArticle() {
+    if (!form.name.trim())        return setFormErr('Nome é obrigatório')
+    if (!form.categoryId)         return setFormErr('Categoria é obrigatória')
+    if (!form.keywords.trim())    return setFormErr('Palavras-chave são obrigatórias')
+    if (!form.description.trim()) return setFormErr('Descrição é obrigatória')
+
+    setSaving(true); setFormErr('')
+    try {
+      const payload = {
+        title:       form.name.trim(),
+        body:        form.description.trim(),
+        keywords:    form.keywords.trim(),
+        category_id: form.categoryId,
+        published:   true,
+      }
+      const saved = editingId
+        ? await updateArticleAction(editingId, payload)
+        : await createArticleAction(payload)
+
+      for (const file of pendingFiles) {
+        await api.uploadArticleAttachment(saved.id, file)
+      }
+      if (pendingFiles.length) await refreshArticleAction(saved.id)
+
+      setShowForm(false); setPendingFiles([])
+    } catch (e) {
+      setFormErr(e.message || 'Erro ao salvar')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // ── Visualização de um artigo ──────────────────────────────────────────
   if (selected) {
     const art = articles.find(a => a.id === selected)
     const cat = categories.find(c => c.id === art?.categoryId)
     return (
       <div style={{ maxWidth: 760, margin: '0 auto' }}>
-        <button className="btn btn-secondary" style={{ marginBottom: 18 }} onClick={() => setSelected(null)}>← Voltar</button>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+          <button className="btn btn-secondary" onClick={() => setSelected(null)}>← Voltar</button>
+          {canManage && (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-secondary btn-sm" onClick={() => openEdit(art)}>✏️ Editar</button>
+              <button className="btn btn-danger btn-sm" onClick={async () => {
+                if (!window.confirm(`Excluir o artigo "${art?.name}"?`)) return
+                try { await deleteArticleAction(art.id); setSelected(null) }
+                catch (e) { alert(`Erro: ${e.message}`) }
+              }}>🗑️ Excluir</button>
+            </div>
+          )}
+        </div>
         <div className="card">
           <div style={{ marginBottom: 10 }}><CatChip category={cat} /></div>
           <h2 style={{ fontWeight: 700, fontSize: 22, marginBottom: 8 }}>{art?.name}</h2>
           <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 18 }}>
             Criado em {formatDate(art?.createdAt)} · 🏷️ {art?.keywords}
           </div>
-          <div style={{ divider: 'var(--border)', borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16 }}>
             <div style={{ fontSize: 15, lineHeight: 1.8, color: 'var(--text)', whiteSpace: 'pre-wrap' }}>{art?.description}</div>
           </div>
+          {art?.attachments?.length > 0 && (
+            <div style={{ borderTop: '1px solid var(--border)', marginTop: 18, paddingTop: 16 }}>
+              <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 10 }}>📎 Anexos</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {art.attachments.map(att => (
+                  <div key={att.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 8 }}>
+                    <span style={{ fontSize: 13, flex: 1 }}>{att.filename}</span>
+                    <span style={{ fontSize: 11, color: 'var(--text2)' }}>{fmtBytes(att.byteSize)}</span>
+                    <button className="btn btn-secondary btn-sm" onClick={() => downloadAtt(art.id, att)}>⬇️ Baixar</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     )
   }
+
+  const editingArt = editingId ? articles.find(a => a.id === editingId) : null
+  const existingAtts = editingArt?.attachments || []
 
   return (
     <div>
       <div className="page-header">
         <h2 className="page-title">{t.kb}</h2>
         {canManage && (
-          <button className="btn btn-primary" onClick={() => { setForm({ name: '', categoryId: '', description: '', keywords: '' }); setShowForm(true) }}>
-            ➕ Novo Artigo
-          </button>
+          <button className="btn btn-primary" onClick={openNew}>➕ Novo Artigo</button>
         )}
       </div>
 
@@ -297,7 +404,10 @@ export function KnowledgeBase() {
               <div style={{ fontSize: 12, color: 'var(--text2)', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
                 {a.description}
               </div>
-              <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 10 }}>🏷️ {a.keywords}</div>
+              <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 10, display: 'flex', gap: 10 }}>
+                <span>🏷️ {a.keywords}</span>
+                {a.attachments?.length > 0 && <span>📎 {a.attachments.length}</span>}
+              </div>
             </div>
           )
         })}
@@ -309,36 +419,55 @@ export function KnowledgeBase() {
       </div>
 
       {showForm && (
-        <ModalOverlay onClose={() => setShowForm(false)}>
+        <ModalOverlay onClose={() => !saving && setShowForm(false)}>
           <div className="modal">
-            <h3 style={{ fontWeight: 700, marginBottom: 16 }}>Novo Artigo</h3>
+            <h3 style={{ fontWeight: 700, marginBottom: 16 }}>{editingId ? 'Editar Artigo' : 'Novo Artigo'}</h3>
             <div className="form-row">
-              <label className="label">{t.name}</label>
+              <label className="label">{t.name} *</label>
               <input className="input" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
             </div>
             <div className="form-row">
-              <label className="label">{t.category}</label>
+              <label className="label">{t.category} *</label>
               <select className="select" style={{ width: '100%' }} value={form.categoryId} onChange={e => setForm(f => ({ ...f, categoryId: e.target.value }))}>
                 <option value="">Selecione…</option>
                 {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
             <div className="form-row">
-              <label className="label">{t.keywords}</label>
+              <label className="label">{t.keywords} *</label>
               <input className="input" value={form.keywords} onChange={e => setForm(f => ({ ...f, keywords: e.target.value }))} placeholder="ex: vpn, acesso, remoto" />
             </div>
             <div className="form-row">
-              <label className="label">Descrição</label>
+              <label className="label">Descrição *</label>
               <textarea className="input" rows={6} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
             </div>
+
+            <div className="form-row">
+              <label className="label">Anexos (até {KB_MAX_FILES} arquivos, máx. 5 MB cada)</label>
+              {existingAtts.map(att => (
+                <div key={att.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, padding: '4px 0' }}>
+                  <span style={{ flex: 1 }}>📎 {att.filename}</span>
+                  <span style={{ color: 'var(--text2)' }}>{fmtBytes(att.byteSize)}</span>
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => downloadAtt(editingId, att)}>⬇️</button>
+                  <button type="button" className="btn btn-danger btn-sm" onClick={() => removeExistingAtt(editingId, att)}>✕</button>
+                </div>
+              ))}
+              {pendingFiles.map((f, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, padding: '4px 0' }}>
+                  <span style={{ flex: 1 }}>🆕 {f.name}</span>
+                  <span style={{ color: 'var(--text2)' }}>{fmtBytes(f.size)}</span>
+                  <button type="button" className="btn btn-danger btn-sm" onClick={() => setPendingFiles(p => p.filter((_, j) => j !== i))}>✕</button>
+                </div>
+              ))}
+              {(existingAtts.length + pendingFiles.length) < KB_MAX_FILES && (
+                <input type="file" multiple style={{ marginTop: 6, fontSize: 12 }} onChange={e => { addFiles(e.target.files); e.target.value = '' }} />
+              )}
+            </div>
+
+            {formErr && <div style={{ color: 'var(--danger, #d33)', fontSize: 13, marginBottom: 10 }}>{formErr}</div>}
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button className="btn btn-secondary" onClick={() => setShowForm(false)}>{t.cancel}</button>
-              <button className="btn btn-primary" onClick={async () => {
-                try {
-                  await createArticleAction({ title: form.name, body: form.description, keywords: form.keywords, published: true })
-                  setShowForm(false)
-                } catch (e) { alert(`Erro: ${e.message}`) }
-              }}>{t.save}</button>
+              <button className="btn btn-secondary" disabled={saving} onClick={() => setShowForm(false)}>{t.cancel}</button>
+              <button className="btn btn-primary" disabled={saving} onClick={saveArticle}>{saving ? 'Salvando…' : t.save}</button>
             </div>
           </div>
         </ModalOverlay>

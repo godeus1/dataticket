@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_25_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_25_000004) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -34,15 +34,30 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_25_000001) do
     t.index ["message_id", "message_checksum"], name: "index_action_mailbox_inbound_emails_uniqueness", unique: true
   end
 
+  create_table "article_attachments", force: :cascade do |t|
+    t.bigint "article_id", null: false
+    t.integer "byte_size"
+    t.string "content_type"
+    t.datetime "created_at", null: false
+    t.string "filename", null: false
+    t.string "storage_key"
+    t.datetime "updated_at", null: false
+    t.bigint "user_id", null: false
+    t.index ["article_id"], name: "index_article_attachments_on_article_id"
+    t.index ["user_id"], name: "index_article_attachments_on_user_id"
+  end
+
   create_table "articles", force: :cascade do |t|
     t.bigint "author_id", null: false
     t.text "body"
+    t.bigint "category_id"
     t.datetime "created_at", null: false
     t.string "keywords"
     t.bigint "organization_id", null: false
     t.boolean "published", default: false
     t.string "title", null: false
     t.datetime "updated_at", null: false
+    t.index ["category_id"], name: "index_articles_on_category_id"
     t.index ["organization_id"], name: "index_articles_on_organization_id"
   end
 
@@ -138,10 +153,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_25_000001) do
   create_table "organizations", force: :cascade do |t|
     t.bigint "account_id"
     t.boolean "active", default: true, null: false
+    t.jsonb "audit_settings", default: {}, null: false
     t.datetime "created_at", null: false
     t.string "date_format", default: "DD/MM/YYYY"
     t.jsonb "email_settings", default: {}, null: false
     t.boolean "emails_enabled", default: false
+    t.integer "max_users"
     t.string "name", null: false
     t.string "slug", null: false
     t.string "smtp_host"
@@ -557,6 +574,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_25_000001) do
     t.index ["organization_id"], name: "index_webhook_endpoints_on_organization_id"
   end
 
+  add_foreign_key "article_attachments", "articles"
+  add_foreign_key "article_attachments", "users"
+  add_foreign_key "articles", "categories"
   add_foreign_key "articles", "organizations"
   add_foreign_key "articles", "users", column: "author_id"
   add_foreign_key "audit_logs", "organizations"

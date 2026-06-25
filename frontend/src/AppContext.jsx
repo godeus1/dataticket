@@ -529,6 +529,14 @@ export function AppProvider({ children }) {
     setArticles(prev => prev.filter(a => a.id !== id))
   }, [])
 
+  // Recarrega um único artigo (ex.: após anexar/remover documentos).
+  const refreshArticleAction = useCallback(async (id) => {
+    const res = await api.article(id)
+    const a   = mapArticle(res)
+    setArticles(prev => prev.map(x => x.id === id ? a : x))
+    return a
+  }, [])
+
   // Trash
   const deleteTicketAction = useCallback(async (id) => {
     await api.deleteTicket(id)
@@ -593,7 +601,7 @@ export function AppProvider({ children }) {
     createPriorityAction, updatePriorityAction, deletePriorityAction,
     createQueueAction, updateQueueAction, deleteQueueAction,
     createHolidayAction, updateHolidayAction, deleteHolidayAction,
-    createArticleAction, updateArticleAction, deleteArticleAction,
+    createArticleAction, updateArticleAction, deleteArticleAction, refreshArticleAction,
     markReadAction, markAllReadAction,
 
     // Helpers

@@ -154,14 +154,24 @@ export function mapHoliday(h) {
 export function mapArticle(a) {
   if (!a) return null
   return {
-    id:        a.id,
-    title:     a.title    ?? '',
-    name:      a.title    ?? '',   // alias usado em alguns lugares
-    body:      a.body     ?? '',
-    keywords:  a.keywords ?? '',
-    published: a.published ?? false,
-    active:    a.published ?? false,
-    authorId:  a.author?.id ?? a.author_id ?? a.authorId ?? null,
+    id:          a.id,
+    title:       a.title    ?? '',
+    name:        a.title    ?? '',   // alias usado em alguns lugares
+    body:        a.body     ?? '',
+    description: a.body     ?? '',   // a tela de KB exibe "description"
+    keywords:    a.keywords ?? '',
+    categoryId:  a.category_id ?? a.categoryId ?? '',
+    published:   a.published ?? false,
+    active:      a.published ?? false,
+    authorId:    a.author?.id ?? a.author_id ?? a.authorId ?? null,
+    createdAt:   a.created_at ?? a.createdAt ?? null,
+    attachments: (a.attachments ?? []).map(att => ({
+      id:          att.id,
+      filename:    att.filename,
+      contentType: att.content_type ?? att.contentType,
+      byteSize:    att.byte_size ?? att.byteSize,
+      downloadUrl: att.download_url ?? att.downloadUrl ?? null,
+    })),
   }
 }
 

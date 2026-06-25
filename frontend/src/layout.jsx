@@ -14,7 +14,7 @@ export function Sidebar({ screen, setScreen }) {
     { key: 'dashboard',  icon: '📊', label: t.dashboard,  show: currentUser.role !== 'user' },
     { key: 'tickets',    icon: '🎫', label: t.tickets,    show: true },
     { key: 'new-ticket', icon: '➕', label: t.newTicket,  show: p.createTicket },
-    { key: 'calendar',   icon: '📅', label: t.calendar,   show: p.calendar },
+    { key: 'calendar',   icon: '📅', label: `${t.calendar} (beta)`, show: p.calendar },
     { key: 'kb',         icon: '📚', label: t.kb,         show: true },
     { key: 'reports',    icon: '📈', label: t.reports,    show: p.reports },
   ]

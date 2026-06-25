@@ -85,7 +85,11 @@ Rails.application.routes.draw do
         end
       end
       resources :holidays
-      resources :articles
+      resources :articles do
+        resources :attachments, only: %i[index create destroy], module: :articles do
+          member { get :download }
+        end
+      end
 
       # Notificações
       resources :notifications, only: %i[index update] do

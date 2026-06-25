@@ -95,20 +95,19 @@ class TriageService
   end
 
   def audit_triage
-    @ticket.organization.audit_logs.create(
-      action:       "Ticket triado",
-      entity:       "Ticket",
-      entity_id:    @ticket.id.to_s,
-      changes_data: {
+    @ticket.organization.record_audit(
+      event:     "ticket_changed",
+      action:    "Ticket triado",
+      entity:    "Ticket",
+      entity_id: @ticket.id,
+      changes:   {
         titulo:      @ticket.title,
         responsavel: @ticket.assignee&.full_name,
         fila:        @ticket.queue&.name,
         prioridade:  @ticket.priority&.name,
         prazo:       @ticket.deadline&.strftime("%d/%m/%Y")
-      }.compact,
+      },
       user: @actor
     )
-  rescue StandardError
-    # Auditoria nunca desfaz a triagem
   end
 end
