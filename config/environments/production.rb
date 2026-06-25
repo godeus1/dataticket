@@ -73,7 +73,10 @@ Rails.application.configure do
     host: ENV.fetch("APP_HOST", "api.dataticket.app")
   }
 
-  if ENV["MAILERSEND_API_KEY"].present?
+  if ENV["GOOGLE_REFRESH_TOKEN"].present?
+    # Gmail API (HTTP/443) — funciona no Railway, onde o SMTP do Gmail é bloqueado.
+    config.action_mailer.delivery_method = :gmail_api
+  elsif ENV["MAILERSEND_API_KEY"].present?
     config.action_mailer.delivery_method = :mailersend
   elsif ENV["SMTP_USER"].present? && ENV["SMTP_PASS"].present?
     config.action_mailer.delivery_method = :smtp
