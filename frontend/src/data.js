@@ -345,8 +345,8 @@ export const INITIAL_AUDIT = [
 ];
 
 export const INITIAL_SYSTEM_CONFIG = {
-  companyName: 'Salvabras',
-  emailSender: 'tecnologia@salvabras.com.br',
+  companyName: 'DataTicket',
+  emailSender: 'e.oliveira@datatry.com.br',
   smtpHost: 'smtp.office365.com',
   smtpPort: 587,
   timezone: 'America/Sao_Paulo',

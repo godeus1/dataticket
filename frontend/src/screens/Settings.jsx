@@ -74,7 +74,7 @@ export function SettingsUsers() {
           'DataTicket — Bem-vindo! Suas credenciais de acesso',
           `<div style="font-family:sans-serif;max-width:520px;margin:0 auto">
             <div style="background:#2383e2;padding:20px;border-radius:8px 8px 0 0">
-              <h2 style="color:#fff;margin:0">🎯 DataTicket · Salvabras</h2>
+              <h2 style="color:#fff;margin:0">🎯 DataTicket</h2>
             </div>
             <div style="border:1px solid #e5e7eb;border-top:none;padding:24px;border-radius:0 0 8px 8px">
               <p>Olá <strong>${form.firstName}</strong>, bem-vindo ao DataTicket!</p>

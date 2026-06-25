@@ -566,7 +566,7 @@ export function NewTicket() {
         `[DataTicket #${ticket.id}] Ticket aberto: ${form.title}`,
         `<div style="font-family:sans-serif;max-width:600px;margin:0 auto">
           <div style="background:#2383e2;padding:20px;border-radius:8px 8px 0 0">
-            <h2 style="color:#fff;margin:0">🎯 DataTicket · Salvabras</h2>
+            <h2 style="color:#fff;margin:0">🎯 DataTicket</h2>
           </div>
           <div style="border:1px solid #e5e7eb;border-top:none;padding:24px;border-radius:0 0 8px 8px">
             <p>Olá <strong>${currentUser.firstName}</strong>,</p>
@@ -991,7 +991,7 @@ export function TicketDetail() {
           `[DataTicket #${tk.id}] Status atualizado: ${newStatus}`,
           `<div style="font-family:sans-serif;max-width:600px;margin:0 auto">
             <div style="background:#2383e2;padding:20px;border-radius:8px 8px 0 0">
-              <h2 style="color:#fff;margin:0">🎯 DataTicket · Salvabras</h2>
+              <h2 style="color:#fff;margin:0">🎯 DataTicket</h2>
             </div>
             <div style="border:1px solid #e5e7eb;border-top:none;padding:24px;border-radius:0 0 8px 8px">
               <p>Olá <strong>${req.firstName}</strong>,</p>
@@ -1022,7 +1022,7 @@ export function TicketDetail() {
           `[DataTicket #${tk.id}] Novo comentário: ${tk.title}`,
           `<div style="font-family:sans-serif;max-width:600px;margin:0 auto">
             <div style="background:#2383e2;padding:20px;border-radius:8px 8px 0 0">
-              <h2 style="color:#fff;margin:0">🎯 DataTicket · Salvabras</h2>
+              <h2 style="color:#fff;margin:0">🎯 DataTicket</h2>
             </div>
             <div style="border:1px solid #e5e7eb;border-top:none;padding:24px;border-radius:0 0 8px 8px">
               <p>Olá <strong>${req.firstName}</strong>,</p>
@@ -1071,7 +1071,7 @@ export function TicketDetail() {
         `[DataTicket #${tk.id}] Seu ticket foi triado e está sendo atendido`,
         `<div style="font-family:sans-serif;max-width:600px;margin:0 auto">
           <div style="background:#2383e2;padding:20px;border-radius:8px 8px 0 0">
-            <h2 style="color:#fff;margin:0">🎯 DataTicket · Salvabras</h2>
+            <h2 style="color:#fff;margin:0">🎯 DataTicket</h2>
           </div>
           <div style="border:1px solid #e5e7eb;border-top:none;padding:24px;border-radius:0 0 8px 8px">
             <p>Olá <strong>${req.firstName}</strong>,</p>
@@ -1093,7 +1093,7 @@ export function TicketDetail() {
         `[DataTicket #${tk.id}] Ticket atribuído a você: ${tk.title}`,
         `<div style="font-family:sans-serif;max-width:600px;margin:0 auto">
           <div style="background:#2383e2;padding:20px;border-radius:8px 8px 0 0">
-            <h2 style="color:#fff;margin:0">🎯 DataTicket · Salvabras</h2>
+            <h2 style="color:#fff;margin:0">🎯 DataTicket</h2>
           </div>
           <div style="border:1px solid #e5e7eb;border-top:none;padding:24px;border-radius:0 0 8px 8px">
             <p>Olá <strong>${assigneeUser.firstName}</strong>,</p>
