@@ -73,9 +73,10 @@ Rails.application.configure do
     host: ENV.fetch("APP_HOST", "api.dataticket.app")
   }
 
-  if ENV["GOOGLE_REFRESH_TOKEN"].present?
-    # Gmail API (HTTP/443) — funciona no Railway, onde o SMTP do Gmail é bloqueado.
-    config.action_mailer.delivery_method = :gmail_api
+  if ENV["MS_CLIENT_SECRET"].present? && ENV["MS_TENANT_ID"].present?
+    # Microsoft Graph API (HTTP/443) — Office 365. Funciona no Railway, onde o
+    # SMTP do Office 365 (smtp.office365.com:587) é bloqueado.
+    config.action_mailer.delivery_method = :microsoft_graph
   elsif ENV["MAILERSEND_API_KEY"].present?
     config.action_mailer.delivery_method = :mailersend
   elsif ENV["SMTP_USER"].present? && ENV["SMTP_PASS"].present?
