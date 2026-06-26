@@ -8,4 +8,4 @@
   <% if @ticket.priority %><tr><th>Prioridade</th><td><%= @ticket.priority.name %></td></tr><% end %>
   <% if @ticket.deadline %><tr><th>Prazo</th><td><%= @ticket.deadline.strftime("%d/%m/%Y às %H:%M") %></td></tr><% end %>
 </table>
-<a href="<%= @url %>" class="btn">Ver Ticket</a>
+<a href="<%= @url %>" class="btn" style="color:#ffffff;">Ver Ticket</a>

@@ -8,12 +8,13 @@
       .body { color: #374151; line-height: 1.6; font-size: 14px; }
       .body h2 { font-size: 18px; color: #111827; margin-top: 0; margin-bottom: 12px; }
       .body p { margin: 0 0 12px; }
-      .btn { display: inline-block; margin-top: 24px; padding: 12px 24px; background: #2383e2; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; }
       /* Tabelas de dados dentro do corpo dos e-mails (não afeta a estrutura) */
       .body table { width: 100%; border-collapse: collapse; margin: 16px 0; }
       .body th, .body td { text-align: left; padding: 9px 12px; font-size: 14px; border-bottom: 1px solid #e5e7eb; }
       .body th { background: #f0f7ff; font-weight: 600; color: #374151; }
       .body a { color: #2383e2; }
+      /* Botão depois de .body a para vencer a especificidade e manter o texto branco */
+      .body a.btn { display: inline-block; margin-top: 24px; padding: 12px 24px; background: #2383e2; color: #ffffff !important; text-decoration: none; border-radius: 8px; font-weight: 600; }
     </style>
   </head>
   <body style="margin:0;padding:0;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
