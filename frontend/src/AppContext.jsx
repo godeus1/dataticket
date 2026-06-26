@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import * as Sentry from '@sentry/react'
-import { api, getToken, setToken, setOn401Handler, getCurrentOrg, setCurrentOrg } from './api.js'
+import { api, getToken, setToken, setOn401Handler, getCurrentOrg, setCurrentOrg, setActiveOrg } from './api.js'
 import {
   mapUser, mapTicket, mapPriority, mapCategory, mapQueue,
   mapHoliday, mapArticle, mapNotification, mapAuditLog, mapOrganization, mapComment,
@@ -94,6 +94,12 @@ export function AppProvider({ children }) {
   // ── Multi-empresa (msp_admin troca entre empresas) ────────────────────
   const [availableOrgs, setAvailableOrgs] = useState([])
   const [currentOrgId,  setCurrentOrgId]  = useState(() => getCurrentOrg())
+
+  // Mantém o header X-Organization-Id atrelado ao estado DESTA aba (e não ao
+  // localStorage compartilhado), evitando que abas com empresas diferentes
+  // enviem requisições para a empresa errada. Roda já na montagem.
+  if (typeof window !== 'undefined') setActiveOrg(currentOrgId)
+  useEffect(() => { setActiveOrg(currentOrgId) }, [currentOrgId])
 
   // ── Routing ───────────────────────────────────────────────────────────
   const navigate = useNavigate()
@@ -291,7 +297,7 @@ export function AppProvider({ children }) {
     } else {
       try { await api.logout() } catch {}
       setToken(null)
-      setCurrentOrg(null); setCurrentOrgId(null); setAvailableOrgs([])
+      setCurrentOrg(null); setActiveOrg(null); setCurrentOrgId(null); setAvailableOrgs([])
       setCurrentUserState(null)
       setTickets([]); setUsers([]); setCategories([]); setPriorities([])
       setQueues([]); setHolidays([]); setArticles([]); setNotifications([]); setAuditLog([])
@@ -304,13 +310,28 @@ export function AppProvider({ children }) {
   // Grava a empresa em localStorage (→ header X-Organization-Id) e recarrega
   // todos os dados da empresa selecionada. Volta ao painel para não exibir um
   // ticket da empresa anterior.
-  const switchOrg = useCallback(async (orgId) => {
-    setCurrentOrg(orgId)
+  const switchOrg = useCallback(async (orgId, { redirect = true } = {}) => {
+    setCurrentOrg(orgId)        // persistência entre recarregamentos (localStorage)
+    setActiveOrg(orgId)         // header desta aba já no reload abaixo (antes do re-render)
     setCurrentOrgId(String(orgId))
     setLoadingData(true)
-    navigate(SCREEN_TO_PATH['dashboard'])
+    if (redirect) navigate(SCREEN_TO_PATH['dashboard'])
     try { await loadData() } finally { setLoadingData(false) }
   }, [loadData, navigate])
+
+  // msp_admin pode abrir tickets de QUALQUER empresa (link de e-mail, nova aba,
+  // notificação). Alinha a empresa ativa ao prefixo do ticket aberto para que o
+  // header/escopo batam com a empresa do ticket (sem isso: "Ticket não
+  // encontrado" e responsáveis vazios ao agir num ticket de outra empresa).
+  useEffect(() => {
+    if (currentUserState?.role !== 'msp_admin') return
+    if (!selectedTicket || availableOrgs.length === 0) return
+    const prefix = String(selectedTicket).split('-')[0]
+    const target = availableOrgs.find(o => (o.ticket_prefix ?? o.ticketPrefix) === prefix)
+    if (target && String(target.id) !== String(currentOrgId)) {
+      switchOrg(target.id, { redirect: false })
+    }
+  }, [selectedTicket, availableOrgs, currentUserState, currentOrgId, switchOrg])
 
   // Cria uma empresa nova (msp_admin) e a adiciona à lista do seletor.
   const createOrganizationAction = useCallback(async (data) => {

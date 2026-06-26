@@ -11,8 +11,17 @@ export const setToken  = (t) => t ? localStorage.setItem(TOKEN_KEY, t) : localSt
 export const clearToken = () => localStorage.removeItem(TOKEN_KEY)
 
 // Empresa selecionada (só msp_admin troca; o backend ignora o header para os demais).
+// localStorage é COMPARTILHADO entre abas — usá-lo direto no header causa desync
+// quando o usuário tem a mesma conta aberta em mais de uma aba com empresas
+// diferentes. Por isso o header usa primeiro um override POR ABA (variável de
+// módulo, isolada por aba) que o AppContext mantém em sincronia com o estado da
+// empresa ativa; o localStorage continua como persistência entre recarregamentos.
+let _activeOrg = null
+export const setActiveOrg  = (id) => { _activeOrg = (id === null || id === undefined || id === '') ? null : String(id) }
 export const getCurrentOrg = ()   => localStorage.getItem(ORG_KEY)
 export const setCurrentOrg = (id) => id ? localStorage.setItem(ORG_KEY, String(id)) : localStorage.removeItem(ORG_KEY)
+// Empresa efetiva para o header da requisição (override da aba > localStorage).
+const reqOrg = () => _activeOrg ?? getCurrentOrg()
 
 // Callback chamado quando qualquer request retorna 401 — registrado pelo AppContext
 let _on401 = null
@@ -21,7 +30,7 @@ export const setOn401Handler = (fn) => { _on401 = fn }
 // ── Core fetch wrapper ─────────────────────────────────────────────────────
 async function req(path, opts = {}) {
   const token = getToken()
-  const orgId = getCurrentOrg()
+  const orgId = reqOrg()
   const headers = {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -142,7 +151,7 @@ export const api = {
     const fd = new FormData()
     fd.append('file', file)
     const token = getToken()
-    const orgId = getCurrentOrg()
+    const orgId = reqOrg()
     return fetch(`${BASE}/articles/${articleId}/attachments`, {
       method: 'POST',
       headers: {
@@ -166,7 +175,7 @@ export const api = {
     req(`/articles/${articleId}/attachments/${attId}`, { method: 'DELETE' }),
   downloadArticleAttachment: async (articleId, attId, filename) => {
     const token = getToken()
-    const orgId = getCurrentOrg()
+    const orgId = reqOrg()
     const res = await fetch(`${BASE}/articles/${articleId}/attachments/${attId}/download`, {
       headers: {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -207,7 +216,7 @@ export const api = {
     const fd = new FormData()
     fd.append('file', file)
     const token = getToken()
-    const orgId = getCurrentOrg()
+    const orgId = reqOrg()
     return fetch(`${BASE}/tickets/${ticketId}/attachments`, {
       method: 'POST',
       headers: {
