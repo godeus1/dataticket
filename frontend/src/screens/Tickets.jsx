@@ -1334,7 +1334,7 @@ export function TicketDetail() {
         </div>
         <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
           {p.triage && <button className="btn btn-primary btn-sm" onClick={() => setShowTriage(true)}>{tk.triaged ? '↺ Re-triar' : t.triageBtn}</button>}
-          {canAddEffort && <button className="btn btn-secondary btn-sm" onClick={() => { setEffortHours(''); setEffortReason(''); setShowEffort(true) }}>➕ Horas</button>}
+          {canAddEffort && tk.status !== 'Fechado' && <button className="btn btn-secondary btn-sm" onClick={() => { setEffortHours(''); setEffortReason(''); setShowEffort(true) }}>➕ Horas</button>}
           {transitions.map(s => <button key={s} className="btn btn-secondary btn-sm" onClick={() => changeStatus(s)}>→ {s}</button>)}
           {p.closeTicket && !['Fechado', 'Resolvido'].includes(tk.status) && <button className="btn btn-danger btn-sm" onClick={() => changeStatus('Fechado')}>{t.closeTicket}</button>}
           {p.reopenTicket && ['Fechado', 'Resolvido'].includes(tk.status) && (

@@ -13,6 +13,8 @@ module Api
         def create
           authorize @ticket, :add_effort?
 
+          return render json: { error: "Não é possível adicionar horas a um ticket fechado." }, status: :unprocessable_entity if @ticket.status == "Fechado"
+
           hours  = params[:hours].to_f
           reason = params[:reason].to_s.strip
           return render json: { error: "Informe as horas de esforço (maior que zero)." }, status: :unprocessable_entity unless hours > 0
