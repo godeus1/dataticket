@@ -5,7 +5,7 @@
 #   - registra no histórico do ticket,
 #   - opcionalmente cria um comentário automático com a justificativa (prova).
 class EffortAdditionService
-  def self.add(ticket:, user:, hours:, reason: nil, source: "manual", comment: true)
+  def self.add(ticket:, user:, hours:, reason: nil, source: "manual")
     hours = hours.to_f.round(2)
     return nil unless hours > 0
 
@@ -14,6 +14,8 @@ class EffortAdditionService
       old_effort = ticket.effort_estimated.to_f
       new_effort = (old_effort + hours).round(2)
 
+      # A justificativa fica registrada apenas na própria adição (lista lateral)
+      # e no histórico — não gera comentário (não deve ir ao solicitante).
       addition = ticket.effort_additions.create!(
         user:   user,
         hours:  hours,
@@ -30,16 +32,6 @@ class EffortAdditionService
         from_value: "+#{fmt(hours)} h",
         to_value:   reason.presence || source_label(source)
       )
-
-      # Comentário automático com a justificativa/prova do trabalho
-      if comment && reason.present?
-        ticket.comments.create!(
-          user:   user,
-          kind:   "public",
-          source: "effort",
-          body:   "⏱️ Adicionou #{fmt(hours)} h de esforço — #{reason.strip}"
-        )
-      end
     end
 
     addition

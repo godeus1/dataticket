@@ -6,6 +6,7 @@ class EffortAddition < ApplicationRecord
 
   validates :hours, numericality: { greater_than: 0 }
   validates :source, inclusion: { in: SOURCES }
+  validates :reason, length: { maximum: 255 }
 
   scope :recent, -> { order(created_at: :desc) }
 end

@@ -1972,10 +1972,13 @@ export function TicketDetail() {
                 onChange={e => setEffortHours(e.target.value)} placeholder="ex: 2" />
             </div>
             <div className="form-row">
-              <label className="label">O que será feito (prova do esforço) *</label>
-              <textarea className="input" rows={4} value={effortReason}
-                onChange={e => setEffortReason(e.target.value)}
+              <label className="label">O que será feito (prova do esforço) * — até 255 caracteres</label>
+              <textarea className="input" rows={4} value={effortReason} maxLength={255}
+                onChange={e => setEffortReason(e.target.value.slice(0, 255))}
                 placeholder="Descreva brevemente o trabalho que justifica as horas adicionais…" />
+              <div style={{ fontSize: 11, color: 'var(--text2)', textAlign: 'right', marginTop: 2 }}>
+                {effortReason.length}/255
+              </div>
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button className="btn btn-secondary" disabled={effortSaving} onClick={() => setShowEffort(false)}>Cancelar</button>
