@@ -48,18 +48,10 @@ function saveSessions(userId, ticketId, sessions) {
   } catch { /* quota */ }
 }
 
-// ── Saved Views helpers ───────────────────────────────────────────────────
-const VIEWS_KEY = (uid) => `dt_views_${uid}`
-function loadViews(uid) {
-  try { return JSON.parse(localStorage.getItem(VIEWS_KEY(uid)) || '[]') } catch { return [] }
-}
-function persistViews(uid, views) {
-  try { localStorage.setItem(VIEWS_KEY(uid), JSON.stringify(views)) } catch {}
-}
-
 // ── Ticket List ───────────────────────────────────────────────────────────
 export function TicketList() {
-  const { currentUser, lang, tickets, priorities, categories, users, queues, setScreen, setSelectedTicket, triageAction, showToast } = useApp()
+  const { currentUser, lang, tickets, priorities, categories, users, queues, setScreen, setSelectedTicket, triageAction, showToast,
+          savedViews, createSavedViewAction, deleteSavedViewAction } = useApp()
   const t = lang === 'pt' ? PT : EN
   const p = PERM[currentUser.role] || PERM.user
   const canUseViews = currentUser.role !== 'user'
@@ -75,8 +67,7 @@ export function TicketList() {
   const [page, setPage] = useState(0)
   const PER = 25
 
-  // ── Saved Views ──────────────────────────────────────────────────────────
-  const [savedViews,  setSavedViews]  = useState(() => loadViews(currentUser.id))
+  // ── Saved Views (persistidas no servidor, por usuário e empresa) ─────────
   const [activeViewId, setActiveViewId] = useState('all')
   const [savingView,  setSavingView]  = useState(false)
   const [newViewName, setNewViewName] = useState('')
@@ -98,27 +89,27 @@ export function TicketList() {
     setPage(0)
   }
 
-  function saveCurrentView() {
+  async function saveCurrentView() {
     if (!newViewName.trim()) return
-    const view = {
-      id: Date.now().toString(),
-      name: newViewName.trim(),
-      filters: { search, status: filterStatus, priority: filterPri, category: filterCat, assignee: filterAssignee }
+    const filters = { search, status: filterStatus, priority: filterPri, category: filterCat, assignee: filterAssignee }
+    try {
+      const view = await createSavedViewAction(newViewName.trim(), filters)
+      setActiveViewId(view.id)
+      setSavingView(false)
+      setNewViewName('')
+      showToast(`Lista "${view.name}" salva!`)
+    } catch (e) {
+      showToast(`Erro ao salvar lista: ${e.message}`)
     }
-    const updated = [...savedViews, view]
-    setSavedViews(updated)
-    persistViews(currentUser.id, updated)
-    setActiveViewId(view.id)
-    setSavingView(false)
-    setNewViewName('')
-    showToast(`Lista "${view.name}" salva!`)
   }
 
-  function deleteView(id) {
-    const updated = savedViews.filter(v => v.id !== id)
-    setSavedViews(updated)
-    persistViews(currentUser.id, updated)
-    if (activeViewId === id) clearAllFilters()
+  async function deleteView(id) {
+    try {
+      await deleteSavedViewAction(id)
+      if (activeViewId === id) clearAllFilters()
+    } catch (e) {
+      showToast(`Erro ao excluir lista: ${e.message}`)
+    }
   }
 
   // Open ticket in new tab — middle-click
@@ -715,13 +706,21 @@ export function NewTicket() {
 
 // ── Ticket Detail ─────────────────────────────────────────────────────────
 export function TicketDetail() {
-  const { currentUser, lang, tickets, setTickets, priorities, categories, users, queues, setScreen, addNotification, showToast, selectedTicket, notifyEmail, changeStatusAction, addCommentAction, updateTicketAction, triageAction, assignAction, deleteTicketAction, systemConfig } = useApp()
+  const { currentUser, lang, tickets, setTickets, priorities, categories, users, queues, setScreen, addNotification, showToast, selectedTicket, notifyEmail, changeStatusAction, addCommentAction, updateTicketAction, triageAction, assignAction, deleteTicketAction, addEffortAction, deleteEffortAction, systemConfig } = useApp()
   const t = lang === 'pt' ? PT : EN
   const tk = tickets.find(x => x.id === selectedTicket)
+
+  // "+ Horas": SuperAdmin, admin, gestor e analista podem adicionar esforço.
+  const canAddEffort = ['msp_admin', 'admin', 'manager', 'analyst'].includes(currentUser.role)
+  const isSuper      = currentUser.role === 'msp_admin'
 
   const [commentText, setCommentText] = useState('')
   const [commentType, setCommentType] = useState('public')
   const [showTriage, setShowTriage] = useState(false)
+  const [showEffort, setShowEffort] = useState(false)
+  const [effortHours, setEffortHours] = useState('')
+  const [effortReason, setEffortReason] = useState('')
+  const [effortSaving, setEffortSaving] = useState(false)
   const [triageForm, setTriageForm] = useState({ priorityId: '', categoryId: '', effortEstimated: '', queueId: '', assigneeId: '', coAssigneeIds: [] })
   const [capacityMap, setCapacityMap] = useState({})   // userId → { load_pct, free_hours, scheduled_hours }
   const [timerRunning, setTimerRunning] = useState(false)
@@ -1124,6 +1123,32 @@ export function TicketDetail() {
     }
   }
 
+  async function doAddEffort() {
+    const hours = parseFloat(String(effortHours).replace(',', '.'))
+    if (!hours || hours <= 0) { showToast('Informe as horas de esforço (maior que zero).'); return }
+    if (!effortReason.trim()) { showToast('Descreva brevemente o que será feito (prova do esforço).'); return }
+    setEffortSaving(true)
+    try {
+      await addEffortAction(tk.id, hours, effortReason.trim())
+      setShowEffort(false); setEffortHours(''); setEffortReason('')
+      showToast(`+${hours}h de esforço adicionadas.`)
+    } catch (e) {
+      showToast(`Erro ao adicionar horas: ${e.message}`)
+    } finally {
+      setEffortSaving(false)
+    }
+  }
+
+  async function doDeleteEffort(additionId) {
+    if (!window.confirm('Apagar esta adição de esforço? As horas serão estornadas do esforço estimado.')) return
+    try {
+      await deleteEffortAction(tk.id, additionId)
+      showToast('Adição de esforço removida.')
+    } catch (e) {
+      showToast(`Erro ao remover: ${e.message}`)
+    }
+  }
+
   async function handleDelete() {
     if (!window.confirm(`Mover o ticket "${tk.title}" para a lixeira? Ele poderá ser restaurado em até 30 dias.`)) return
     try {
@@ -1309,6 +1334,7 @@ export function TicketDetail() {
         </div>
         <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
           {p.triage && <button className="btn btn-primary btn-sm" onClick={() => setShowTriage(true)}>{tk.triaged ? '↺ Re-triar' : t.triageBtn}</button>}
+          {canAddEffort && <button className="btn btn-secondary btn-sm" onClick={() => { setEffortHours(''); setEffortReason(''); setShowEffort(true) }}>➕ Horas</button>}
           {transitions.map(s => <button key={s} className="btn btn-secondary btn-sm" onClick={() => changeStatus(s)}>→ {s}</button>)}
           {p.closeTicket && !['Fechado', 'Resolvido'].includes(tk.status) && <button className="btn btn-danger btn-sm" onClick={() => changeStatus('Fechado')}>{t.closeTicket}</button>}
           {p.reopenTicket && ['Fechado', 'Resolvido'].includes(tk.status) && (
@@ -1710,6 +1736,36 @@ export function TicketDetail() {
             </div>
           )}
 
+          {/* Esforço adicional ("+ Horas") */}
+          {(tk.effortAdditions ?? []).length > 0 && (
+            <div className="card" style={{ marginBottom: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <span style={{ fontWeight: 600 }}>⏱️ Esforço adicional</span>
+                <span style={{ fontSize: 12, color: 'var(--text2)' }}>
+                  +{(tk.effortAdditions.reduce((a, x) => a + (x.hours || 0), 0)).toFixed(1).replace('.0', '')} h
+                </span>
+              </div>
+              {tk.effortAdditions.map(ea => {
+                const srcLabel = { manual: 'Manual', triage: 'Triagem', reopen: 'Reabertura' }[ea.source] || ea.source
+                return (
+                  <div key={ea.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--border)', fontSize: 12 }}>
+                    <span style={{ fontWeight: 700, color: '#7c3aed', flexShrink: 0 }}>+{ea.hours}h</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ color: 'var(--text2)' }}>{formatDate(ea.date)} · {srcLabel}</div>
+                      {isSuper && ea.reason && (
+                        <div style={{ color: 'var(--text)', marginTop: 2, whiteSpace: 'pre-wrap' }}>{ea.reason}{ea.userName ? ` — ${ea.userName}` : ''}</div>
+                      )}
+                    </div>
+                    {isSuper && (
+                      <button className="btn btn-danger btn-sm" style={{ flexShrink: 0, padding: '2px 6px' }}
+                        title="Apagar (estorna as horas)" onClick={() => doDeleteEffort(ea.id)}>🗑</button>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
           {/* Co-responsáveis */}
           {(tk.coAssignees ?? []).length > 0 && (
             <div className="card" style={{ marginBottom: 12 }}>
@@ -1898,6 +1954,33 @@ export function TicketDetail() {
                 <button className="btn btn-secondary btn-sm" disabled={moreHistoryPage >= Math.ceil(tk.history.length / MORE_PER) - 1} onClick={() => setMoreHistoryPage(p => p + 1)}>▶</button>
               </div>
             )}
+          </div>
+        </ModalOverlay>
+      )}
+
+      {/* Modal "+ Horas" — esforço adicional com prova */}
+      {showEffort && (
+        <ModalOverlay onClose={() => !effortSaving && setShowEffort(false)}>
+          <div className="modal">
+            <h3 style={{ fontWeight: 700, marginBottom: 6 }}>⏱️ Adicionar horas de esforço</h3>
+            <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 16 }}>
+              Esforço estimado atual: <strong>{tk.effortEstimated} h</strong>. A justificativa abaixo será registrada como comentário no ticket.
+            </p>
+            <div className="form-row">
+              <label className="label">Horas a adicionar *</label>
+              <input className="input" type="number" min="0" step="0.5" value={effortHours}
+                onChange={e => setEffortHours(e.target.value)} placeholder="ex: 2" />
+            </div>
+            <div className="form-row">
+              <label className="label">O que será feito (prova do esforço) *</label>
+              <textarea className="input" rows={4} value={effortReason}
+                onChange={e => setEffortReason(e.target.value)}
+                placeholder="Descreva brevemente o trabalho que justifica as horas adicionais…" />
+            </div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button className="btn btn-secondary" disabled={effortSaving} onClick={() => setShowEffort(false)}>Cancelar</button>
+              <button className="btn btn-primary" disabled={effortSaving} onClick={doAddEffort}>{effortSaving ? 'Salvando…' : '➕ Adicionar'}</button>
+            </div>
           </div>
         </ModalOverlay>
       )}

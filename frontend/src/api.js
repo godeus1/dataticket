@@ -93,6 +93,10 @@ export const api = {
   triage:        (id, d)       => req(`/tickets/${id}/triage`,        { method: 'PATCH', body: j(d) }),
   changeStatus:  (id, status, additionalHours) => req(`/tickets/${id}/change_status`, { method: 'PATCH', body: j({ status, ...(additionalHours ? { additional_hours: additionalHours } : {}) }) }),
   assign:        (id, uid)     => req(`/tickets/${id}/assign`,        { method: 'PATCH', body: j({ assignee_id: uid }) }),
+  // Esforço adicional ("+ Horas")
+  effortAdditions: (tid)        => req(`/tickets/${tid}/effort_additions`),
+  addEffort:       (tid, d)     => req(`/tickets/${tid}/effort_additions`,        { method: 'POST',   body: j(d) }),
+  deleteEffort:    (tid, id)    => req(`/tickets/${tid}/effort_additions/${id}`,  { method: 'DELETE' }),
   histories:          (id)      => req(`/tickets/${id}/histories`),
   timerSessions:      (id)        => req(`/tickets/${id}/timer_sessions`),
   createTimerSession: (id, d)     => req(`/tickets/${id}/timer_sessions`,            { method: 'POST',  body: j(d) }),
@@ -193,6 +197,12 @@ export const api = {
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
   },
+
+  // ── Saved views (listas de filtros por usuário e empresa) ─────────────
+  savedViews:       ()       => req('/saved_views'),
+  createSavedView:  (d)      => req('/saved_views',       { method: 'POST',   body: j({ saved_view: d }) }),
+  updateSavedView:  (id, d)  => req(`/saved_views/${id}`, { method: 'PATCH',  body: j({ saved_view: d }) }),
+  deleteSavedView:  (id)     => req(`/saved_views/${id}`, { method: 'DELETE' }),
 
   // ── Notifications ─────────────────────────────────────────────────────
   notifications:  ()   => req('/notifications'),

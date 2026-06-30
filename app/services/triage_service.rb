@@ -9,6 +9,7 @@ class TriageService
 
   def call
     ActiveRecord::Base.transaction do
+      effort_before = @ticket.effort_estimated.to_f
       attrs = triage_params.to_h.symbolize_keys
 
       # Se o ticket já tem esforço estimado e um novo valor foi informado, soma
@@ -33,6 +34,13 @@ class TriageService
 
       @ticket.save!
       @ticket.sync_co_assignees(@params[:co_assignee_ids]) if @params.key?(:co_assignee_ids)
+
+      # Registra a adição de esforço da triagem na lista lateral do ticket
+      # (o esforço já foi atualizado acima — aqui só cria o registro).
+      delta = (@ticket.effort_estimated.to_f - effort_before).round(2)
+      if delta > 0
+        @ticket.effort_additions.create!(user: @actor, hours: delta, reason: "Triagem", source: "triage") rescue nil
+      end
 
       # Registra histórico de acréscimo de esforço quando re-triagem soma horas
       if @extra_effort&.> 0

@@ -52,6 +52,7 @@ Rails.application.routes.draw do
           end
           collection { get :trash }
         end
+        resources :effort_additions, only: %i[index create destroy], module: :tickets
         collection do
           post :bulk_triage
           get  :trash
@@ -90,6 +91,9 @@ Rails.application.routes.draw do
           member { get :download }
         end
       end
+
+      # Listas salvas de filtros (por usuário e empresa)
+      resources :saved_views, only: %i[index create update destroy]
 
       # Notificações
       resources :notifications, only: %i[index update] do

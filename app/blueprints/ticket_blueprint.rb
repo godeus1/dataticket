@@ -45,6 +45,19 @@ class TicketBlueprint < Blueprinter::Base
       ticket.queue&.name
     end
 
+    field :effort_additions do |ticket|
+      ticket.effort_additions.includes(:user).recent.map do |a|
+        {
+          id:         a.id,
+          hours:      a.hours.to_f,
+          reason:     a.reason,
+          source:     a.source,
+          created_at: a.created_at,
+          user:       a.user && { id: a.user.id, first_name: a.user.first_name, last_name: a.user.last_name }
+        }
+      end
+    end
+
     field :timer_sessions do |ticket|
       next [] unless ActiveRecord::Base.connection.table_exists?(:ticket_timer_sessions)
 

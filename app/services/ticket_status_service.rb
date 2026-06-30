@@ -48,6 +48,8 @@ class TicketStatusService
             from_value: "#{@ticket.effort_estimated} h",
             to_value:   "#{new_estimated} h (+#{@additional_hours} h)"
           ) rescue nil
+          # Alimenta a lista lateral de adições de esforço
+          @ticket.effort_additions.create!(user: @actor, hours: @additional_hours, reason: "Reabertura", source: "reopen") rescue nil
         end
         reschedule_on_reopen!
       end

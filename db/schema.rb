@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_25_000006) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_26_000002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -98,6 +98,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_25_000006) do
     t.datetime "updated_at", null: false
     t.index ["organization_id", "position"], name: "index_custom_fields_on_organization_id_and_position"
     t.index ["organization_id"], name: "index_custom_fields_on_organization_id"
+  end
+
+  create_table "effort_additions", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.decimal "hours", precision: 6, scale: 2, null: false
+    t.text "reason"
+    t.string "source", default: "manual", null: false
+    t.string "ticket_id", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "user_id", null: false
+    t.index ["ticket_id", "created_at"], name: "index_effort_additions_on_ticket_id_and_created_at"
+    t.index ["user_id"], name: "index_effort_additions_on_user_id"
   end
 
   create_table "events", force: :cascade do |t|
@@ -213,6 +225,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_25_000006) do
     t.datetime "updated_at", null: false
     t.index ["category_id"], name: "index_queues_on_category_id"
     t.index ["organization_id"], name: "index_queues_on_organization_id"
+  end
+
+  create_table "saved_views", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.jsonb "filters", default: {}, null: false
+    t.string "name", null: false
+    t.bigint "organization_id", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "user_id", null: false
+    t.index ["organization_id"], name: "index_saved_views_on_organization_id"
+    t.index ["user_id", "organization_id"], name: "index_saved_views_on_user_id_and_organization_id"
+    t.index ["user_id"], name: "index_saved_views_on_user_id"
   end
 
   create_table "scheduled_days", force: :cascade do |t|
@@ -593,6 +617,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_25_000006) do
   add_foreign_key "audit_logs", "users"
   add_foreign_key "categories", "organizations"
   add_foreign_key "custom_fields", "organizations"
+  add_foreign_key "effort_additions", "tickets"
+  add_foreign_key "effort_additions", "users"
   add_foreign_key "events", "organizations"
   add_foreign_key "events", "users", column: "actor_id"
   add_foreign_key "holidays", "organizations"
@@ -604,6 +630,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_25_000006) do
   add_foreign_key "queue_memberships", "users"
   add_foreign_key "queues", "categories"
   add_foreign_key "queues", "organizations"
+  add_foreign_key "saved_views", "organizations"
+  add_foreign_key "saved_views", "users"
   add_foreign_key "scheduled_days", "tickets"
   add_foreign_key "scheduled_days", "users"
   add_foreign_key "sla_policies", "categories"

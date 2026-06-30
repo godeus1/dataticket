@@ -13,6 +13,7 @@ class User < ApplicationRecord
   has_many :queues,            through: :queue_memberships, class_name: "TicketQueue", source: :queue
   has_many :ticket_comments,   dependent: :nullify
   has_many :authored_articles, class_name: "Article", foreign_key: :author_id, dependent: :nullify
+  has_many :saved_views,       dependent: :destroy
 
   validates :email, presence: true,
             format: { with: URI::MailTo::EMAIL_REGEXP },

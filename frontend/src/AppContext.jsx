@@ -85,6 +85,7 @@ export function AppProvider({ children }) {
   const [articles,      setArticles]      = useState([])
   const [notifications, setNotifications] = useState([])
   const [auditLog,      setAuditLog]      = useState([])
+  const [savedViews,    setSavedViews]    = useState([])
   const [systemConfig,  setSystemConfig]  = useState(() => ls('dt_config', INITIAL_SYSTEM_CONFIG))
 
   // ── Session state ─────────────────────────────────────────────────────
@@ -137,7 +138,7 @@ export function AppProvider({ children }) {
 
     const [
       usersRes, ticketsRes, catsRes, prisRes,
-      queuesRes, holidaysRes, articlesRes, notifRes, orgRes, auditRes, orgsRes,
+      queuesRes, holidaysRes, articlesRes, notifRes, orgRes, auditRes, orgsRes, viewsRes,
     ] = await Promise.all([
       settle(api.users()),
       settle(api.tickets()),
@@ -150,6 +151,7 @@ export function AppProvider({ children }) {
       settle(api.organization()),
       settle(api.auditLogs()),
       settle(api.organizations()),
+      settle(api.savedViews()),
     ])
 
     // Se qualquer endpoint retornar 401 a sessão expirou
@@ -186,6 +188,7 @@ export function AppProvider({ children }) {
     setAuditLog(      (auditData  ?? []).map(mapAuditLog))
     if (orgData) setSystemConfig(mapOrganization(orgData))
     setAvailableOrgs(val(orgsRes, []) ?? [])
+    setSavedViews(val(viewsRes, []) ?? [])
   }, [])
 
   // ── Interceptor global de 401 — desloga automaticamente ─────────────
@@ -398,6 +401,35 @@ export function AppProvider({ children }) {
     return tk
   }, [])
 
+  // ── Esforço adicional ("+ Horas") ──────────────────────────────────────
+  const addEffortAction = useCallback(async (ticketId, hours, reason) => {
+    await api.addEffort(ticketId, { hours, reason })
+    const res = await api.ticket(ticketId)          // recarrega ticket (esforço + comentário + lista)
+    const tk  = mapTicket(res)
+    setTickets(prev => prev.map(t => t.id === ticketId ? tk : t))
+    return tk
+  }, [])
+
+  const deleteEffortAction = useCallback(async (ticketId, additionId) => {
+    await api.deleteEffort(ticketId, additionId)
+    const res = await api.ticket(ticketId)
+    const tk  = mapTicket(res)
+    setTickets(prev => prev.map(t => t.id === ticketId ? tk : t))
+    return tk
+  }, [])
+
+  // ── Listas salvas de filtros (por usuário e empresa, no servidor) ──────
+  const createSavedViewAction = useCallback(async (name, filters) => {
+    const v = await api.createSavedView({ name, filters })
+    setSavedViews(prev => [...prev, v])
+    return v
+  }, [])
+
+  const deleteSavedViewAction = useCallback(async (id) => {
+    await api.deleteSavedView(id)
+    setSavedViews(prev => prev.filter(v => v.id !== id))
+  }, [])
+
   const assignAction = useCallback(async (id, userId) => {
     const res = await api.assign(id, userId)
     const tk  = mapTicket(res)
@@ -607,7 +639,7 @@ export function AppProvider({ children }) {
 
     // Data (read)
     tickets, users, categories, priorities, queues,
-    holidays, articles, notifications, auditLog, systemConfig,
+    holidays, articles, notifications, auditLog, savedViews, systemConfig,
 
     // Raw setters (local-only — prefer action functions for persistence)
     setTickets, setUsers, setCategories, setPriorities, setQueues,
@@ -616,6 +648,8 @@ export function AppProvider({ children }) {
     // API action functions
     createTicketAction, updateTicketAction, changeStatusAction,
     triageAction, assignAction, addCommentAction, deleteCommentAction,
+    addEffortAction, deleteEffortAction,
+    createSavedViewAction, deleteSavedViewAction,
     deleteTicketAction, restoreTicketAction, purgeTicketAction,
     createUserAction, updateUserAction, deleteUserAction, toggleUserAction,
     createCategoryAction, updateCategoryAction, deleteCategoryAction,

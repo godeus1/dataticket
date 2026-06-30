@@ -23,6 +23,12 @@ class TicketPolicy < ApplicationPolicy
   def assign?        = admin_or_manager?
   def bulk_triage?   = admin_or_manager?
 
+  # "+ Horas": adicionar esforço — SuperAdmin, admin, gestor e analista
+  # (analista restrito aos seus tickets via can_access_ticket?).
+  def add_effort?    = can_access_ticket? && (admin_or_manager? || analyst?)
+  # Apagar uma adição de esforço: somente SuperAdmin.
+  def remove_effort? = user.role == "msp_admin"
+
   class Scope < ApplicationPolicy::Scope
     def resolve
       base = @scope.active.where(organization: Current.organization)
