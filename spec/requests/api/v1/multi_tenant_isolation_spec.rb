@@ -113,6 +113,39 @@ RSpec.describe "Isolamento multi-tenant", type: :request do
     end
   end
 
+  describe "isolamento de configurações por empresa (prioridades)" do
+    let!(:priority_a) { create(:priority, organization: org_a) }
+    let!(:priority_b) { create(:priority, organization: org_b) }
+
+    it "admin de A lista apenas as prioridades de A" do
+      get "/api/v1/priorities", headers: headers_for(admin_a)
+      ids = JSON.parse(response.body).map { |p| p["id"] }
+      expect(ids).to include(priority_a.id)
+      expect(ids).not_to include(priority_b.id)
+    end
+
+    it "msp_admin trocando para B vê apenas as prioridades de B" do
+      get "/api/v1/priorities", headers: headers_for(msp, org_id: org_b.id)
+      ids = JSON.parse(response.body).map { |p| p["id"] }
+      expect(ids).to include(priority_b.id)
+      expect(ids).not_to include(priority_a.id)
+    end
+  end
+
+  describe "isolamento de registros-filhos (ação em ticket de outra empresa)" do
+    it "admin de A não adiciona esforço a um ticket da empresa B (404)" do
+      post "/api/v1/tickets/#{ticket_b.id}/effort_additions",
+           params: { hours: 1, reason: "tentativa cross-org" },
+           headers: headers_for(admin_a), as: :json
+      expect(response).to have_http_status(:not_found)
+    end
+
+    it "admin de A não lê comentários de um ticket da empresa B (404)" do
+      get "/api/v1/tickets/#{ticket_b.id}/comments", headers: headers_for(admin_a)
+      expect(response).to have_http_status(:not_found)
+    end
+  end
+
   describe "isolamento no acesso direto a um ticket (show)" do
     it "admin de A não acessa o ticket da empresa B (404)" do
       get "/api/v1/tickets/#{ticket_b.id}", headers: headers_for(admin_a)

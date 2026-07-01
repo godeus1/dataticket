@@ -80,7 +80,8 @@ module Api
       end
 
       def organization_params
-        permitted = %i[name timezone date_format emails_enabled]
+        # emails_enabled removido: não existe master de e-mail (controle é por tipo).
+        permitted = %i[name timezone date_format]
         # max_users (limite de plano) só pode ser alterado pelo super admin —
         # um admin comum não pode elevar o próprio limite.
         permitted << :max_users if current_user.msp_admin?

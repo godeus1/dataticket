@@ -18,10 +18,11 @@ class Organization < ApplicationRecord
 
   encrypts :smtp_pass
 
-  # ── Tipos de e-mail que podem ser ligados/desligados POR EMPRESA ──────────
-  # password_reset e welcome são críticos: ignoram o master `emails_enabled`,
-  # mas ainda respeitam o toggle individual. Os demais só enviam se o master
-  # (emails_enabled) E o toggle do tipo estiverem ligados. Default de cada: ON.
+  # ── Tipos de e-mail, ligados/desligados POR EMPRESA (sem master global) ────
+  # Cada empresa tem sua própria configuração em `email_settings` (jsonb).
+  # Tipos CRÍTICOS (password_reset, welcome) SEMPRE enviam. Os demais são
+  # controlados só pelo toggle por-tipo da empresa (default ON). NÃO existe
+  # mais um master `emails_enabled` — a coluna está deprecada/sem efeito.
   EMAIL_TYPES = %w[
     password_reset welcome ticket_created ticket_assigned status_changed
     new_comment escalated csat sla_digest
