@@ -12,7 +12,12 @@ module Api
       # Gera código, salva no banco e envia por e-mail
       def request_reset
         email = params[:email].to_s.strip.downcase
-        user  = User.find_by(email: email)
+        # O e-mail é único POR EMPRESA — o mesmo endereço pode existir em várias
+        # organizações. Preferimos a conta ATIVA (a mais recente entre ativas)
+        # para não travar num registro antigo/inativo homônimo.
+        user = User.where("lower(email) = ?", email)
+                   .order(Arel.sql("active DESC, updated_at DESC"))
+                   .first
 
         unless user
           render json: { error: "E-mail não encontrado. Verifique o endereço ou contate o administrador." },
@@ -31,9 +36,9 @@ module Api
           reset_password_token:   Digest::SHA256.hexdigest(code),
           reset_password_sent_at: Time.current
         )
-        if user.organization&.email_type_enabled?("password_reset")
-          PasswordResetMailer.reset_code(user, code).deliver_later
-        end
+        # Reset de senha é e-mail CRÍTICO — sempre enviado (email_type_enabled?
+        # retorna true para tipos críticos, sem depender de toggles).
+        PasswordResetMailer.reset_code(user, code).deliver_later
 
         render json: { message: "Se o e-mail estiver cadastrado, você receberá o código em instantes." }
       end

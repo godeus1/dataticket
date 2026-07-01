@@ -1161,8 +1161,10 @@ export function SettingsEmails() {
       .catch(() => { setTypes(Object.keys(EMAIL_TYPE_LABELS)); setSettings({}) })
   }, [activeId])
 
-  const isOn   = (t) => settings?.[t] !== false  // default ligado
-  const toggle = (t) => setSettings(s => ({ ...s, [t]: !(s?.[t] !== false) }))
+  // Tipos críticos (segurança/acesso) são SEMPRE enviados — não podem ser desligados.
+  const CRITICAL = ['password_reset', 'welcome']
+  const isOn   = (t) => CRITICAL.includes(t) ? true : settings?.[t] !== false  // default ligado
+  const toggle = (t) => { if (CRITICAL.includes(t)) return; setSettings(s => ({ ...s, [t]: !(s?.[t] !== false) })) }
 
   async function save() {
     setBusy(true)
@@ -1183,12 +1185,18 @@ export function SettingsEmails() {
         Ligue ou desligue cada tipo de e-mail para a empresa <strong>{orgName}</strong>. A configuração é por empresa.
       </p>
       <div className="card" style={{ maxWidth: 560 }}>
-        {types.map(t => (
-          <label key={t} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 0', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}>
-            <span style={{ fontSize: 14 }}>{EMAIL_TYPE_LABELS[t] || t}</span>
-            <input type="checkbox" checked={isOn(t)} onChange={() => toggle(t)} style={{ width: 18, height: 18, cursor: 'pointer' }} />
-          </label>
-        ))}
+        {types.map(t => {
+          const locked = CRITICAL.includes(t)
+          return (
+            <label key={t} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 0', borderBottom: '1px solid var(--border)', cursor: locked ? 'default' : 'pointer' }}>
+              <span style={{ fontSize: 14 }}>
+                {EMAIL_TYPE_LABELS[t] || t}
+                {locked && <span style={{ fontSize: 11, color: 'var(--text2)', marginLeft: 6 }}>(sempre ativo)</span>}
+              </span>
+              <input type="checkbox" checked={isOn(t)} disabled={locked} onChange={() => toggle(t)} style={{ width: 18, height: 18, cursor: locked ? 'not-allowed' : 'pointer' }} />
+            </label>
+          )
+        })}
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 14 }}>
           <button className="btn btn-primary" disabled={busy} onClick={save}>{busy ? '…' : 'Salvar'}</button>
         </div>

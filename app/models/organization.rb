@@ -28,12 +28,18 @@ class Organization < ApplicationRecord
   ].freeze
   CRITICAL_EMAIL_TYPES = %w[password_reset welcome].freeze
 
+  # Regra de envio por tipo de e-mail:
+  #   - Tipos CRÍTICOS (reset de senha, boas-vindas/credenciais): SEMPRE enviam,
+  #     independentemente de qualquer toggle (são de segurança/acesso).
+  #   - Demais tipos: controlados só pelo toggle por-tipo da empresa (default ON,
+  #     configurável na tela "E-mails"). NÃO dependem mais de um master oculto —
+  #     o antigo `emails_enabled` tinha default false e sem UI, o que fazia
+  #     empresas novas não enviarem nenhum e-mail transacional.
   def email_type_enabled?(type)
-    type   = type.to_s
-    toggle = email_settings.fetch(type, true) != false
-    return toggle if CRITICAL_EMAIL_TYPES.include?(type)
+    type = type.to_s
+    return true if CRITICAL_EMAIL_TYPES.include?(type)
 
-    emails_enabled? && toggle
+    email_settings.fetch(type, true) != false
   end
 
   # ── Tipos de evento que podem ser registrados (ou não) no Log de Auditoria ─
