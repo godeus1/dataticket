@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useApp } from '../AppContext.jsx'
-import { PT, EN } from '../data.js'
+import { PT, EN, formatDate } from '../data.js'
 import { Avatar } from '../components.jsx'
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
@@ -142,16 +142,104 @@ function AssigneeFilter({ analysts, selected, onToggle, onClear }) {
   )
 }
 
+// ── Lista de tickets por prazo (Painel do analista) ───────────────────────────
+
+function DeadlineList({ title, icon, color, tickets, users, onOpen }) {
+  const [expanded, setExpanded] = useState(false)
+  const shown = expanded ? tickets : tickets.slice(0, 10)
+
+  return (
+    <div className="card" style={{ marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+        <span style={{ fontWeight: 600, fontSize: 14 }}>{icon} {title}</span>
+        <span style={{ fontSize: 12, color: '#fff', background: color, borderRadius: 20, padding: '1px 8px', fontWeight: 600 }}>{tickets.length}</span>
+      </div>
+      {tickets.length === 0 ? (
+        <div style={{ fontSize: 13, color: 'var(--text2)', padding: '8px 0' }}>Nenhum ticket.</div>
+      ) : (
+        <div style={{ overflowX: 'auto' }}>
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Ticket</th>
+                <th>Solicitante</th>
+                <th style={{ textAlign: 'center' }}>Esforço</th>
+                <th style={{ textAlign: 'center' }}>Prazo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {shown.map(tk => {
+                const reqUser = users.find(u => u.id === tk.requesterId)
+                const reqName = reqUser ? `${reqUser.firstName} ${reqUser.lastName}` : '—'
+                return (
+                  <tr key={tk.id} style={{ cursor: 'pointer' }} onClick={() => onOpen(tk.id)}
+                    onMouseEnter={e => e.currentTarget.style.background = 'var(--bg2)'}
+                    onMouseLeave={e => e.currentTarget.style.background = ''}>
+                    <td>
+                      <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--accent)' }}>{tk.id}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 320 }}>{tk.title}</div>
+                    </td>
+                    <td style={{ fontSize: 13 }}>{reqName}</td>
+                    <td style={{ textAlign: 'center', fontSize: 13 }}>{fmtH(tk.effortEstimated)}</td>
+                    <td style={{ textAlign: 'center', fontSize: 12, color, fontWeight: 600, whiteSpace: 'nowrap' }}>{formatDate(tk.deadline)}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+          {tickets.length > 10 && (
+            <div style={{ textAlign: 'center', marginTop: 8 }}>
+              <button className="btn btn-secondary btn-sm" onClick={() => setExpanded(e => !e)}>
+                {expanded ? 'Ver menos' : `Ver mais (${tickets.length - 10})`}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
-  const { currentUser, lang, tickets, users, categories } = useApp()
+  const { currentUser, lang, tickets, users, categories, setSelectedTicket } = useApp()
   const t = lang === 'pt' ? PT : EN
 
   const [period, setPeriod]                   = useState('mes')
   const [selectedAssignees, setSelectedAssignees] = useState([])
 
   const analysts = useMemo(() => users.filter(u => u.role === 'analyst'), [users])
+
+  // ── Listas de atuação por PRAZO (Painel do analista) ──────────────────────
+  // Base: tickets EM ABERTO (não resolvidos/fechados/lixeira) do responsável
+  // relevante — analista vê os seus; admin/gestor vê todos (ou os filtrados).
+  const actionTickets = useMemo(() => {
+    const OPEN = tk => !['Resolvido', 'Fechado'].includes(tk.status) && !tk.deletedAt
+    let tks = tickets.filter(OPEN)
+    if (currentUser.role === 'analyst') {
+      tks = tks.filter(tk => tk.assigneeId === currentUser.id)
+    } else if (selectedAssignees.length > 0) {
+      tks = tks.filter(tk => selectedAssignees.includes(tk.assigneeId))
+    }
+    return tks
+  }, [tickets, currentUser, selectedAssignees])
+
+  const deadlineLists = useMemo(() => {
+    const now = new Date()
+    const sod = new Date(now); sod.setHours(0, 0, 0, 0)          // start of today
+    const eod = new Date(now); eod.setHours(23, 59, 59, 999)     // end of today
+    const dow = now.getDay() === 0 ? 6 : now.getDay() - 1        // 0=Mon
+    const eow = new Date(sod); eow.setDate(eow.getDate() + (6 - dow)); eow.setHours(23, 59, 59, 999) // Sunday end
+    const withDl = actionTickets.filter(tk => tk.deadline)
+    const dl = tk => new Date(tk.deadline)
+    const byDl = (a, b) => dl(a) - dl(b)
+    return {
+      overdue: withDl.filter(tk => dl(tk) < sod).sort(byDl),
+      today:   withDl.filter(tk => dl(tk) >= sod && dl(tk) <= eod).sort(byDl),
+      week:    withDl.filter(tk => dl(tk) > eod && dl(tk) <= eow).sort(byDl),
+    }
+  }, [actionTickets])
 
   const { from, to } = useMemo(() => getDateRange(period), [period])
 
@@ -288,6 +376,11 @@ export default function Dashboard() {
           </div>
         ))}
       </div>
+
+      {/* Listas de atuação por prazo (foco do analista) */}
+      <DeadlineList title="Tickets atrasados" icon="🔴" color="#dc2626" tickets={deadlineLists.overdue} users={users} onOpen={setSelectedTicket} />
+      <DeadlineList title="Atuar hoje" icon="🟠" color="#d97706" tickets={deadlineLists.today} users={users} onOpen={setSelectedTicket} />
+      <DeadlineList title="Tickets na semana" icon="🔵" color="#2383e2" tickets={deadlineLists.week} users={users} onOpen={setSelectedTicket} />
 
       {/* Gráficos — 3 colunas */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 20 }}>

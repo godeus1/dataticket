@@ -25,12 +25,16 @@ class TriageService
         end
       end
 
+      # Prazo manual informado por quem tria tem PRIORIDADE (flexibilidade).
+      manual_deadline = attrs[:deadline].present?
+
       @ticket.assign_attributes(attrs)
       @ticket.status = "Triado, aguardando atendimento"
 
-      # Calcula prazo e alocação diária via TicketDeadlineCalculator
+      # Sempre roda o cálculo (para a alocação diária/agenda). O prazo sugerido
+      # só é aplicado quando quem tria NÃO informou um prazo manual.
       calc_result      = run_deadline_calculator
-      @ticket.deadline = calc_result.deadline
+      @ticket.deadline = calc_result.deadline unless manual_deadline
 
       @ticket.save!
       @ticket.sync_co_assignees(@params[:co_assignee_ids]) if @params.key?(:co_assignee_ids)

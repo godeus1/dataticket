@@ -59,6 +59,7 @@ Rails.application.routes.draw do
         end
         member do
           patch :triage
+          post  :suggest_deadline
           patch :change_status
           patch :assign
           get   :histories

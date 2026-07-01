@@ -721,7 +721,8 @@ export function TicketDetail() {
   const [effortHours, setEffortHours] = useState('')
   const [effortReason, setEffortReason] = useState('')
   const [effortSaving, setEffortSaving] = useState(false)
-  const [triageForm, setTriageForm] = useState({ priorityId: '', categoryId: '', effortEstimated: '', queueId: '', assigneeId: '', coAssigneeIds: [] })
+  const [triageForm, setTriageForm] = useState({ priorityId: '', categoryId: '', effortEstimated: '', queueId: '', assigneeId: '', coAssigneeIds: [], deadline: '' })
+  const [deadlineSuggestion, setDeadlineSuggestion] = useState(null)  // prazo sugerido (ISO) pelas regras
   const [capacityMap, setCapacityMap] = useState({})   // userId → { load_pct, free_hours, scheduled_hours }
   const [timerRunning, setTimerRunning] = useState(false)
   const [timerStart, setTimerStart] = useState(null)
@@ -836,6 +837,23 @@ export function TicketDetail() {
       })
       .catch(() => {}) // silently ignore — badge is optional
   }, [showTriage]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sugestão de prazo (pelas regras) — recalcula quando prioridade/esforço/
+  // responsável/categoria mudam no modal de triagem.
+  useEffect(() => {
+    if (!showTriage || !triageForm.priorityId) { setDeadlineSuggestion(null); return }
+    let live = true
+    const id = setTimeout(() => {
+      api.suggestDeadline(tk.id, {
+        priority_id:      triageForm.priorityId || undefined,
+        category_id:      triageForm.categoryId || tk.categoryId || undefined,
+        queue_id:         triageForm.queueId || undefined,
+        assignee_id:      triageForm.assigneeId || undefined,
+        effort_estimated: triageForm.effortEstimated ? parseFloat(triageForm.effortEstimated) : undefined,
+      }).then(r => { if (live) setDeadlineSuggestion(r?.deadline ?? null) }).catch(() => { if (live) setDeadlineSuggestion(null) })
+    }, 350)
+    return () => { live = false; clearTimeout(id) }
+  }, [showTriage, triageForm.priorityId, triageForm.categoryId, triageForm.queueId, triageForm.assigneeId, triageForm.effortEstimated]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Tick a cada 10s para mostrar duração ao vivo das sessões em andamento
   const [liveNow, setLiveNow] = useState(() => Date.now())
@@ -978,7 +996,11 @@ export function TicketDetail() {
   const req = users.find(x => x.id === tk.requesterId)
   const assignee = users.find(x => x.id === tk.assigneeId)
   const expired = isExpired(tk.deadline) && !['Resolvido', 'Fechado'].includes(tk.status)
-  const transitions = ALLOWED_TRANSITIONS[tk.status] || []
+  // No cabeçalho, não mostramos os botões de "Triado, aguardando atendimento"
+  // (isso é feito pela triagem) nem "Aguardando solicitante" — só "Aguardando
+  // terceiros" e as ações de andamento/resolução.
+  const HIDDEN_STATUS_BTNS = ['Triado, aguardando atendimento', 'Aguardando solicitante']
+  const transitions = (ALLOWED_TRANSITIONS[tk.status] || []).filter(s => !HIDDEN_STATUS_BTNS.includes(s))
 
   async function changeStatus(newStatus) {
     try {
@@ -1055,6 +1077,7 @@ export function TicketDetail() {
         assignee_id:      assigneeId,
         co_assignee_ids:  (triageForm.coAssigneeIds ?? []).map(Number),
         effort_estimated: triageForm.effortEstimated ? parseFloat(triageForm.effortEstimated) : 0,
+        ...(triageForm.deadline ? { deadline: triageForm.deadline } : {}),  // prazo manual sobrepõe o cálculo
       })
     } catch (e) {
       alert(`Erro ao triar: ${e.message}`)
@@ -1333,7 +1356,7 @@ export function TicketDetail() {
           )}
         </div>
         <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
-          {p.triage && <button className="btn btn-primary btn-sm" onClick={() => setShowTriage(true)}>{tk.triaged ? '↺ Re-triar' : t.triageBtn}</button>}
+          {p.triage && <button className="btn btn-primary btn-sm" onClick={() => setShowTriage(true)}>{tk.triaged ? '↺ Retriar Ticket' : t.triageBtn}</button>}
           {canAddEffort && tk.status !== 'Fechado' && <button className="btn btn-secondary btn-sm" onClick={() => { setEffortHours(''); setEffortReason(''); setShowEffort(true) }}>➕ Horas</button>}
           {transitions.map(s => <button key={s} className="btn btn-secondary btn-sm" onClick={() => changeStatus(s)}>→ {s}</button>)}
           {p.closeTicket && !['Fechado', 'Resolvido'].includes(tk.status) && <button className="btn btn-danger btn-sm" onClick={() => changeStatus('Fechado')}>{t.closeTicket}</button>}
@@ -1992,7 +2015,7 @@ export function TicketDetail() {
       {showTriage && (
         <ModalOverlay onClose={() => setShowTriage(false)}>
           <div className="modal">
-            <h3 style={{ fontWeight: 700, marginBottom: 18 }}>🎯 {tk.triaged ? '↺ Re-triagem' : t.triageBtn}</h3>
+            <h3 style={{ fontWeight: 700, marginBottom: 18 }}>🎯 {tk.triaged ? '↺ Retriar Ticket' : t.triageBtn}</h3>
             <div className="form-grid">
               <div>
                 <label className="label">Prioridade *</label>
@@ -2129,6 +2152,26 @@ export function TicketDetail() {
                     </div>
                   )
                 })()}
+              </div>
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label className="label">Prazo <span style={{ fontWeight: 400, color: 'var(--text2)' }}>(quem tria define — sobrepõe a sugestão)</span></label>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <input className="input" type="date" style={{ maxWidth: 190 }}
+                    value={triageForm.deadline || ''}
+                    onChange={e => setTriageForm(f => ({ ...f, deadline: e.target.value }))} />
+                  {deadlineSuggestion && (
+                    <span style={{ fontSize: 12, color: 'var(--text2)' }}>
+                      💡 Sugestão: <strong>{formatDate(deadlineSuggestion)}</strong>
+                      <button type="button" className="btn btn-secondary btn-sm" style={{ marginLeft: 8 }}
+                        onClick={() => setTriageForm(f => ({ ...f, deadline: String(deadlineSuggestion).slice(0, 10) }))}>
+                        Usar sugestão
+                      </button>
+                    </span>
+                  )}
+                </div>
+                {!triageForm.deadline && (
+                  <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 4 }}>Se deixar em branco, o prazo é calculado automaticamente pelas regras.</div>
+                )}
               </div>
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 18 }}>

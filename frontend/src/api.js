@@ -91,6 +91,7 @@ export const api = {
   purgeTicket:   (id)          => req(`/tickets/${id}/purge`,   { method: 'DELETE' }),   // exclusão permanente
   trash:         ()            => req('/tickets/trash'),
   triage:        (id, d)       => req(`/tickets/${id}/triage`,        { method: 'PATCH', body: j(d) }),
+  suggestDeadline: (id, d)     => req(`/tickets/${id}/suggest_deadline`, { method: 'POST', body: j(d) }),
   changeStatus:  (id, status, additionalHours) => req(`/tickets/${id}/change_status`, { method: 'PATCH', body: j({ status, ...(additionalHours ? { additional_hours: additionalHours } : {}) }) }),
   assign:        (id, uid)     => req(`/tickets/${id}/assign`,        { method: 'PATCH', body: j({ assignee_id: uid }) }),
   // Esforço adicional ("+ Horas")

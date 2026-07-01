@@ -3,7 +3,7 @@ module Api
     class TicketsController < ApplicationController
       include Pagy::Backend
 
-      before_action :set_ticket, only: %i[show update destroy triage change_status assign histories restore purge]
+      before_action :set_ticket, only: %i[show update destroy triage suggest_deadline change_status assign histories restore purge]
 
       def index
         authorize Ticket
@@ -141,6 +141,26 @@ module Api
         else
           render json: { errors: result.errors }, status: :unprocessable_entity
         end
+      end
+
+      # POST /tickets/:id/suggest_deadline — prazo SUGERIDO pelas regras, sem
+      # persistir, para a triagem preencher/ajustar o campo Prazo.
+      def suggest_deadline
+        authorize @ticket, :triage?
+        temp = @ticket.dup
+        temp.id         = @ticket.id
+        temp.created_at ||= @ticket.created_at || Time.current
+        temp.assign_attributes(
+          params.permit(:priority_id, :category_id, :queue_id, :assignee_id, :effort_estimated)
+        )
+        deadline =
+          begin
+            TicketDeadlineCalculator.new(temp).call.deadline
+          rescue => e
+            Rails.logger.warn("[suggest_deadline] #{e.class}: #{e.message}")
+            SlaCalculator.new(temp).calculate_deadline rescue nil
+          end
+        render json: { deadline: deadline }
       end
 
       def change_status
