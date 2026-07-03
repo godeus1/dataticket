@@ -512,10 +512,19 @@ export function TicketList() {
 
 // ── New Ticket ────────────────────────────────────────────────────────────
 export function NewTicket() {
-  const { currentUser, lang, categories, articles, setScreen, addNotification, showToast, notifyEmail, createTicketAction, updateTicketAction, systemConfig } = useApp()
+  const { currentUser, lang, categories, queues, articles, setScreen, addNotification, showToast, notifyEmail, createTicketAction, updateTicketAction, systemConfig } = useApp()
   const t = lang === 'pt' ? PT : EN
   const todayISO = new Date().toISOString().slice(0, 10)
-  const [form, setForm] = useState({ title: '', description: '', categoryId: '', openingDate: todayISO, attachments: [] })
+  const [form, setForm] = useState({ title: '', description: '', categoryId: '', queueId: '', openingDate: todayISO, attachments: [] })
+
+  // "Sub Categoria" = fila. Se houver filas ligadas à categoria escolhida,
+  // mostra só elas; senão mostra todas as filas ativas da empresa.
+  const subCategories = useMemo(() => {
+    const active = (queues ?? []).filter(q => q.active !== false)
+    if (!form.categoryId) return active
+    const byCat = active.filter(q => String(q.categoryId) === String(form.categoryId))
+    return byCat.length > 0 ? byCat : active
+  }, [queues, form.categoryId])
   const [errors, setErrors] = useState({})
   const [files, setFiles] = useState([])
   const [fileError, setFileError] = useState(null)
@@ -546,6 +555,7 @@ export function NewTicket() {
         title:       form.title,
         description: form.description,
         category_id: Number(form.categoryId) || null,
+        queue_id:    form.queueId ? Number(form.queueId) : null,
       })
       // Admin: sobrescreve created_at se diferente de hoje
       if (isAdmin(currentUser.role) && form.openingDate && form.openingDate !== todayISO) {
@@ -634,6 +644,13 @@ export function NewTicket() {
               </button>
             </div>
           )}
+        </div>
+        <div className="form-row">
+          <label className="label">Sub Categoria <span style={{ fontWeight: 400, color: 'var(--text2)' }}>(opcional — direciona à equipe certa)</span></label>
+          <select className="select" style={{ width: '100%' }} value={form.queueId} onChange={e => setForm(f => ({ ...f, queueId: e.target.value }))}>
+            <option value="">Selecione…</option>
+            {subCategories.map(q => <option key={q.id} value={q.id}>{q.name}</option>)}
+          </select>
         </div>
         {isAdmin(currentUser.role) && (
           <div className="form-row">

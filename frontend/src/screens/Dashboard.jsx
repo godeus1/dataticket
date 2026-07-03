@@ -173,6 +173,7 @@ function DeadlineList({ title, icon, color, tickets, users, onOpen }) {
                 const reqName = reqUser ? `${reqUser.firstName} ${reqUser.lastName}` : '—'
                 return (
                   <tr key={tk.id} style={{ cursor: 'pointer' }} onClick={() => onOpen(tk.id)}
+                    onMouseDown={e => { if (e.button === 1) { e.preventDefault(); window.open(`${window.location.origin}/tickets/${tk.id}`, '_blank') } }}
                     onMouseEnter={e => e.currentTarget.style.background = 'var(--bg2)'}
                     onMouseLeave={e => e.currentTarget.style.background = ''}>
                     <td>

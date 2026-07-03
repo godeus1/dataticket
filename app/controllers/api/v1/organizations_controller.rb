@@ -57,7 +57,7 @@ module Api
       end
 
       def org_summary(org)
-        org.as_json(only: %i[id name slug ticket_prefix timezone active])
+        org.as_json(only: %i[id name slug ticket_prefix timezone active master])
       end
 
       def company_params
@@ -66,7 +66,7 @@ module Api
       end
 
       def org_json(org)
-        org.as_json(only: %i[id name slug ticket_prefix timezone date_format emails_enabled email_settings audit_settings max_users created_at updated_at])
+        org.as_json(only: %i[id name slug ticket_prefix timezone date_format emails_enabled email_settings audit_settings max_users master created_at updated_at])
            .merge(
              attachments_enabled: true,
              email_types:         Organization::EMAIL_TYPES,

@@ -13,7 +13,7 @@ export const useApp = () => useContext(AppCtx)
 
 // ── Screen ↔ URL mapping ──────────────────────────────────────────────────
 
-const SCREEN_TO_PATH = {
+export const SCREEN_TO_PATH = {
   'dashboard':              '/painel',
   'tickets':               '/tickets',
   'new-ticket':            '/novo-ticket',
@@ -91,6 +91,7 @@ export function AppProvider({ children }) {
   // ── Session state ─────────────────────────────────────────────────────
   const [currentUserState,   setCurrentUserState]   = useState(null)
   const [sessionExpiredMsg,  setSessionExpiredMsg]  = useState(false)
+  const [welcomeUser,        setWelcomeUser]        = useState(null)  // popup de boas-vindas pós-login
 
   // ── Multi-empresa (msp_admin troca entre empresas) ────────────────────
   const [availableOrgs, setAvailableOrgs] = useState([])
@@ -304,6 +305,8 @@ export function AppProvider({ children }) {
       } finally {
         setLoadingData(false)
       }
+      // Boas-vindas — só no LOGIN real (o restore de sessão não passa por aqui)
+      setWelcomeUser(user)
     } else {
       // Logout intencional: silencia o interceptor de 401 enquanto o token é
       // revogado (requisições em voo não devem abrir "Sessão expirada").
@@ -705,6 +708,25 @@ export function AppProvider({ children }) {
       )}
 
       {/* Modal de sessão expirada */}
+      {/* Boas-vindas pós-login */}
+      {welcomeUser && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9998 }}
+          onClick={() => setWelcomeUser(null)}>
+          <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 16, padding: 36, maxWidth: 400, textAlign: 'center', boxShadow: '0 8px 40px rgba(0,0,0,.18)' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>🎯</div>
+            <h3 style={{ fontWeight: 700, fontSize: 18, marginBottom: 8 }}>Olá, {welcomeUser.firstName}!</h3>
+            <p style={{ color: 'var(--text2)', fontSize: 14, marginBottom: 24, lineHeight: 1.6 }}>
+              Seja bem-vindo ao <strong>DataTicket</strong>.<br />
+              Você está na organização <strong>{systemConfig?.companyName || '—'}</strong>.
+            </p>
+            <button className="btn btn-primary" style={{ width: '100%', padding: 11 }} onClick={() => setWelcomeUser(null)}>
+              Começar
+            </button>
+          </div>
+        </div>
+      )}
+
       {sessionExpiredMsg && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
           <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 16, padding: 36, maxWidth: 360, textAlign: 'center', boxShadow: '0 8px 40px rgba(0,0,0,.18)' }}>

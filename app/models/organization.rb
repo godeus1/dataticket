@@ -70,6 +70,25 @@ class Organization < ApplicationRecord
   end
 
   validates :name, :slug, presence: true
+
+  # ── Org MASTER (Datatry) ────────────────────────────────────────────────
+  # A org master é a dona da plataforma: controla as demais empresas.
+  # Proteções: nunca pode ser inativada nem excluída.
+  validate  :master_stays_active
+  before_destroy :block_master_destroy
+
+  def master_stays_active
+    if master? && active == false
+      errors.add(:base, "A organização master (#{name}) não pode ser inativada.")
+    end
+  end
+
+  def block_master_destroy
+    if master?
+      errors.add(:base, "A organização master não pode ser excluída.")
+      throw :abort
+    end
+  end
   validates :slug, uniqueness: true, format: { with: /\A[a-z0-9\-]+\z/, message: "apenas letras minúsculas, números e hífens" }
 
   # Prefixo dos IDs de ticket = 3 primeiras letras do nome (ex: Salvabras → SAL-00001,

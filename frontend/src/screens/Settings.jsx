@@ -267,7 +267,7 @@ export function SettingsProfiles() {
 
 // ── Categories ────────────────────────────────────────────────────────────
 export function SettingsCategories() {
-  const { lang, categories, createCategoryAction, updateCategoryAction, deleteCategoryAction } = useApp()
+  const { lang, currentUser, categories, createCategoryAction, updateCategoryAction, deleteCategoryAction } = useApp()
   const t = lang === 'pt' ? PT : EN
   const [showForm, setShowForm] = useState(false)
   const [editItem, setEditItem] = useState(null)
@@ -299,7 +299,10 @@ export function SettingsCategories() {
                 <td>
                   <div style={{ display: 'flex', gap: 6 }}>
                     <button className="btn btn-secondary btn-sm" onClick={() => { setEditItem(c); setForm({ ...c }); setShowForm(true) }}>{t.edit}</button>
-                    <button className="btn btn-danger btn-sm" onClick={() => { if (window.confirm(`Excluir "${c.name}"?`)) deleteCategoryAction(c.id).catch(e => alert(e.message)) }}>{t.delete}</button>
+                    {/* Excluir categoria: só SUPER ADMIN, e o backend bloqueia se houver tickets nela */}
+                    {currentUser.role === 'msp_admin' && (
+                      <button className="btn btn-danger btn-sm" onClick={() => { if (window.confirm(`Excluir "${c.name}"? Só é possível se nenhum ticket usar esta categoria.`)) deleteCategoryAction(c.id).catch(e => alert(e.message)) }}>{t.delete}</button>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -1098,6 +1101,7 @@ export function SettingsCompanies() {
                 ) : (
                   <span style={{ fontWeight: 700, fontSize: 15 }}>{o.name}</span>
                 )}
+                {o.master   && <span style={{ fontSize: 10, background: '#7c3aed', color: '#fff', padding: '1px 7px', borderRadius: 10, fontWeight: 700 }}>★ MASTER</span>}
                 {active     && <span style={{ fontSize: 10, background: 'var(--accent)', color: '#fff', padding: '1px 7px', borderRadius: 10 }}>atual</span>}
                 {isInactive && <span style={{ fontSize: 10, background: 'var(--danger)', color: '#fff', padding: '1px 7px', borderRadius: 10 }}>inativa</span>}
               </div>
@@ -1116,9 +1120,12 @@ export function SettingsCompanies() {
                       <button className="btn btn-secondary btn-sm" onClick={() => switchOrg(o.id)}>Entrar</button>
                     )}
                     <button className="btn btn-secondary btn-sm" onClick={() => { setEditingId(o.id); setEditName(o.name) }}>✏️ Renomear</button>
-                    <button className={isInactive ? 'btn btn-primary btn-sm' : 'btn btn-danger btn-sm'} onClick={() => toggleActive(o)}>
-                      {isInactive ? '✓ Reativar' : '⊘ Inativar'}
-                    </button>
+                    {/* Org master nunca pode ser inativada (protegido também no backend) */}
+                    {!o.master && (
+                      <button className={isInactive ? 'btn btn-primary btn-sm' : 'btn btn-danger btn-sm'} onClick={() => toggleActive(o)}>
+                        {isInactive ? '✓ Reativar' : '⊘ Inativar'}
+                      </button>
+                    )}
                   </>
                 )}
               </div>

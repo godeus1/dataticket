@@ -1,7 +1,17 @@
 import { useState, useMemo } from 'react'
-import { useApp } from './AppContext.jsx'
+import { useApp, SCREEN_TO_PATH } from './AppContext.jsx'
 import { PT, EN, PERM, formatDate } from './data.js'
 import { Avatar } from './components.jsx'
+
+// Middle-click (scroll do mouse) em itens de navegação abre em NOVA GUIA,
+// como um link normal do navegador.
+export function openScreenNewTab(screenKey) {
+  const path = SCREEN_TO_PATH[screenKey]
+  if (path) window.open(window.location.origin + path, '_blank')
+}
+export function midClick(handler) {
+  return (e) => { if (e.button === 1) { e.preventDefault(); handler(e) } }
+}
 
 
 export function Sidebar({ screen, setScreen }) {
@@ -57,6 +67,7 @@ export function Sidebar({ screen, setScreen }) {
               key={i.key}
               className={`nav-item ${isActive ? 'active' : ''}`}
               onClick={() => { setScreen(i.key); if (window.innerWidth <= 768) setSidebar('collapsed') }}
+              onMouseDown={midClick(() => openScreenNewTab(i.key))}
               title={collapsed ? i.label : ''}
             >
               <span className="nav-icon">{i.icon}</span>
@@ -73,6 +84,7 @@ export function Sidebar({ screen, setScreen }) {
                 key={i.key}
                 className={`nav-item ${screen === i.key ? 'active' : ''}`}
                 onClick={() => { setScreen(i.key); if (window.innerWidth <= 768) setSidebar('collapsed') }}
+                onMouseDown={midClick(() => openScreenNewTab(i.key))}
                 title={collapsed ? i.label : ''}
               >
                 <span className="nav-icon">{i.icon}</span>
@@ -84,7 +96,7 @@ export function Sidebar({ screen, setScreen }) {
       </div>
 
       <div className="sidebar-footer">
-        <div className="nav-item" onClick={() => setScreen('profile')} title={collapsed ? 'Meu Perfil' : ''}>
+        <div className="nav-item" onClick={() => setScreen('profile')} onMouseDown={midClick(() => openScreenNewTab('profile'))} title={collapsed ? 'Meu Perfil' : ''}>
           <Avatar user={currentUser} size={26} />
           <span className="nav-label" style={{ fontSize: 13 }}>{currentUser.firstName}</span>
         </div>
@@ -253,6 +265,7 @@ export function Topbar() {
                   // onMouseDown para disparar antes do onBlur do input fechar o dropdown
                   if (r.type === 'Ticket' && r.id) {
                     e.preventDefault()
+                    if (e.button === 1) { window.open(`${window.location.origin}/tickets/${r.id}`, '_blank'); return }
                     setSelectedTicket(r.id)
                     setGlobalSearch('')
                     setShowSearch(false)

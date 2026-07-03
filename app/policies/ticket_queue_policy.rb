@@ -1,6 +1,7 @@
 class TicketQueuePolicy < ApplicationPolicy
-  # Todos os funcionários precisam ver as filas (triagem, atribuição)
-  def index? = staff?
+  # Todos que criam ticket podem LISTAR as filas — o Novo Ticket oferece a
+  # fila como "Sub Categoria". Gerenciamento continua restrito.
+  def index? = true
   def show?  = staff?
 
   # Gerenciar filas: somente admin

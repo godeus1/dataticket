@@ -29,6 +29,13 @@ module Api
 
       def destroy
         authorize @category
+        # Só pode excluir se NENHUM ticket da organização usa esta categoria
+        # (inclui tickets na lixeira — o vínculo ainda existe).
+        count = @organization.tickets.where(category_id: @category.id).count
+        if count > 0
+          return render json: { error: "Não é possível excluir: há #{count} ticket(s) nesta categoria." },
+                        status: :unprocessable_entity
+        end
         @category.destroy!
         head :no_content
       end
