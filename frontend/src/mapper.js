@@ -82,6 +82,7 @@ export function mapTicket(t) {
     createdAt:       t.created_at   ?? t.createdAt   ?? new Date().toISOString(),
     updatedAt:       t.updated_at   ?? t.updatedAt   ?? new Date().toISOString(),
     resolvedAt:      t.resolved_at  ?? t.resolvedAt  ?? null,
+    daysToResolve:   t.days_to_resolve ?? t.daysToResolve ?? null,
     effortEstimated: parseFloat(t.effort_estimated ?? t.effortEstimated ?? 0),
     effortUsed:      parseFloat(t.effort_used      ?? t.effortUsed      ?? 0),
     triaged:         t.triaged   ?? false,

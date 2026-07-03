@@ -71,6 +71,12 @@ module Api
         old_effort       = @ticket.effort_estimated.to_f
         old_priority_id  = @ticket.priority_id
 
+        # Prazo editado manualmente (admin/super admin): normaliza data-só para
+        # fim do dia (Brasília), evitando "hoje vira ontem".
+        if params.dig(:ticket, :deadline).present?
+          params[:ticket][:deadline] = DeadlineInput.normalize(params[:ticket][:deadline])
+        end
+
         @ticket.update!(ticket_params)
 
         # Somente admin pode ajustar manualmente a data de abertura.

@@ -915,6 +915,16 @@ export function TicketDetail() {
     } catch (e) { alert(`Erro: ${e.message}`) }
   }
 
+  // Prazo editável por admin (da org) e super admin. A data-só é normalizada
+  // no backend para o fim do dia (Brasília).
+  async function saveDeadline(dateStr) {
+    if (!dateStr) return
+    try {
+      await updateTicketAction(tk.id, { deadline: dateStr })
+      showToast('Prazo atualizado.')
+    } catch (e) { alert(`Erro: ${e.message}`) }
+  }
+
   // Converte ISO para YYYY-MM-DD respeitando o fuso horário local
   function toLocalDateInput(iso) {
     const d = iso ? new Date(iso) : new Date()
@@ -1360,7 +1370,7 @@ export function TicketDetail() {
           {canAddEffort && tk.status !== 'Fechado' && <button className="btn btn-secondary btn-sm" onClick={() => { setEffortHours(''); setEffortReason(''); setShowEffort(true) }}>➕ Horas</button>}
           {transitions.map(s => <button key={s} className="btn btn-secondary btn-sm" onClick={() => changeStatus(s)}>→ {s}</button>)}
           {p.closeTicket && !['Fechado', 'Resolvido'].includes(tk.status) && <button className="btn btn-danger btn-sm" onClick={() => changeStatus('Fechado')}>{t.closeTicket}</button>}
-          {p.reopenTicket && ['Fechado', 'Resolvido'].includes(tk.status) && (
+          {p.reopenTicket && tk.status === 'Fechado' && (
             <button className="btn btn-secondary btn-sm" onClick={() => { setReopenHours(''); setShowReopenModal(true) }}>
               {t.reopenTicket}
             </button>
@@ -1589,9 +1599,27 @@ export function TicketDetail() {
               { label: 'Responsável', val: assignee ? `${assignee.firstName} ${assignee.lastName}` : 'Não atribuído' },
               { label: 'Categoria', val: <CatChip category={cat} /> },
               { label: 'Prioridade', val: <PriBadge priority={pri} /> },
-              { label: 'Prazo', val: <span style={{ color: expired ? 'var(--danger)' : 'var(--text)', fontWeight: expired ? 600 : 400 }}>{formatDate(tk.deadline)}</span> },
+              {
+                label: 'Prazo',
+                val: isAdmin(currentUser.role) ? (
+                  <input
+                    type="date"
+                    className="input"
+                    style={{ fontSize: 12, padding: '2px 6px', maxWidth: 150 }}
+                    value={tk.deadline ? toLocalDateInput(tk.deadline) : ''}
+                    onChange={e => saveDeadline(e.target.value)}
+                    title="Editar prazo"
+                  />
+                ) : (
+                  <span style={{ color: expired ? 'var(--danger)' : 'var(--text)', fontWeight: expired ? 600 : 400 }}>{formatDate(tk.deadline)}</span>
+                ),
+              },
               { label: 'Esforço est.', val: fmtHM(tk.effortEstimated) },
               { label: 'Esforço usado', val: fmtHM(tk.effortUsed) },
+              ...(tk.resolvedAt ? [
+                { label: 'Concluído em', val: formatDate(tk.resolvedAt) },
+                { label: 'Dias p/ resolver', val: tk.daysToResolve != null ? `${tk.daysToResolve} dia${tk.daysToResolve === 1 ? '' : 's'}` : '—' },
+              ] : []),
               ...(tk.effortEstimated > 0 ? [{
                 label: 'Esforço disponível',
                 val: (() => {

@@ -247,7 +247,18 @@ export function Topbar() {
         {showSearch && searchResults.length > 0 && (
           <div className="dropdown" style={{ top: '110%', left: 0, right: 0 }}>
             {searchResults.map((r, i) => (
-              <div key={i} className="dropdown-item" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <div key={i} className="dropdown-item"
+                style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: r.type === 'Ticket' ? 'pointer' : 'default' }}
+                onMouseDown={e => {
+                  // onMouseDown para disparar antes do onBlur do input fechar o dropdown
+                  if (r.type === 'Ticket' && r.id) {
+                    e.preventDefault()
+                    setSelectedTicket(r.id)
+                    setGlobalSearch('')
+                    setShowSearch(false)
+                  }
+                }}
+              >
                 <span style={{ fontSize: 10, background: 'var(--bg2)', padding: '1px 6px', borderRadius: 4, color: 'var(--text2)', flexShrink: 0 }}>{r.type}</span>
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.label}</span>
                 {r.sub && <span style={{ fontSize: 11, color: 'var(--text2)', marginLeft: 'auto', flexShrink: 0 }}>{r.sub}</span>}

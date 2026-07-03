@@ -45,6 +45,13 @@ class TicketBlueprint < Blueprinter::Base
       ticket.queue&.name
     end
 
+    # Dias que o ticket levou para ser concluído (abertura → resolved_at).
+    field :days_to_resolve do |ticket|
+      next nil unless ticket.resolved_at && ticket.created_at
+
+      ((ticket.resolved_at - ticket.created_at) / 86_400.0).ceil
+    end
+
     field :effort_additions do |ticket|
       ticket.effort_additions.includes(:user).recent.map do |a|
         {

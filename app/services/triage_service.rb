@@ -26,6 +26,8 @@ class TriageService
       end
 
       # Prazo manual informado por quem tria tem PRIORIDADE (flexibilidade).
+      # Normaliza data-só para fim do dia (Brasília), evitando "hoje vira ontem".
+      attrs[:deadline] = DeadlineInput.normalize(attrs[:deadline]) if attrs[:deadline].present?
       manual_deadline = attrs[:deadline].present?
 
       @ticket.assign_attributes(attrs)

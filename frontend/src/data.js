@@ -77,7 +77,7 @@ export const PERM = {
   // manager: visão total, tria, muda status, sem config de admin
   manager:  { createTicket:true,  editTicket:true,  deleteTicket:false, reassign:true,  closeTicket:true,  reopenTicket:true,  comment:true, internalComment:true,  calendar:true,  allTickets:true,  reports:true,  settings:false, triage:true,  logEffort:true,  trash:false },
   // analyst: apenas tickets atribuídos, pode comentar e registrar esforço
-  analyst:  { createTicket:true,  editTicket:false, deleteTicket:false, reassign:false, closeTicket:true,  reopenTicket:false, comment:true, internalComment:true,  calendar:true,  allTickets:false, reports:true,  settings:false, triage:false, logEffort:true,  trash:false },
+  analyst:  { createTicket:true,  editTicket:false, deleteTicket:false, reassign:false, closeTicket:true,  reopenTicket:true,  comment:true, internalComment:true,  calendar:true,  allTickets:false, reports:true,  settings:false, triage:false, logEffort:true,  trash:false },
   // user: apenas seus próprios tickets
   user:     { createTicket:true,  editTicket:false, deleteTicket:false, reassign:false, closeTicket:false, reopenTicket:false, comment:true, internalComment:false, calendar:false, allTickets:false, reports:false, settings:false, triage:false, logEffort:false, trash:false },
 };
