@@ -192,8 +192,15 @@ export function AppProvider({ children }) {
   }, [])
 
   // ── Interceptor global de 401 — desloga automaticamente ─────────────
+  // O aviso "Sessão expirada" só deve aparecer quando uma sessão ATIVA expira
+  // de verdade — nunca durante um logout intencional (requisições em voo com
+  // o token já revogado devolvem 401) nem quando não há usuário logado.
+  const loggingOutRef   = useRef(false)
+  const currentUserRef  = useRef(null)
+  useEffect(() => { currentUserRef.current = currentUserState }, [currentUserState])
   useEffect(() => {
     setOn401Handler(() => {
+      if (loggingOutRef.current || !currentUserRef.current) return
       setToken(null)
       setCurrentUserState(null)
       setSessionExpiredMsg(true)
@@ -298,14 +305,23 @@ export function AppProvider({ children }) {
         setLoadingData(false)
       }
     } else {
-      try { await api.logout() } catch {}
-      setToken(null)
-      setCurrentOrg(null); setActiveOrg(null); setCurrentOrgId(null); setAvailableOrgs([])
-      setCurrentUserState(null)
-      setTickets([]); setUsers([]); setCategories([]); setPriorities([])
-      setQueues([]); setHolidays([]); setArticles([]); setNotifications([]); setAuditLog([])
-      Sentry.setUser(null)
-      navigate(SCREEN_TO_PATH['dashboard'])
+      // Logout intencional: silencia o interceptor de 401 enquanto o token é
+      // revogado (requisições em voo não devem abrir "Sessão expirada").
+      loggingOutRef.current = true
+      try {
+        try { await api.logout() } catch {}
+        setToken(null)
+        setCurrentOrg(null); setActiveOrg(null); setCurrentOrgId(null); setAvailableOrgs([])
+        setCurrentUserState(null)
+        setSessionExpiredMsg(false)
+        setTickets([]); setUsers([]); setCategories([]); setPriorities([])
+        setQueues([]); setHolidays([]); setArticles([]); setNotifications([]); setAuditLog([])
+        Sentry.setUser(null)
+        navigate(SCREEN_TO_PATH['dashboard'])
+      } finally {
+        // pequeno atraso para requisições em voo terminarem antes de reativar
+        setTimeout(() => { loggingOutRef.current = false }, 1500)
+      }
     }
   }, [loadData, navigate])
 

@@ -21,6 +21,12 @@ require "base64"
 class MicrosoftGraphDeliveryMethod
   GRAPH_HOST = "graph.microsoft.com".freeze
 
+  # Erro TRANSITÓRIO (throttling 429 / 5xx) — o job de entrega faz retry com
+  # backoff (ver initializer). Sem isso, e-mails que caem em rajadas (ex.:
+  # vários envios simultâneos às 08:00) morrem com "ApplicationThrottled" e o
+  # destinatário nunca recebe (caso real: código de reset de senha perdido).
+  class TransientError < StandardError; end
+
   attr_accessor :settings
 
   def initialize(settings)
@@ -40,7 +46,11 @@ class MicrosoftGraphDeliveryMethod
 
     response = https(uri).request(req)
 
-    unless response.code.to_i.between?(200, 299)
+    code = response.code.to_i
+    unless code.between?(200, 299)
+      if code == 429 || code >= 500
+        raise TransientError, "Microsoft Graph #{code} (transitório): #{response.body[0, 300]}"
+      end
       raise "Microsoft Graph error #{response.code}: #{response.body}"
     end
 
