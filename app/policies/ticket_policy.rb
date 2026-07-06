@@ -4,8 +4,14 @@ class TicketPolicy < ApplicationPolicy
   def show?    = can_access_ticket?
   def create?  = true
 
-  # Admin/Manager: edita tudo. Analyst: só campos de esforço (controlado no controller).
-  def update?  = can_access_ticket? && (admin_or_manager? || analyst?)
+  # Admin/Manager: edita tudo. Analyst: só campos de esforço (controlado no
+  # controller) e apenas em tickets ATRIBUÍDOS a ele — em tickets da fila ainda
+  # não triados o analista tem acesso SOMENTE LEITURA.
+  def update?
+    return true if admin_or_manager? && can_access_ticket?
+
+    analyst? && assigned_to_analyst?
+  end
 
   # Somente admin pode mover para lixeira / excluir permanentemente
   def destroy?          = admin?
@@ -18,14 +24,19 @@ class TicketPolicy < ApplicationPolicy
   def triage?        = admin_or_manager?
   def change_status?
     return true if admin_or_manager?
-    analyst? && can_access_ticket?
+    analyst? && assigned_to_analyst?
   end
   def assign?        = admin_or_manager?
   def bulk_triage?   = admin_or_manager?
 
   # "+ Horas": adicionar esforço — SuperAdmin, admin, gestor e analista
-  # (analista restrito aos seus tickets via can_access_ticket?).
-  def add_effort?    = can_access_ticket? && (admin_or_manager? || analyst?)
+  # (analista restrito aos tickets ATRIBUÍDOS a ele; ticket de fila não triado
+  # é somente leitura).
+  def add_effort?
+    return can_access_ticket? if admin_or_manager?
+
+    analyst? && assigned_to_analyst?
+  end
   # Apagar uma adição de esforço: somente SuperAdmin.
   def remove_effort? = user.role == "msp_admin"
 
@@ -53,6 +64,11 @@ class TicketPolicy < ApplicationPolicy
   end
 
   private
+
+  # Ticket efetivamente ATRIBUÍDO ao analista (responsável ou co-responsável).
+  def assigned_to_analyst?
+    record.assignee_id == user.id || record.ticket_assignees.exists?(user_id: user.id)
+  end
 
   def can_access_ticket?
     case user.role

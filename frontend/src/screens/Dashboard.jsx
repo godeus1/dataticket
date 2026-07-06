@@ -182,7 +182,7 @@ function DeadlineList({ title, icon, color, tickets, users, onOpen }) {
                     </td>
                     <td style={{ fontSize: 13 }}>{reqName}</td>
                     <td style={{ textAlign: 'center', fontSize: 13 }}>{fmtH(tk.effortEstimated)}</td>
-                    <td style={{ textAlign: 'center', fontSize: 12, color, fontWeight: 600, whiteSpace: 'nowrap' }}>{formatDate(tk.deadline)}</td>
+                    <td style={{ textAlign: 'center', fontSize: 12, color, fontWeight: 600, whiteSpace: 'nowrap' }}>{tk.deadline ? formatDate(tk.deadline) : '—'}</td>
                   </tr>
                 )
               })}
@@ -204,7 +204,7 @@ function DeadlineList({ title, icon, color, tickets, users, onOpen }) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
-  const { currentUser, lang, tickets, users, categories, setSelectedTicket } = useApp()
+  const { currentUser, lang, tickets, users, categories, queues, setSelectedTicket } = useApp()
   const t = lang === 'pt' ? PT : EN
 
   const [period, setPeriod]                   = useState('mes')
@@ -225,6 +225,16 @@ export default function Dashboard() {
     }
     return tks
   }, [tickets, currentUser, selectedAssignees])
+
+  // Tickets AGUARDANDO TRIAGEM das filas em que o usuário é MEMBRO — a fila
+  // inteira acompanha (somente leitura para analistas) até a triagem.
+  const pendingTriage = useMemo(() => {
+    const myQueueIds = (queues ?? []).filter(q => (q.members ?? []).includes(currentUser.id)).map(q => q.id)
+    if (myQueueIds.length === 0) return []
+    return tickets
+      .filter(tk => !tk.triaged && !tk.deletedAt && !['Resolvido', 'Fechado'].includes(tk.status) && myQueueIds.includes(tk.queueId))
+      .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+  }, [tickets, queues, currentUser.id])
 
   const deadlineLists = useMemo(() => {
     const now = new Date()
@@ -379,6 +389,9 @@ export default function Dashboard() {
       </div>
 
       {/* Listas de atuação por prazo (foco do analista) */}
+      {pendingTriage.length > 0 && (
+        <DeadlineList title="Tickets aguardando triagem" icon="🕐" color="#7c3aed" tickets={pendingTriage} users={users} onOpen={setSelectedTicket} />
+      )}
       <DeadlineList title="Tickets atrasados" icon="🔴" color="#dc2626" tickets={deadlineLists.overdue} users={users} onOpen={setSelectedTicket} />
       <DeadlineList title="Atuar hoje" icon="🟠" color="#d97706" tickets={deadlineLists.today} users={users} onOpen={setSelectedTicket} />
       <DeadlineList title="Tickets na semana" icon="🔵" color="#2383e2" tickets={deadlineLists.week} users={users} onOpen={setSelectedTicket} />

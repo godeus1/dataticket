@@ -18,6 +18,13 @@ module Api
 
         def create
           authorize TicketComment
+          # Analista em ticket de FILA ainda não triado tem acesso somente
+          # leitura — não comenta até o ticket ser triado/atribuído a ele.
+          if current_user.analyst? && !@ticket.triaged &&
+             @ticket.assignee_id != current_user.id &&
+             !@ticket.ticket_assignees.exists?(user_id: current_user.id)
+            return render json: { error: "Ticket aguardando triagem — somente leitura." }, status: :forbidden
+          end
           # Usuários comuns e analistas sem acesso staff não podem criar comentários internos
           safe_params = comment_params
           if current_user.role.in?(%w[user]) || !current_user.role.in?(%w[admin manager analyst])

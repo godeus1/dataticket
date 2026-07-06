@@ -517,13 +517,12 @@ export function NewTicket() {
   const todayISO = new Date().toISOString().slice(0, 10)
   const [form, setForm] = useState({ title: '', description: '', categoryId: '', queueId: '', openingDate: todayISO, attachments: [] })
 
-  // "Sub Categoria" = fila. Se houver filas ligadas à categoria escolhida,
-  // mostra só elas; senão mostra todas as filas ativas da empresa.
+  // "Sub Categoria" = fila. Mostra APENAS as filas vinculadas à categoria
+  // escolhida (ex.: Sistema → Salesforce, Protheus Financeiro, Protheus
+  // Operação). Obrigatória quando a categoria tem filas.
   const subCategories = useMemo(() => {
-    const active = (queues ?? []).filter(q => q.active !== false)
-    if (!form.categoryId) return active
-    const byCat = active.filter(q => String(q.categoryId) === String(form.categoryId))
-    return byCat.length > 0 ? byCat : active
+    if (!form.categoryId) return []
+    return (queues ?? []).filter(q => q.active !== false && String(q.categoryId) === String(form.categoryId))
   }, [queues, form.categoryId])
   const [errors, setErrors] = useState({})
   const [files, setFiles] = useState([])
@@ -543,6 +542,8 @@ export function NewTicket() {
     if (!form.title.trim()) e.title = 'Título é obrigatório'
     if (!form.description.trim()) e.description = 'Descrição é obrigatória'
     if (!form.categoryId) e.categoryId = 'Categoria é obrigatória'
+    // Sub Categoria obrigatória quando a categoria possui filas vinculadas
+    if (form.categoryId && subCategories.length > 0 && !form.queueId) e.queueId = 'Sub Categoria é obrigatória'
     return e
   }
 
@@ -619,7 +620,7 @@ export function NewTicket() {
         </div>
         <div className="form-row">
           <label className="label">{t.category} *</label>
-          <select className="select" style={{ width: '100%' }} value={form.categoryId} onChange={e => setForm(f => ({ ...f, categoryId: e.target.value }))}>
+          <select className="select" style={{ width: '100%' }} value={form.categoryId} onChange={e => setForm(f => ({ ...f, categoryId: e.target.value, queueId: '' }))}>
             <option value="">Selecione uma categoria…</option>
             {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
@@ -646,11 +647,18 @@ export function NewTicket() {
           )}
         </div>
         <div className="form-row">
-          <label className="label">Sub Categoria <span style={{ fontWeight: 400, color: 'var(--text2)' }}>(opcional — direciona à equipe certa)</span></label>
-          <select className="select" style={{ width: '100%' }} value={form.queueId} onChange={e => setForm(f => ({ ...f, queueId: e.target.value }))}>
-            <option value="">Selecione…</option>
-            {subCategories.map(q => <option key={q.id} value={q.id}>{q.name}</option>)}
-          </select>
+          <label className="label">Sub Categoria {subCategories.length > 0 ? '*' : ''}</label>
+          {!form.categoryId ? (
+            <div style={{ fontSize: 12, color: 'var(--text2)', padding: '6px 0' }}>Selecione a categoria primeiro.</div>
+          ) : subCategories.length === 0 ? (
+            <div style={{ fontSize: 12, color: 'var(--text2)', padding: '6px 0' }}>Esta categoria não possui sub-categorias.</div>
+          ) : (
+            <select className="select" style={{ width: '100%' }} value={form.queueId} onChange={e => setForm(f => ({ ...f, queueId: e.target.value }))}>
+              <option value="">Selecione…</option>
+              {subCategories.map(q => <option key={q.id} value={q.id}>{q.name}</option>)}
+            </select>
+          )}
+          {errors.queueId && <p style={{ color: 'var(--danger)', fontSize: 12, marginTop: 4 }}>{errors.queueId}</p>}
         </div>
         {isAdmin(currentUser.role) && (
           <div className="form-row">
@@ -1027,7 +1035,11 @@ export function TicketDetail() {
   // (isso é feito pela triagem) nem "Aguardando solicitante" — só "Aguardando
   // terceiros" e as ações de andamento/resolução.
   const HIDDEN_STATUS_BTNS = ['Triado, aguardando atendimento', 'Aguardando solicitante']
-  const transitions = (ALLOWED_TRANSITIONS[tk.status] || []).filter(s => !HIDDEN_STATUS_BTNS.includes(s))
+  // Analista vendo ticket da FILA ainda não triado → SOMENTE LEITURA
+  // (o backend também bloqueia status/esforço/comentário nesse caso).
+  const readOnlyQueueView = currentUser.role === 'analyst' && !tk.triaged &&
+    tk.assigneeId !== currentUser.id && !(tk.coAssignees ?? []).some(u => u.id === currentUser.id)
+  const transitions = readOnlyQueueView ? [] : (ALLOWED_TRANSITIONS[tk.status] || []).filter(s => !HIDDEN_STATUS_BTNS.includes(s))
 
   async function changeStatus(newStatus) {
     try {
@@ -1384,9 +1396,14 @@ export function TicketDetail() {
         </div>
         <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
           {p.triage && <button className="btn btn-primary btn-sm" onClick={() => setShowTriage(true)}>{tk.triaged ? '↺ Retriar Ticket' : t.triageBtn}</button>}
-          {canAddEffort && tk.status !== 'Fechado' && <button className="btn btn-secondary btn-sm" onClick={() => { setEffortHours(''); setEffortReason(''); setShowEffort(true) }}>➕ Horas</button>}
+          {readOnlyQueueView && (
+            <span style={{ fontSize: 11, fontWeight: 600, color: '#7c3aed', background: '#f3e8ff', padding: '4px 10px', borderRadius: 20, alignSelf: 'center' }}>
+              🕐 Aguardando triagem — somente leitura
+            </span>
+          )}
+          {canAddEffort && !readOnlyQueueView && tk.status !== 'Fechado' && <button className="btn btn-secondary btn-sm" onClick={() => { setEffortHours(''); setEffortReason(''); setShowEffort(true) }}>➕ Horas</button>}
           {transitions.map(s => <button key={s} className="btn btn-secondary btn-sm" onClick={() => changeStatus(s)}>→ {s}</button>)}
-          {p.closeTicket && !['Fechado', 'Resolvido'].includes(tk.status) && <button className="btn btn-danger btn-sm" onClick={() => changeStatus('Fechado')}>{t.closeTicket}</button>}
+          {p.closeTicket && !readOnlyQueueView && !['Fechado', 'Resolvido'].includes(tk.status) && <button className="btn btn-danger btn-sm" onClick={() => changeStatus('Fechado')}>{t.closeTicket}</button>}
           {p.reopenTicket && tk.status === 'Fechado' && (
             <button className="btn btn-secondary btn-sm" onClick={() => { setReopenHours(''); setShowReopenModal(true) }}>
               {t.reopenTicket}
@@ -1555,10 +1572,15 @@ export function TicketDetail() {
                 </>
               )
             })()}
-            {p.comment && (
+            {p.comment && !readOnlyQueueView && (
               <div style={{ marginTop: 14 }}>
                 <textarea className="input" rows={3} value={commentText} onChange={e => setCommentText(e.target.value)} placeholder="Escreva um comentário…" />
                 <button className="btn btn-primary btn-sm" style={{ marginTop: 8 }} onClick={addComment}>{t.send}</button>
+              </div>
+            )}
+            {readOnlyQueueView && (
+              <div style={{ marginTop: 14, fontSize: 12, color: 'var(--text2)' }}>
+                🕐 Este ticket ainda não foi triado — comentários liberam após a triagem.
               </div>
             )}
           </div>
@@ -1614,8 +1636,34 @@ export function TicketDetail() {
                 ) : (req ? `${req.firstName} ${req.lastName}` : '—'),
               },
               { label: 'Responsável', val: assignee ? `${assignee.firstName} ${assignee.lastName}` : 'Não atribuído' },
-              { label: 'Categoria', val: <CatChip category={cat} /> },
-              { label: 'Prioridade', val: <PriBadge priority={pri} /> },
+              {
+                label: 'Categoria',
+                val: isSuper ? (
+                  <select className="select" style={{ fontSize: 12, padding: '2px 6px', minWidth: 130 }}
+                    value={tk.categoryId ?? ''}
+                    onChange={async e => {
+                      try { await updateTicketAction(tk.id, { category_id: e.target.value ? Number(e.target.value) : null }); showToast('Categoria atualizada.') }
+                      catch (err) { alert(`Erro: ${err.message}`) }
+                    }}>
+                    <option value="">—</option>
+                    {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                ) : <CatChip category={cat} />,
+              },
+              {
+                label: 'Prioridade',
+                val: isSuper ? (
+                  <select className="select" style={{ fontSize: 12, padding: '2px 6px', minWidth: 130 }}
+                    value={tk.priorityId ?? ''}
+                    onChange={async e => {
+                      try { await updateTicketAction(tk.id, { priority_id: e.target.value ? Number(e.target.value) : null }); showToast('Prioridade atualizada.') }
+                      catch (err) { alert(`Erro: ${err.message}`) }
+                    }}>
+                    <option value="">—</option>
+                    {priorities.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                ) : <PriBadge priority={pri} />,
+              },
               {
                 label: 'Prazo',
                 val: isAdmin(currentUser.role) ? (

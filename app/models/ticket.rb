@@ -48,6 +48,9 @@ class Ticket < ApplicationRecord
   }.freeze
 
   validates :title,       presence: true, length: { maximum: 255 }
+  # Configurações vinculadas (categoria/prioridade/fila) devem ser DA MESMA
+  # organização do ticket — barreira multi-tenant contra IDs de outra empresa.
+  validate :config_belongs_to_organization
   validates :status,      inclusion: { in: STATUSES }
   validates :ticket_type, inclusion: { in: TICKET_TYPES }
   validates :csat_score,  inclusion: { in: 1..5 }, allow_nil: true
@@ -139,6 +142,14 @@ class Ticket < ApplicationRecord
   end
 
   private
+
+  def config_belongs_to_organization
+    { categoria: category, prioridade: priority, fila: queue }.each do |label, rec|
+      next unless rec
+
+      errors.add(:base, "A #{label} selecionada não pertence a esta organização.") if rec.organization_id != organization_id
+    end
+  end
 
   # ── CSAT: gera token único para URL de avaliação ──────────────────────────────
   def generate_csat_token
