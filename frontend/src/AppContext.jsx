@@ -178,18 +178,27 @@ export function AppProvider({ children }) {
     const orgData      = val(orgRes, null)
     const auditData    = val(auditRes)
 
-    setUsers(         (usersData  ?? []).map(mapUser))
-    setTickets(       (ticketsData?.tickets ?? ticketsData ?? []).map(mapTicket))
-    setCategories(    (catsData   ?? []).map(mapCategory))
-    setPriorities(    (prisData   ?? []).map(mapPriority))
-    setQueues(        (queuesData ?? []).map(mapQueue))
-    setHolidays(      (holidaysData ?? []).map(mapHoliday))
-    setArticles(      (articlesData ?? []).map(mapArticle))
-    setNotifications( (notifData  ?? []).map(mapNotification))
-    setAuditLog(      (auditData  ?? []).map(mapAuditLog))
-    if (orgData) setSystemConfig(mapOrganization(orgData))
-    setAvailableOrgs(val(orgsRes, []) ?? [])
-    setSavedViews(val(viewsRes, []) ?? [])
+    // Cada bloco é isolado: um mapper que estoure em UMA lista não pode
+    // derrubar o resto do carregamento (bug real: /notifications retornou
+    // objeto paginado, o .map explodia e TUDO depois — auditoria, empresas,
+    // filtros salvos — ficava sem carregar, silenciosamente).
+    const safe = (fn, label) => {
+      try { fn() } catch (e) { console.error(`[loadData] falha ao aplicar ${label}:`, e) }
+    }
+    const asList = (data, key) => Array.isArray(data) ? data : (data?.[key] ?? [])
+
+    safe(() => setUsers(         asList(usersData, 'users').map(mapUser)), 'users')
+    safe(() => setTickets(       asList(ticketsData, 'tickets').map(mapTicket)), 'tickets')
+    safe(() => setCategories(    asList(catsData, 'categories').map(mapCategory)), 'categories')
+    safe(() => setPriorities(    asList(prisData, 'priorities').map(mapPriority)), 'priorities')
+    safe(() => setQueues(        asList(queuesData, 'queues').map(mapQueue)), 'queues')
+    safe(() => setHolidays(      asList(holidaysData, 'holidays').map(mapHoliday)), 'holidays')
+    safe(() => setArticles(      asList(articlesData, 'articles').map(mapArticle)), 'articles')
+    safe(() => setNotifications( asList(notifData, 'notifications').map(mapNotification)), 'notifications')
+    safe(() => setAuditLog(      asList(auditData, 'audit_logs').map(mapAuditLog)), 'audit')
+    safe(() => { if (orgData) setSystemConfig(mapOrganization(orgData)) }, 'organization')
+    safe(() => setAvailableOrgs(val(orgsRes, []) ?? []), 'organizations')
+    safe(() => setSavedViews(Array.isArray(val(viewsRes, [])) ? val(viewsRes, []) : []), 'saved_views')
   }, [])
 
   // ── Interceptor global de 401 — desloga automaticamente ─────────────
@@ -444,6 +453,12 @@ export function AppProvider({ children }) {
     return v
   }, [])
 
+  const updateSavedViewAction = useCallback(async (id, data) => {
+    const v = await api.updateSavedView(id, data)
+    setSavedViews(prev => prev.map(x => x.id === v.id ? v : x))
+    return v
+  }, [])
+
   const deleteSavedViewAction = useCallback(async (id) => {
     await api.deleteSavedView(id)
     setSavedViews(prev => prev.filter(v => v.id !== id))
@@ -668,7 +683,7 @@ export function AppProvider({ children }) {
     createTicketAction, updateTicketAction, changeStatusAction,
     triageAction, assignAction, addCommentAction, deleteCommentAction,
     addEffortAction, deleteEffortAction,
-    createSavedViewAction, deleteSavedViewAction,
+    createSavedViewAction, updateSavedViewAction, deleteSavedViewAction,
     deleteTicketAction, restoreTicketAction, purgeTicketAction,
     createUserAction, updateUserAction, deleteUserAction, toggleUserAction,
     createCategoryAction, updateCategoryAction, deleteCategoryAction,

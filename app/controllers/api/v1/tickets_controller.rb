@@ -171,10 +171,8 @@ module Api
 
       def change_status
         authorize @ticket, :change_status?
-        # Analistas só podem fechar (policy permite se esforço esgotado; aqui reforçamos o status)
-        if current_user.analyst? && params[:status] != "Fechado"
-          return render json: { errors: [ "Analistas só podem fechar tickets." ] }, status: :forbidden
-        end
+        # Analista muda o status dos tickets ATRIBUÍDOS a ele (garantido pela
+        # policy); as transições válidas são controladas por ALLOWED_TRANSITIONS.
         additional_hours = params[:additional_hours].present? ? params[:additional_hours].to_f : nil
         result = TicketStatusService.new(@ticket, params[:status], current_user, additional_hours: additional_hours).call
         if result.success?

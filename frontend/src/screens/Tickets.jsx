@@ -51,7 +51,7 @@ function saveSessions(userId, ticketId, sessions) {
 // ── Ticket List ───────────────────────────────────────────────────────────
 export function TicketList() {
   const { currentUser, lang, tickets, priorities, categories, users, queues, setScreen, setSelectedTicket, triageAction, showToast,
-          savedViews, createSavedViewAction, deleteSavedViewAction } = useApp()
+          savedViews, createSavedViewAction, updateSavedViewAction, deleteSavedViewAction } = useApp()
   const t = lang === 'pt' ? PT : EN
   const p = PERM[currentUser.role] || PERM.user
   const canUseViews = currentUser.role !== 'user'
@@ -75,6 +75,7 @@ export function TicketList() {
 
   function applyView(view) {
     setActiveViewId(view.id)
+    setViewDirty(false)
     setSearch(view.filters.search || '')
     setFilterStatus(view.filters.status || [])
     setFilterPri(view.filters.priority || [])
@@ -85,6 +86,7 @@ export function TicketList() {
 
   function clearAllFilters() {
     setActiveViewId('all')
+    setViewDirty(false)
     setSearch(''); setFilterStatus([]); setFilterPri([]); setFilterCat([]); setFilterAssignee([])
     setPage(0)
   }
@@ -112,10 +114,34 @@ export function TicketList() {
     }
   }
 
-  // Open ticket in new tab — middle-click
+  // Edição da lista salva ativa: atualizar filtros e renomear
+  const activeView = savedViews.find(v => v.id === activeViewId)
+  const [viewDirty, setViewDirty]       = useState(false)  // filtros mudaram desde que a lista foi aplicada
+  const [renamingView, setRenamingView] = useState(false)
+  const [renameValue, setRenameValue]   = useState('')
+
+  async function updateActiveViewFilters() {
+    if (!activeView) return
+    try {
+      await updateSavedViewAction(activeView.id, { filters: { search, status: filterStatus, priority: filterPri, category: filterCat, assignee: filterAssignee } })
+      showToast(`Lista "${activeView.name}" atualizada com os filtros atuais.`)
+    } catch (e) { showToast(`Erro ao atualizar lista: ${e.message}`) }
+  }
+
+  async function renameActiveView() {
+    if (!activeView || !renameValue.trim()) return
+    try {
+      await updateSavedViewAction(activeView.id, { name: renameValue.trim() })
+      setRenamingView(false); setRenameValue('')
+      showToast('Lista renomeada.')
+    } catch (e) { showToast(`Erro ao renomear: ${e.message}`) }
+  }
+
+  // Open ticket in new tab — middle-click. Usa a rota canônica /tickets/:id —
+  // a nova guia resolve a EMPRESA do ticket pelo prefixo (auto-alinhamento do
+  // msp_admin) e o backend aplica o escopo de org via policy.
   function openTicketNewTab(tk) {
-    const base = window.location.href.split('#')[0]
-    window.open(`${base}#ticket/${tk.id}`, '_blank')
+    window.open(`${window.location.origin}/tickets/${tk.id}`, '_blank')
   }
 
   const [showInlineTriage, setShowInlineTriage] = useState(false)
@@ -280,6 +306,31 @@ export function TicketList() {
             </div>
           ))}
 
+          {/* Edição da lista salva ativa */}
+          {activeView && !renamingView && (
+            <>
+              {viewDirty && (
+                <button className="btn btn-primary btn-sm" style={{ borderRadius: 20, padding: '4px 12px', fontSize: 12 }}
+                  onClick={updateActiveViewFilters}
+                  title={`Salvar os filtros atuais na lista "${activeView.name}"`}
+                >💾 Atualizar "{activeView.name}"</button>
+              )}
+              <button className="btn btn-secondary btn-sm" style={{ borderRadius: 20, padding: '4px 10px', fontSize: 12 }}
+                onClick={() => { setRenamingView(true); setRenameValue(activeView.name) }}
+                title="Renomear a lista ativa"
+              >✏️</button>
+            </>
+          )}
+          {activeView && renamingView && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <input autoFocus className="input" value={renameValue} onChange={e => setRenameValue(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') renameActiveView(); if (e.key === 'Escape') { setRenamingView(false) } }}
+                style={{ padding: '4px 10px', fontSize: 12, height: 28, width: 160 }} />
+              <button className="btn btn-primary btn-sm" style={{ fontSize: 12, padding: '4px 10px' }} onClick={renameActiveView}>OK</button>
+              <button className="btn btn-secondary btn-sm" style={{ fontSize: 12, padding: '4px 8px' }} onClick={() => setRenamingView(false)}>✕</button>
+            </div>
+          )}
+
           {!savingView ? (
             <button className="btn btn-secondary btn-sm"
               style={{ borderRadius: 20, padding: '4px 12px', fontSize: 12 }}
@@ -307,19 +358,19 @@ export function TicketList() {
             <input placeholder="Buscar por título ou ID…" value={search} onChange={e => { setSearch(e.target.value); setPage(0) }} />
           </div>
           <MultiFilter
-            label="Status" filterKey="status" selected={filterStatus} setSelected={v => { setFilterStatus(v); setPage(0); setActiveViewId('') }}
+            label="Status" filterKey="status" selected={filterStatus} setSelected={v => { setFilterStatus(v); setPage(0); setViewDirty(true) }}
             options={STATUS_LIST.map(s => ({ value: s, label: s }))}
           />
           <MultiFilter
-            label="Prioridade" filterKey="pri" selected={filterPri} setSelected={v => { setFilterPri(v); setPage(0); setActiveViewId('') }}
+            label="Prioridade" filterKey="pri" selected={filterPri} setSelected={v => { setFilterPri(v); setPage(0); setViewDirty(true) }}
             options={priorities.map(p => ({ value: p.id, label: p.name }))}
           />
           <MultiFilter
-            label="Categoria" filterKey="cat" selected={filterCat} setSelected={v => { setFilterCat(v); setPage(0); setActiveViewId('') }}
+            label="Categoria" filterKey="cat" selected={filterCat} setSelected={v => { setFilterCat(v); setPage(0); setViewDirty(true) }}
             options={categories.map(c => ({ value: c.id, label: c.name }))}
           />
           <MultiFilter
-            label="Responsável" filterKey="assignee" selected={filterAssignee} setSelected={v => { setFilterAssignee(v); setPage(0); setActiveViewId('') }}
+            label="Responsável" filterKey="assignee" selected={filterAssignee} setSelected={v => { setFilterAssignee(v); setPage(0); setViewDirty(true) }}
             options={users.filter(u => u.role !== 'user').map(u => ({ value: u.id, label: `${u.firstName} ${u.lastName}` }))}
           />
         </div>
