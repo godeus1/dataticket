@@ -11,13 +11,17 @@ module Api
 
       def create
         skip_authorization
-        view = scope.create!(name: view_params[:name], filters: view_params[:filters])
+        attrs = view_params
+        view = scope.create!(name: attrs[:name].to_s, filters: attrs[:filters] || {})
         render json: serialize_one(view), status: :created
       end
 
       def update
         skip_authorization
-        @view.update!(view_params)
+        attrs = view_params
+        # Fixar: apenas UMA lista fixada por usuário+empresa.
+        scope.where.not(id: @view.id).update_all(pinned: false) if attrs[:pinned] == true
+        @view.update!(attrs)
         render json: serialize_one(@view)
       end
 
@@ -39,13 +43,18 @@ module Api
       end
 
       # filters é um jsonb arbitrário (config de filtros do usuário — não sensível).
+      # PARCIAL: só inclui as chaves realmente enviadas — atualizar filtros não
+      # pode zerar o nome, e renomear não pode apagar os filtros.
       def view_params
-        vp = params.require(:saved_view)
-        raw = vp[:filters]
-        {
-          name:    vp[:name].to_s,
-          filters: (raw.respond_to?(:to_unsafe_h) ? raw.to_unsafe_h : (raw || {}))
-        }
+        vp  = params.require(:saved_view)
+        out = {}
+        out[:name] = vp[:name].to_s if vp.key?(:name)
+        if vp.key?(:filters)
+          raw = vp[:filters]
+          out[:filters] = raw.respond_to?(:to_unsafe_h) ? raw.to_unsafe_h : (raw || {})
+        end
+        out[:pinned] = ActiveModel::Type::Boolean.new.cast(vp[:pinned]) if vp.key?(:pinned)
+        out
       end
 
       def serialize(views)
@@ -53,7 +62,7 @@ module Api
       end
 
       def serialize_one(v)
-        { id: v.id, name: v.name, filters: v.filters }
+        { id: v.id, name: v.name, filters: v.filters, pinned: v.pinned }
       end
     end
   end

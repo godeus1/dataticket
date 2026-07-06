@@ -137,6 +137,24 @@ export function TicketList() {
     } catch (e) { showToast(`Erro ao renomear: ${e.message}`) }
   }
 
+  // Fixar/desafixar a lista ativa — a fixada é aplicada automaticamente ao abrir
+  async function togglePinActiveView() {
+    if (!activeView) return
+    try {
+      const v = await updateSavedViewAction(activeView.id, { pinned: !activeView.pinned })
+      showToast(v.pinned ? `Lista "${v.name}" fixada — será aplicada ao abrir.` : 'Lista desafixada.')
+    } catch (e) { showToast(`Erro ao fixar: ${e.message}`) }
+  }
+
+  // Ao abrir a tela: aplica automaticamente a lista FIXADA (uma vez por montagem)
+  const pinnedAppliedRef = useRef(false)
+  useEffect(() => {
+    if (pinnedAppliedRef.current || savedViews.length === 0) return
+    pinnedAppliedRef.current = true
+    const pinned = savedViews.find(v => v.pinned)
+    if (pinned) applyView(pinned)
+  }, [savedViews]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Open ticket in new tab — middle-click. Usa a rota canônica /tickets/:id —
   // a nova guia resolve a EMPRESA do ticket pelo prefixo (auto-alinhamento do
   // msp_admin) e o backend aplica o escopo de org via policy.
@@ -291,7 +309,7 @@ export function TicketList() {
                   transition: 'padding 0.15s',
                 }}
                 onClick={() => applyView(view)}
-              >🔖 {view.name}</button>
+              >{view.pinned ? '📌' : '🔖'} {view.name}</button>
               {hoveredView === view.id && (
                 <button onClick={e => { e.stopPropagation(); deleteView(view.id) }}
                   style={{
@@ -319,6 +337,11 @@ export function TicketList() {
                 onClick={() => { setRenamingView(true); setRenameValue(activeView.name) }}
                 title="Renomear a lista ativa"
               >✏️</button>
+              <button className={activeView.pinned ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
+                style={{ borderRadius: 20, padding: '4px 10px', fontSize: 12 }}
+                onClick={togglePinActiveView}
+                title={activeView.pinned ? 'Desafixar (não aplica mais ao abrir)' : 'Fixar: aplicar esta lista sempre que abrir os tickets'}
+              >📌</button>
             </>
           )}
           {activeView && renamingView && (
@@ -355,7 +378,7 @@ export function TicketList() {
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
           <div className="search-box" style={{ flex: '1 1 200px' }}>
             <span>🔍</span>
-            <input placeholder="Buscar por título ou ID…" value={search} onChange={e => { setSearch(e.target.value); setPage(0) }} />
+            <input placeholder="Buscar por título ou ID…" value={search} onChange={e => { setSearch(e.target.value); setPage(0); setViewDirty(true) }} />
           </div>
           <MultiFilter
             label="Status" filterKey="status" selected={filterStatus} setSelected={v => { setFilterStatus(v); setPage(0); setViewDirty(true) }}

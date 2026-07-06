@@ -455,7 +455,9 @@ export function AppProvider({ children }) {
 
   const updateSavedViewAction = useCallback(async (id, data) => {
     const v = await api.updateSavedView(id, data)
-    setSavedViews(prev => prev.map(x => x.id === v.id ? v : x))
+    // Só existe UMA lista fixada por usuário+empresa (o backend já garante;
+    // refletimos no estado local).
+    setSavedViews(prev => prev.map(x => x.id === v.id ? v : (v.pinned ? { ...x, pinned: false } : x)))
     return v
   }, [])
 
