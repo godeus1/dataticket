@@ -15,10 +15,15 @@ export function midClick(handler) {
 
 
 export function Sidebar({ screen, setScreen }) {
-  const { currentUser, lang, notifications, sidebar, setSidebar } = useApp()
+  const { currentUser, lang, notifications, sidebar, setSidebar, availableOrgs, currentOrgId } = useApp()
   const t = lang === 'pt' ? PT : EN
   const p = PERM[currentUser.role] || PERM.user  // fallback defensivo: papel desconhecido não quebra a sidebar
   const collapsed = sidebar === 'collapsed'
+
+  // Telas de PLATAFORMA (gestão de todas as empresas) só aparecem quando a
+  // empresa ATIVA é a org MASTER (DataTry) — não em todas as empresas.
+  const activeOrgId = String(currentOrgId || currentUser.organizationId || '')
+  const inMasterOrg = availableOrgs?.find(o => String(o.id) === activeOrgId)?.master === true
 
   const items = [
     { key: 'dashboard',  icon: '📊', label: t.dashboard,  show: currentUser.role !== 'user' },
@@ -30,8 +35,12 @@ export function Sidebar({ screen, setScreen }) {
   ]
 
   const settingsItems = p.settings ? [
-    ...(currentUser.role === 'msp_admin' ? [
+    // "Empresas" (gestão da plataforma) só na org MASTER; "E-mails" é config
+    // da empresa atual, então continua disponível em qualquer empresa.
+    ...(currentUser.role === 'msp_admin' && inMasterOrg ? [
       { key: 'settings-companies', label: 'Empresas', icon: '🏢' },
+    ] : []),
+    ...(currentUser.role === 'msp_admin' ? [
       { key: 'settings-emails',    label: 'E-mails',  icon: '📧' },
     ] : []),
     { key: 'settings-users',      label: t.users,       icon: '👥' },

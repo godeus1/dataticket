@@ -13,6 +13,7 @@ module Api
       # com um seed mínimo (prioridades + categoria) para já nascer utilizável.
       def create
         authorize Organization, :create?
+        require_master_org!
         account = current_user.organization.account
         org = Organization.new(create_org_params.merge(account: account))
         org.save!
@@ -33,6 +34,8 @@ module Api
         if params[:id].present?
           org = accessible_organizations.find(params[:id])
           authorize org
+          # Gestão de OUTRA empresa é operação de plataforma: só da org master.
+          require_master_org! unless org.id == @organization.id
           attrs = company_params
           # Inativar/reativar empresa é exclusivo do msp_admin (super admin).
           attrs = attrs.except(:active) unless current_user.msp_admin?
@@ -46,6 +49,14 @@ module Api
       end
 
       private
+
+      # Operações de PLATAFORMA (criar empresa, gerir outra empresa) só podem
+      # ser executadas a partir da org MASTER (DataTry).
+      def require_master_org!
+        return if @organization&.master?
+
+        raise Pundit::NotAuthorizedError, "gestão de empresas só na organização master"
+      end
 
       def accessible_organizations
         account = current_user.organization.account

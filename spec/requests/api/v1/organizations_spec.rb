@@ -2,7 +2,8 @@ require "rails_helper"
 
 RSpec.describe "Organizations API", type: :request do
   let(:account)  { create(:account) }
-  let(:org_a)    { create(:organization, account: account) }
+  # org_a é a MASTER: gestão de empresas (criar/editar outras) só a partir dela.
+  let(:org_a)    { create(:organization, account: account, master: true) }
   let(:org_b)    { create(:organization, account: account) }
   let(:admin_a)  { create(:user, :admin,     organization: org_a, password: "Password123!") }
   let(:msp)      { create(:user, :msp_admin, organization: org_a, password: "Password123!") }
@@ -73,6 +74,22 @@ RSpec.describe "Organizations API", type: :request do
       expect(org_b.reload.active).to be false
     end
 
+    it "gestão de OUTRA empresa fora da org master → 403" do
+      org_c = create(:organization, account: account)
+      patch "/api/v1/organizations/#{org_c.id}",
+            params: { organization: { name: "Hack" } },
+            headers: headers(msp).merge("X-Organization-Id" => org_b.id.to_s), as: :json
+      expect(response).to have_http_status(:forbidden)
+      expect(org_c.reload.name).not_to eq("Hack")
+    end
+
+    it "a org master não pode ser inativada (422)" do
+      patch "/api/v1/organizations/#{org_a.id}",
+            params: { organization: { active: false } }, headers: headers(msp), as: :json
+      expect(response).to have_http_status(:unprocessable_entity)
+      expect(org_a.reload.active).to be true
+    end
+
     it "admin comum não consegue inativar (active é ignorado)" do
       patch "/api/v1/organizations/#{org_a.id}",
             params: { organization: { active: false } }, headers: headers(admin_a), as: :json
@@ -81,16 +98,22 @@ RSpec.describe "Organizations API", type: :request do
   end
 
   describe "login bloqueado em empresa inativa" do
+    # org master não pode ser inativada — os cenários usam uma org comum (org_b)
+    let(:admin_b) { create(:user, :admin,     organization: org_b, password: "Password123!") }
+    let(:msp_b)   { create(:user, :msp_admin, organization: org_b, password: "Password123!") }
+
     it "usuário de empresa inativa não loga (Empresa inativa)" do
-      org_a.update!(active: false)
-      post "/api/v1/login", params: { user: { email: admin_a.email, password: "Password123!" } }, as: :json
+      admin_b
+      org_b.update!(active: false)
+      post "/api/v1/login", params: { user: { email: admin_b.email, password: "Password123!" } }, as: :json
       expect(response).to have_http_status(:unauthorized)
       expect(JSON.parse(response.body)["error"]).to match(/Empresa inativa/i)
     end
 
     it "msp_admin loga mesmo com a empresa-casa inativa" do
-      org_a.update!(active: false)
-      post "/api/v1/login", params: { user: { email: msp.email, password: "Password123!" } }, as: :json
+      msp_b
+      org_b.update!(active: false)
+      post "/api/v1/login", params: { user: { email: msp_b.email, password: "Password123!" } }, as: :json
       expect(response).to have_http_status(:ok)
     end
   end

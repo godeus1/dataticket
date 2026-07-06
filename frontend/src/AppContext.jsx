@@ -295,13 +295,12 @@ export function AppProvider({ children }) {
     setAuditLog(prev => [{ ...a, date: new Date().toISOString() }, ...prev])
   }
 
-  function notifyEmail(to, subject, html) {
-    if (!systemConfig?.enableEmails || !to) return
-    const secret  = import.meta.env.VITE_SEND_EMAIL_SECRET
-    const headers = { 'Content-Type': 'application/json', ...(secret ? { 'x-api-secret': secret } : {}) }
-    fetch('/api/send-email', { method: 'POST', headers, body: JSON.stringify({ to, subject, html }) })
-      .catch(() => {})
-  }
+  // DESATIVADO (no-op): todos os e-mails transacionais saem do BACKEND
+  // (Rails + Microsoft Graph, com toggles por empresa). Este caminho legado
+  // (/api/send-email no Vercel via MailerSend) devolvia 402 (sem créditos) ao
+  // fechar tickets e duplicaria e-mails se funcionasse. Mantido como no-op
+  // para não quebrar os call sites antigos.
+  function notifyEmail(_to, _subject, _html) {}
 
   // ── setCurrentUser (login / logout) ──────────────────────────────────
   const setCurrentUser = useCallback(async (user) => {

@@ -1027,6 +1027,21 @@ export function SettingsCompanies() {
 
   const activeId = String(currentOrgId || currentUser.organizationId || '')
 
+  // Gestão de empresas é tela de PLATAFORMA: só disponível na org MASTER.
+  const inMasterOrg = availableOrgs?.find(o => String(o.id) === activeId)?.master === true
+  if (!inMasterOrg) {
+    return (
+      <div className="card" style={{ maxWidth: 520, textAlign: 'center', padding: 40 }}>
+        <div style={{ fontSize: 36, marginBottom: 10 }}>🏢</div>
+        <h3 style={{ fontWeight: 700, marginBottom: 8 }}>Gestão de Empresas</h3>
+        <p style={{ color: 'var(--text2)', fontSize: 14 }}>
+          Esta página só está disponível na organização <strong>master (DataTry)</strong>.<br />
+          Troque para a DataTry no seletor de empresa para gerenciar as demais.
+        </p>
+      </div>
+    )
+  }
+
   async function saveName(o) {
     if (!editName.trim()) return
     try {
