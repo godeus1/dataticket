@@ -232,7 +232,8 @@ export default function Dashboard() {
     const myQueueIds = (queues ?? []).filter(q => (q.members ?? []).includes(currentUser.id)).map(q => q.id)
     if (myQueueIds.length === 0) return []
     return tickets
-      .filter(tk => !tk.triaged && !tk.deletedAt && !['Resolvido', 'Fechado'].includes(tk.status) && myQueueIds.includes(tk.queueId))
+      // Só o que REALMENTE aguarda triagem: sem triagem E sem responsável
+      .filter(tk => !tk.triaged && !tk.assigneeId && !tk.deletedAt && !['Resolvido', 'Fechado'].includes(tk.status) && myQueueIds.includes(tk.queueId))
       .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
   }, [tickets, queues, currentUser.id])
 

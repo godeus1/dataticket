@@ -37,6 +37,10 @@ module Api
         render_error "Registro duplicado.", status: :conflict, code: "conflict"
       end
 
+      rescue_from ActiveRecord::InvalidForeignKey do
+        render_error "Não é possível excluir: o registro ainda é usado por outros dados.", status: :conflict, code: "in_use"
+      end
+
       rescue_from ActionController::ParameterMissing do |e|
         render_error "Parâmetro obrigatório ausente: #{e.param}.", status: :bad_request, code: "missing_parameter"
       end

@@ -54,7 +54,8 @@ class TicketPolicy < ApplicationPolicy
         base.where(
           "tickets.assignee_id = :uid
            OR tickets.id IN (SELECT ticket_id FROM ticket_assignees WHERE user_id = :uid)
-           OR (tickets.triaged = false AND tickets.queue_id IN (SELECT queue_id FROM queue_memberships WHERE user_id = :uid))",
+           OR (tickets.triaged = false AND tickets.assignee_id IS NULL
+               AND tickets.queue_id IN (SELECT queue_id FROM queue_memberships WHERE user_id = :uid))",
           uid: @user.id
         )
       else
@@ -77,7 +78,7 @@ class TicketPolicy < ApplicationPolicy
     when "analyst"
       record.assignee_id == user.id ||
         record.ticket_assignees.exists?(user_id: user.id) ||
-        (!record.triaged && record.queue_id.present? &&
+        (!record.triaged && record.assignee_id.nil? && record.queue_id.present? &&
           QueueMembership.exists?(queue_id: record.queue_id, user_id: user.id))
     else
       record.requester_id == user.id

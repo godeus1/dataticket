@@ -99,8 +99,8 @@ export const STATUS_COLORS = {
 
 export const ALLOWED_TRANSITIONS = {
   'Não iniciado':                   ['Triado, aguardando atendimento'],
-  'Triado, aguardando atendimento': ['Em andamento'],
-  'Em triagem':                     ['Em andamento'], // alias legado
+  'Triado, aguardando atendimento': ['Em andamento', 'Aguardando terceiros'],
+  'Em triagem':                     ['Em andamento', 'Aguardando terceiros'], // alias legado
   'Em andamento':        ['Aguardando terceiros','Resolvido'],
   'Aguardando terceiros':['Em andamento','Resolvido'],
   'Resolvido':           ['Fechado'],
