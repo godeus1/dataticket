@@ -417,8 +417,10 @@ export function SettingsQueues() {
       const newMembers = form.members.map(String)
 
       if (editItem) {
-        await updateQueueAction(editItem.id, data)
-        // Diff members: add new ones, remove dropped ones
+        // ORDEM IMPORTA: primeiro o diff de membros, DEPOIS o update — a
+        // resposta do update traz a lista final de membros e atualiza o
+        // estado local. (Na ordem invertida, o estado ficava com os membros
+        // antigos e era preciso salvar 2x para aparecer.)
         const oldMembers = (editItem.members || []).map(String)
         const toAdd    = newMembers.filter(id => !oldMembers.includes(id))
         const toRemove = oldMembers.filter(id => !newMembers.includes(id))
@@ -426,10 +428,14 @@ export function SettingsQueues() {
           ...toAdd.map(uid    => api.addMember(editItem.id, uid)),
           ...toRemove.map(uid => api.removeMember(editItem.id, uid)),
         ])
+        await updateQueueAction(editItem.id, data)
       } else {
         const created = await createQueueAction(data)
-        // Add all selected members to the freshly created queue
-        await Promise.all(newMembers.map(uid => api.addMember(created.id, uid)))
+        if (newMembers.length > 0) {
+          await Promise.all(newMembers.map(uid => api.addMember(created.id, uid)))
+          // Re-busca a fila para o estado local refletir os membros recém-adicionados
+          await updateQueueAction(created.id, data)
+        }
       }
       setShowForm(false)
     } catch (e) { alert(`Erro: ${e.message}`) }
